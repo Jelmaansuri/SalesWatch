@@ -494,7 +494,7 @@ export default function Sales() {
                       <TableCell>{sale.quantity}</TableCell>
                       <TableCell>{formatCurrency(sale.unitPrice)}</TableCell>
                       <TableCell className="text-orange-600">
-                        {sale.discountAmount ? formatCurrency(sale.discountAmount) : "RM 0.00"}
+                        {formatCurrency(parseFloat(sale.discountAmount || "0.00"))}
                       </TableCell>
                       <TableCell className="font-medium">
                         {formatCurrency(sale.totalAmount)}
