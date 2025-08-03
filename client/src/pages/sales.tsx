@@ -34,6 +34,7 @@ import { z } from "zod";
 
 const formSchema = insertSaleSchema.extend({
   unitPrice: z.string().min(1, "Unit price is required"),
+  discountAmount: z.string().optional(),
 }).partial({
   totalAmount: true,
   profit: true,
@@ -147,8 +148,8 @@ export default function Sales() {
       customerId: sale.customerId,
       productId: sale.productId,
       quantity: sale.quantity,
-      unitPrice: sale.unitPrice,
-      discountAmount: sale.discountAmount || "0.00",
+      unitPrice: typeof sale.unitPrice === 'string' ? sale.unitPrice : sale.unitPrice.toString(),
+      discountAmount: typeof sale.discountAmount === 'string' ? sale.discountAmount : (sale.discountAmount || 0).toString(),
       status: sale.status,
       platformSource: sale.platformSource,
       notes: sale.notes || "",
