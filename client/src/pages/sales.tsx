@@ -259,7 +259,18 @@ export default function Sales() {
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Product</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value}>
+                        <Select 
+                          onValueChange={(productId) => {
+                            field.onChange(productId);
+                            // Auto-update unit price when product changes
+                            const selectedProduct = products.find(p => p.id === productId);
+                            if (selectedProduct) {
+                              console.log('Sales Edit - Product changed to:', selectedProduct.name, 'Price:', selectedProduct.sellingPrice);
+                              form.setValue('unitPrice', selectedProduct.sellingPrice);
+                            }
+                          }} 
+                          value={field.value}
+                        >
                           <FormControl>
                             <SelectTrigger>
                               <SelectValue placeholder="Select product" />
