@@ -221,6 +221,7 @@ export default function AddSaleModal({ open, onOpenChange, onSaleAdded }: AddSal
                   form.setValue("customerId", value, { shouldValidate: true });
                 }
               }}
+              key={`customer-${form.watch("customerId")}-${customers.length}`}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Select customer" />
@@ -257,6 +258,7 @@ export default function AddSaleModal({ open, onOpenChange, onSaleAdded }: AddSal
                   handleProductChange(value);
                 }
               }}
+              key={`product-${form.watch("productId")}-${products.length}`}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Select product" />
@@ -431,8 +433,13 @@ export default function AddSaleModal({ open, onOpenChange, onSaleAdded }: AddSal
         }}
         onCustomerAdded={(customerId) => {
           console.log("New customer added with ID:", customerId);
-          form.setValue("customerId", customerId, { shouldValidate: true });
-          form.trigger("customerId"); // Validate the field
+          // Use setTimeout to ensure the customer list is updated first
+          setTimeout(() => {
+            form.setValue("customerId", customerId, { shouldValidate: true });
+            form.trigger("customerId");
+            console.log("Customer form value set to:", customerId);
+            console.log("Current form value:", form.getValues("customerId"));
+          }, 100);
           setShowQuickAddCustomer(false);
           toast({
             title: "Customer Added",
@@ -452,9 +459,14 @@ export default function AddSaleModal({ open, onOpenChange, onSaleAdded }: AddSal
         }}
         onProductAdded={(productId) => {
           console.log("New product added with ID:", productId);
-          form.setValue("productId", productId, { shouldValidate: true });
-          form.trigger("productId"); // Validate the field
-          handleProductChange(productId);
+          // Use setTimeout to ensure the product list is updated first
+          setTimeout(() => {
+            form.setValue("productId", productId, { shouldValidate: true });
+            form.trigger("productId");
+            handleProductChange(productId);
+            console.log("Product form value set to:", productId);
+            console.log("Current form value:", form.getValues("productId"));
+          }, 100);
           setShowQuickAddProduct(false);
           toast({
             title: "Product Added",
