@@ -34,6 +34,7 @@ export default function AddSaleModal({ open, onOpenChange, onSaleAdded }: AddSal
 
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
+    mode: "onChange",
     defaultValues: {
       customerId: "",
       productId: "",
@@ -94,11 +95,14 @@ export default function AddSaleModal({ open, onOpenChange, onSaleAdded }: AddSal
   });
 
   const onSubmit = (data: FormData) => {
-    console.log("Form submitted with data:", data);
+    console.log("=== FORM SUBMITTED ===");
+    console.log("Form data received:", data);
     console.log("Form errors:", form.formState.errors);
+    console.log("Form is valid:", form.formState.isValid);
     
     // Validate required fields
     if (!data.customerId) {
+      console.log("Missing customer ID");
       toast({
         title: "Missing Customer",
         description: "Please select a customer.",
@@ -108,6 +112,7 @@ export default function AddSaleModal({ open, onOpenChange, onSaleAdded }: AddSal
     }
     
     if (!data.productId) {
+      console.log("Missing product ID");
       toast({
         title: "Missing Product", 
         description: "Please select a product.",
@@ -117,6 +122,7 @@ export default function AddSaleModal({ open, onOpenChange, onSaleAdded }: AddSal
     }
     
     if (!data.unitPrice || parseFloat(data.unitPrice) <= 0) {
+      console.log("Invalid unit price:", data.unitPrice);
       toast({
         title: "Invalid Price",
         description: "Please enter a valid unit price.",
@@ -125,6 +131,7 @@ export default function AddSaleModal({ open, onOpenChange, onSaleAdded }: AddSal
       return;
     }
     
+    console.log("All validation passed, creating sale...");
     createSaleMutation.mutate(data);
   };
 
@@ -158,8 +165,11 @@ export default function AddSaleModal({ open, onOpenChange, onSaleAdded }: AddSal
           <div className="space-y-2">
             <Label htmlFor="customerId">Customer</Label>
             <Select 
-              value={form.watch("customerId")} 
-              onValueChange={(value) => form.setValue("customerId", value)}
+              value={form.watch("customerId") || ""} 
+              onValueChange={(value) => {
+                console.log("Customer selected:", value);
+                form.setValue("customerId", value, { shouldValidate: true });
+              }}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Select customer" />
@@ -180,9 +190,10 @@ export default function AddSaleModal({ open, onOpenChange, onSaleAdded }: AddSal
           <div className="space-y-2">
             <Label htmlFor="productId">Product</Label>
             <Select 
-              value={form.watch("productId")} 
+              value={form.watch("productId") || ""} 
               onValueChange={(value) => {
-                form.setValue("productId", value);
+                console.log("Product selected:", value);
+                form.setValue("productId", value, { shouldValidate: true });
                 handleProductChange(value);
               }}
             >
@@ -290,14 +301,28 @@ export default function AddSaleModal({ open, onOpenChange, onSaleAdded }: AddSal
             <Button
               type="button"
               disabled={createSaleMutation.isPending}
-              onClick={(e) => {
+              onClick={async (e) => {
                 e.preventDefault();
                 console.log("Create Sale button clicked - triggering form submit");
-                const formElement = e.currentTarget.closest('form');
-                if (formElement) {
-                  formElement.requestSubmit();
-                } else {
+                
+                // Get current form values
+                const currentValues = form.getValues();
+                console.log("Current form values:", currentValues);
+                
+                // Trigger form validation and submission
+                const isValid = await form.trigger();
+                console.log("Form validation result:", isValid);
+                console.log("Form errors after trigger:", form.formState.errors);
+                
+                if (isValid) {
                   form.handleSubmit(onSubmit)();
+                } else {
+                  console.log("Form validation failed");
+                  toast({
+                    title: "Form Validation Failed",
+                    description: "Please check all required fields.",
+                    variant: "destructive",
+                  });
                 }
               }}
               className="bg-blue-600 hover:bg-blue-700 text-white min-w-[120px] relative z-10"
