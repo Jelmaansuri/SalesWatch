@@ -252,6 +252,178 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Excel Export Routes
+  app.get("/api/reports/export/excel", isAuthenticated, async (req, res) => {
+    try {
+      const { startDate, endDate, reportType = 'comprehensive' } = req.query;
+      
+      // Get all sales with details
+      const allSales = await storage.getSalesWithDetails();
+      
+      // Filter by date range if provided
+      let filteredSales = allSales;
+      if (startDate || endDate) {
+        filteredSales = allSales.filter((sale: any) => {
+          const saleDate = new Date(sale.createdAt);
+          const start = startDate ? new Date(startDate as string) : new Date('1900-01-01');
+          const end = endDate ? new Date(endDate as string) : new Date();
+          return saleDate >= start && saleDate <= end;
+        });
+      }
+      
+      // Get customers and products for comprehensive report
+      const customers = await storage.getCustomers();
+      const products = await storage.getProducts();
+      
+      // Calculate comprehensive analytics
+      const analytics = {
+        totalRevenue: filteredSales.reduce((sum: number, sale: any) => sum + parseFloat(sale.totalAmount), 0),
+        totalProfit: filteredSales.reduce((sum: number, sale: any) => sum + parseFloat(sale.profit), 0),
+        totalOrders: filteredSales.length,
+        averageOrderValue: filteredSales.length > 0 ? 
+          filteredSales.reduce((sum: number, sale: any) => sum + parseFloat(sale.totalAmount), 0) / filteredSales.length : 0,
+        profitMargin: 0,
+        totalCustomers: customers.length,
+        totalProducts: products.length,
+        statusBreakdown: filteredSales.reduce((acc: any, sale: any) => {
+          acc[sale.status] = (acc[sale.status] || 0) + 1;
+          return acc;
+        }, {})
+      };
+      analytics.profitMargin = analytics.totalRevenue > 0 ? (analytics.totalProfit / analytics.totalRevenue) * 100 : 0;
+      
+      // Customer performance analysis
+      const customerAnalysis = customers.map((customer: any) => {
+        const customerSales = filteredSales.filter((sale: any) => sale.customerId === customer.id);
+        const revenue = customerSales.reduce((sum: number, sale: any) => sum + parseFloat(sale.totalAmount), 0);
+        const profit = customerSales.reduce((sum: number, sale: any) => sum + parseFloat(sale.profit), 0);
+        const orders = customerSales.length;
+        const avgOrderValue = orders > 0 ? revenue / orders : 0;
+        
+        return {
+          customerId: customer.id,
+          customerName: customer.name,
+          customerEmail: customer.email,
+          customerPhone: customer.phone || 'N/A',
+          customerCompany: customer.company || 'N/A',
+          totalRevenue: revenue,
+          totalProfit: profit,
+          totalOrders: orders,
+          averageOrderValue: avgOrderValue,
+          profitMargin: revenue > 0 ? (profit / revenue) * 100 : 0,
+          firstOrder: customerSales.length > 0 ? 
+            new Date(Math.min(...customerSales.map((s: any) => new Date(s.createdAt).getTime()))).toISOString().split('T')[0] : 'N/A',
+          lastOrder: customerSales.length > 0 ? 
+            new Date(Math.max(...customerSales.map((s: any) => new Date(s.createdAt).getTime()))).toISOString().split('T')[0] : 'N/A'
+        };
+      }).sort((a: any, b: any) => b.totalRevenue - a.totalRevenue);
+      
+      // Product performance analysis
+      const productAnalysis = products.map((product: any) => {
+        const productSales = filteredSales.filter((sale: any) => sale.productId === product.id);
+        const revenue = productSales.reduce((sum: number, sale: any) => sum + parseFloat(sale.totalAmount), 0);
+        const profit = productSales.reduce((sum: number, sale: any) => sum + parseFloat(sale.profit), 0);
+        const unitsSold = productSales.reduce((sum: number, sale: any) => sum + sale.quantity, 0);
+        const orders = productSales.length;
+        
+        return {
+          productId: product.id,
+          productName: product.name,
+          productSku: product.sku,
+          costPrice: parseFloat(product.costPrice),
+          sellingPrice: parseFloat(product.sellingPrice),
+          currentStock: product.stock,
+          status: product.status,
+          unitsSold: unitsSold,
+          totalRevenue: revenue,
+          totalProfit: profit,
+          totalOrders: orders,
+          profitMargin: revenue > 0 ? (profit / revenue) * 100 : 0,
+          avgSellingPrice: orders > 0 ? revenue / unitsSold : 0
+        };
+      }).sort((a: any, b: any) => b.totalRevenue - a.totalRevenue);
+      
+      // Monthly performance data
+      const monthlyData = filteredSales.reduce((acc: any, sale: any) => {
+        const month = new Date(sale.createdAt).toISOString().slice(0, 7); // YYYY-MM
+        if (!acc[month]) {
+          acc[month] = {
+            month: month,
+            revenue: 0,
+            profit: 0,
+            orders: 0,
+            customers: new Set()
+          };
+        }
+        acc[month].revenue += parseFloat(sale.totalAmount);
+        acc[month].profit += parseFloat(sale.profit);
+        acc[month].orders += 1;
+        acc[month].customers.add(sale.customerId);
+        return acc;
+      }, {});
+      
+      const monthlyAnalysis = Object.values(monthlyData).map((data: any) => ({
+        month: data.month,
+        revenue: data.revenue,
+        profit: data.profit,
+        orders: data.orders,
+        uniqueCustomers: data.customers.size,
+        profitMargin: data.revenue > 0 ? (data.profit / data.revenue) * 100 : 0,
+        avgOrderValue: data.orders > 0 ? data.revenue / data.orders : 0
+      })).sort((a: any, b: any) => a.month.localeCompare(b.month));
+      
+      // Comprehensive sales details
+      const salesDetails = filteredSales.map((sale: any) => ({
+        saleId: sale.id,
+        orderDate: new Date(sale.createdAt).toISOString().split('T')[0],
+        orderTime: new Date(sale.createdAt).toTimeString().split(' ')[0],
+        customerName: sale.customer.name,
+        customerEmail: sale.customer.email,
+        customerCompany: sale.customer.company || 'N/A',
+        productName: sale.product.name,
+        productSku: sale.product.sku,
+        quantity: sale.quantity,
+        unitPrice: parseFloat(sale.unitPrice),
+        totalAmount: parseFloat(sale.totalAmount),
+        costPrice: parseFloat(sale.product.costPrice),
+        profit: parseFloat(sale.profit),
+        profitMargin: parseFloat(sale.totalAmount) > 0 ? (parseFloat(sale.profit) / parseFloat(sale.totalAmount)) * 100 : 0,
+        status: sale.status,
+        statusLabel: (['paid', 'pending_shipment', 'shipped', 'completed'].includes(sale.status) ? {
+          'paid': 'Paid',
+          'pending_shipment': 'Pending Shipment',
+          'shipped': 'Shipped',
+          'completed': 'Completed'
+        }[sale.status] : sale.status) as string,
+        notes: sale.notes || 'N/A'
+      })).sort((a: any, b: any) => new Date(b.orderDate + 'T' + b.orderTime).getTime() - new Date(a.orderDate + 'T' + a.orderTime).getTime());
+
+      const reportData = {
+        summary: analytics,
+        salesDetails,
+        customerAnalysis,
+        productAnalysis,
+        monthlyAnalysis,
+        metadata: {
+          generatedAt: new Date().toISOString(),
+          dateRange: {
+            start: startDate || 'All time',
+            end: endDate || 'Present'
+          },
+          reportType,
+          totalRecords: filteredSales.length,
+          companyName: 'PROGENY AGROTECH',
+          companyDescription: 'Malaysian Fresh Young Ginger Farming & Distribution'
+        }
+      };
+
+      res.json(reportData);
+    } catch (error) {
+      console.error("Error generating Excel report:", error);
+      res.status(500).json({ message: "Failed to generate report" });
+    }
+  });
+
   // Object storage routes
   app.get("/objects/:objectPath(*)", async (req, res) => {
     const objectStorageService = new ObjectStorageService();

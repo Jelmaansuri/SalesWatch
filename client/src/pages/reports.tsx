@@ -10,6 +10,7 @@ import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { formatCurrency } from "@/lib/currency";
 import { ORDER_STATUS_LABELS, ORDER_STATUS_COLORS } from "@/lib/types";
+import { useToast } from "@/hooks/use-toast";
 import { 
   TrendingUp, 
   TrendingDown, 
@@ -45,6 +46,7 @@ const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8'];
 
 export default function Reports() {
   const [dateRange, setDateRange] = useState("30");
+  const { toast } = useToast();
 
   const { data: salesData = [] } = useQuery<SaleWithDetails[]>({
     queryKey: ["/api/sales"],
@@ -132,33 +134,189 @@ export default function Reports() {
     };
   }).sort((a, b) => b.revenue - a.revenue);
 
-  const exportReport = () => {
-    const reportData = {
-      summary: {
-        totalRevenue,
-        totalProfit,
-        averageOrderValue,
-        profitMargin,
-        totalOrders: salesData.length,
-        totalCustomers: customers.length,
-        totalProducts: products.length
-      },
-      salesData,
-      topCustomers,
-      productPerformance,
-      statusDistribution,
-      generatedAt: new Date().toISOString()
-    };
-
-    const blob = new Blob([JSON.stringify(reportData, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `sales-report-${new Date().toISOString().split('T')[0]}.json`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+  const exportToExcel = async () => {
+    try {
+      const XLSX = await import('xlsx');
+      
+      // Fetch comprehensive report data from the API
+      const response = await fetch('/api/reports/export/excel', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch report data');
+      }
+      
+      const reportData = await response.json();
+      
+      // Create a new workbook
+      const workbook = XLSX.utils.book_new();
+      
+      // 1. Executive Summary Sheet
+      const summaryData = [
+        ['PROGENY AGROTECH - Sales Report'],
+        ['Malaysian Fresh Young Ginger Farming & Distribution'],
+        ['Generated on:', new Date().toLocaleDateString()],
+        [''],
+        ['EXECUTIVE SUMMARY'],
+        [''],
+        ['Total Revenue', `RM ${reportData.summary.totalRevenue.toFixed(2)}`],
+        ['Total Profit', `RM ${reportData.summary.totalProfit.toFixed(2)}`],
+        ['Profit Margin', `${reportData.summary.profitMargin.toFixed(2)}%`],
+        ['Total Orders', reportData.summary.totalOrders],
+        ['Average Order Value', `RM ${reportData.summary.averageOrderValue.toFixed(2)}`],
+        ['Total Customers', reportData.summary.totalCustomers],
+        ['Total Products', reportData.summary.totalProducts],
+        [''],
+        ['ORDER STATUS BREAKDOWN'],
+        [''],
+        ['Paid Orders', reportData.summary.statusBreakdown.paid || 0],
+        ['Pending Shipment', reportData.summary.statusBreakdown.pending_shipment || 0],
+        ['Shipped Orders', reportData.summary.statusBreakdown.shipped || 0],
+        ['Completed Orders', reportData.summary.statusBreakdown.completed || 0]
+      ];
+      
+      const summarySheet = XLSX.utils.aoa_to_sheet(summaryData);
+      
+      // Style the summary sheet
+      summarySheet['!cols'] = [{ width: 25 }, { width: 20 }];
+      
+      XLSX.utils.book_append_sheet(workbook, summarySheet, 'Executive Summary');
+      
+      // 2. Detailed Sales Sheet
+      const salesHeaders = [
+        'Sale ID', 'Order Date', 'Order Time', 'Customer Name', 'Customer Email', 
+        'Customer Company', 'Product Name', 'Product SKU', 'Quantity', 'Unit Price (RM)',
+        'Total Amount (RM)', 'Cost Price (RM)', 'Profit (RM)', 'Profit Margin (%)', 
+        'Status', 'Notes'
+      ];
+      
+      const salesRows = reportData.salesDetails.map((sale: any) => [
+        sale.saleId,
+        sale.orderDate,
+        sale.orderTime,
+        sale.customerName,
+        sale.customerEmail,
+        sale.customerCompany,
+        sale.productName,
+        sale.productSku,
+        sale.quantity,
+        sale.unitPrice.toFixed(2),
+        sale.totalAmount.toFixed(2),
+        sale.costPrice.toFixed(2),
+        sale.profit.toFixed(2),
+        sale.profitMargin.toFixed(2),
+        sale.statusLabel,
+        sale.notes
+      ]);
+      
+      const salesData = [salesHeaders, ...salesRows];
+      const salesSheet = XLSX.utils.aoa_to_sheet(salesData);
+      
+      // Auto-size columns
+      salesSheet['!cols'] = salesHeaders.map(() => ({ width: 15 }));
+      
+      XLSX.utils.book_append_sheet(workbook, salesSheet, 'Sales Details');
+      
+      // 3. Customer Analysis Sheet
+      const customerHeaders = [
+        'Customer ID', 'Customer Name', 'Email', 'Phone', 'Company', 
+        'Total Revenue (RM)', 'Total Profit (RM)', 'Total Orders', 
+        'Avg Order Value (RM)', 'Profit Margin (%)', 'First Order', 'Last Order'
+      ];
+      
+      const customerRows = reportData.customerAnalysis.map((customer: any) => [
+        customer.customerId,
+        customer.customerName,
+        customer.customerEmail,
+        customer.customerPhone,
+        customer.customerCompany,
+        customer.totalRevenue.toFixed(2),
+        customer.totalProfit.toFixed(2),
+        customer.totalOrders,
+        customer.averageOrderValue.toFixed(2),
+        customer.profitMargin.toFixed(2),
+        customer.firstOrder,
+        customer.lastOrder
+      ]);
+      
+      const customerData = [customerHeaders, ...customerRows];
+      const customerSheet = XLSX.utils.aoa_to_sheet(customerData);
+      customerSheet['!cols'] = customerHeaders.map(() => ({ width: 18 }));
+      
+      XLSX.utils.book_append_sheet(workbook, customerSheet, 'Customer Analysis');
+      
+      // 4. Product Performance Sheet
+      const productHeaders = [
+        'Product ID', 'Product Name', 'SKU', 'Cost Price (RM)', 'Selling Price (RM)',
+        'Current Stock', 'Status', 'Units Sold', 'Total Revenue (RM)', 
+        'Total Profit (RM)', 'Total Orders', 'Profit Margin (%)', 'Avg Selling Price (RM)'
+      ];
+      
+      const productRows = reportData.productAnalysis.map((product: any) => [
+        product.productId,
+        product.productName,
+        product.productSku,
+        product.costPrice.toFixed(2),
+        product.sellingPrice.toFixed(2),
+        product.currentStock,
+        product.status,
+        product.unitsSold,
+        product.totalRevenue.toFixed(2),
+        product.totalProfit.toFixed(2),
+        product.totalOrders,
+        product.profitMargin.toFixed(2),
+        product.avgSellingPrice.toFixed(2)
+      ]);
+      
+      const productData = [productHeaders, ...productRows];
+      const productSheet = XLSX.utils.aoa_to_sheet(productData);
+      productSheet['!cols'] = productHeaders.map(() => ({ width: 16 }));
+      
+      XLSX.utils.book_append_sheet(workbook, productSheet, 'Product Performance');
+      
+      // 5. Monthly Analysis Sheet
+      const monthlyHeaders = [
+        'Month', 'Revenue (RM)', 'Profit (RM)', 'Orders', 'Unique Customers',
+        'Profit Margin (%)', 'Avg Order Value (RM)'
+      ];
+      
+      const monthlyRows = reportData.monthlyAnalysis.map((month: any) => [
+        month.month,
+        month.revenue.toFixed(2),
+        month.profit.toFixed(2),
+        month.orders,
+        month.uniqueCustomers,
+        month.profitMargin.toFixed(2),
+        month.avgOrderValue.toFixed(2)
+      ]);
+      
+      const monthlyData = [monthlyHeaders, ...monthlyRows];
+      const monthlySheet = XLSX.utils.aoa_to_sheet(monthlyData);
+      monthlySheet['!cols'] = monthlyHeaders.map(() => ({ width: 18 }));
+      
+      XLSX.utils.book_append_sheet(workbook, monthlySheet, 'Monthly Analysis');
+      
+      // Generate Excel file
+      const fileName = `PROGENY_AGROTECH_Sales_Report_${new Date().toISOString().split('T')[0]}.xlsx`;
+      XLSX.writeFile(workbook, fileName);
+      
+      toast({
+        title: "Export Successful",
+        description: `Excel report has been downloaded as ${fileName}`,
+      });
+      
+    } catch (error) {
+      console.error('Export error:', error);
+      toast({
+        title: "Export Failed",
+        description: "There was an error generating the Excel report.",
+        variant: "destructive",
+      });
+    }
   };
 
   return (
@@ -185,9 +343,9 @@ export default function Reports() {
                 <SelectItem value="365">Last year</SelectItem>
               </SelectContent>
             </Select>
-            <Button onClick={exportReport} variant="outline">
+            <Button onClick={exportToExcel} variant="outline">
               <Download className="h-4 w-4 mr-2" />
-              Export Report
+              Export to Excel
             </Button>
           </div>
         </div>
