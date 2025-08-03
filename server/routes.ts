@@ -231,7 +231,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: error.message });
       }
       console.error("Error creating sale:", error);
-      res.status(500).json({ message: "Failed to create sale" });
+      console.error("Error stack:", error instanceof Error ? error.stack : 'No stack available');
+      res.status(500).json({ message: "Failed to create sale", error: error instanceof Error ? error.message : 'Unknown error' });
     }
   });
 

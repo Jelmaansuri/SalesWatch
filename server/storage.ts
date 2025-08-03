@@ -681,27 +681,59 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createSale(sale: InsertSale): Promise<Sale> {
-    const unitPriceNum = typeof sale.unitPrice === 'string' ? parseFloat(sale.unitPrice) : sale.unitPrice;
-    const discountAmountNum = sale.discountAmount ? (typeof sale.discountAmount === 'string' ? parseFloat(sale.discountAmount) : sale.discountAmount) : 0;
-    const totalAmount = (unitPriceNum * sale.quantity) - discountAmountNum;
+    console.log('DatabaseStorage.createSale - Input data:', sale);
     
-    // Get product cost to calculate profit
-    const product = await this.getProduct(sale.productId);
-    if (!product) {
-      throw new Error("Product not found");
-    }
-    
-    const costPriceNum = typeof product.costPrice === 'string' ? parseFloat(product.costPrice) : product.costPrice;
-    const profit = totalAmount - (costPriceNum * sale.quantity);
+    try {
+      const unitPriceNum = typeof sale.unitPrice === 'string' ? parseFloat(sale.unitPrice) : sale.unitPrice;
+      const discountAmountNum = sale.discountAmount ? (typeof sale.discountAmount === 'string' ? parseFloat(sale.discountAmount) : sale.discountAmount) : 0;
+      const totalAmount = (unitPriceNum * sale.quantity) - discountAmountNum;
+      
+      console.log('DatabaseStorage.createSale - Calculated values:', {
+        unitPriceNum,
+        discountAmountNum,
+        totalAmount,
+        quantity: sale.quantity
+      });
+      
+      // Get product cost to calculate profit
+      const product = await this.getProduct(sale.productId);
+      if (!product) {
+        throw new Error("Product not found");
+      }
+      
+      const costPriceNum = typeof product.costPrice === 'string' ? parseFloat(product.costPrice) : product.costPrice;
+      const profit = totalAmount - (costPriceNum * sale.quantity);
 
-    const [newSale] = await db.insert(sales).values({
-      id: randomUUID(),
-      ...sale,
-      discountAmount: discountAmountNum.toString(),
-      totalAmount: totalAmount.toString(),
-      profit: profit.toString(),
-    }).returning();
-    return newSale;
+      console.log('DatabaseStorage.createSale - Product and profit info:', {
+        productCostPrice: costPriceNum,
+        calculatedProfit: profit
+      });
+
+      const saleRecord = {
+        id: randomUUID(),
+        customerId: sale.customerId,
+        productId: sale.productId,
+        quantity: sale.quantity,
+        unitPrice: unitPriceNum.toString(),
+        discountAmount: discountAmountNum.toString(),
+        totalAmount: totalAmount.toString(),
+        profit: profit.toString(),
+        status: sale.status,
+        saleDate: sale.saleDate || new Date(),
+        platformSource: sale.platformSource,
+        notes: sale.notes || null,
+      };
+
+      console.log('DatabaseStorage.createSale - Final sale record to insert:', saleRecord);
+
+      const [newSale] = await db.insert(sales).values(saleRecord).returning();
+      
+      console.log('DatabaseStorage.createSale - Successfully inserted sale:', newSale);
+      return newSale;
+    } catch (error) {
+      console.error('DatabaseStorage.createSale - Error occurred:', error);
+      throw error;
+    }
   }
 
   async updateSale(id: string, updates: Partial<Sale>): Promise<Sale | undefined> {
