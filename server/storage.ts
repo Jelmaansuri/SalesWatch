@@ -288,7 +288,6 @@ export class MemStorage implements IStorage {
       productId: insertSale.productId,
       quantity: insertSale.quantity,
       unitPrice: insertSale.unitPrice,
-      discountedPrice: insertSale.discountedPrice || "0.00",
       totalAmount: insertSale.totalAmount,
       profit: insertSale.profit,
       saleDate: insertSale.saleDate || now,

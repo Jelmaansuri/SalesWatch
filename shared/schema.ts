@@ -54,7 +54,7 @@ export const sales = pgTable("sales", {
   productId: varchar("product_id").notNull().references(() => products.id),
   quantity: integer("quantity").notNull(),
   unitPrice: decimal("unit_price", { precision: 10, scale: 2 }).notNull(),
-  discountedPrice: decimal("discounted_price", { precision: 10, scale: 2 }).default("0.00").notNull(),
+  discountAmount: decimal("discount_amount", { precision: 10, scale: 2 }).default("0.00").notNull(),
   totalAmount: decimal("total_amount", { precision: 10, scale: 2 }).notNull(),
   profit: decimal("profit", { precision: 10, scale: 2 }).notNull(),
   status: text("status").notNull(), // unpaid, paid, pending_shipment, shipped, completed
