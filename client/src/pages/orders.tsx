@@ -32,6 +32,7 @@ import { z } from "zod";
 
 const formSchema = insertSaleSchema.extend({
   unitPrice: z.string().min(1, "Unit price is required"),
+  discountAmount: z.string().optional(),
 }).partial({
   totalAmount: true,
   profit: true,
@@ -146,8 +147,10 @@ export default function Orders() {
       customerId: order.customerId,
       productId: order.productId,
       quantity: order.quantity,
-      unitPrice: order.unitPrice,
+      unitPrice: typeof order.unitPrice === 'string' ? order.unitPrice : order.unitPrice.toString(),
+      discountAmount: typeof order.discountAmount === 'string' ? order.discountAmount : (order.discountAmount || 0).toString(),
       status: order.status,
+      platformSource: order.platformSource,
       notes: order.notes || "",
     });
     setIsEditDialogOpen(true);
@@ -386,7 +389,7 @@ export default function Orders() {
                   />
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-3 gap-4">
                   <FormField
                     control={form.control}
                     name="quantity"
@@ -417,6 +420,26 @@ export default function Orders() {
                             type="number"
                             step="0.01"
                             min="0"
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="discountAmount"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Discount (RM)</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            placeholder="0.00"
                             {...field}
                           />
                         </FormControl>
@@ -560,6 +583,8 @@ export default function Orders() {
                     <TableHead>Customer</TableHead>
                     <TableHead>Product</TableHead>
                     <TableHead>Quantity</TableHead>
+                    <TableHead>Unit Price</TableHead>
+                    <TableHead>Discount</TableHead>
                     <TableHead>Total Amount</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Date</TableHead>
@@ -585,6 +610,10 @@ export default function Orders() {
                         </div>
                       </TableCell>
                       <TableCell>{order.quantity}</TableCell>
+                      <TableCell>{formatCurrency(order.unitPrice)}</TableCell>
+                      <TableCell className="text-orange-600">
+                        {formatCurrency(order.discountAmount)}
+                      </TableCell>
                       <TableCell className="font-medium">
                         {formatCurrency(order.totalAmount)}
                       </TableCell>
