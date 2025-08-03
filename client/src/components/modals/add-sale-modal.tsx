@@ -462,25 +462,21 @@ export default function AddSaleModal({ open, onOpenChange, onSaleAdded }: AddSal
             form.setValue("productId", "");
           }
         }}
-        onProductAdded={(productId) => {
-          console.log("New product added with ID:", productId);
+        onProductAdded={(productId, productData) => {
+          console.log("New product added with ID:", productId, "and data:", productData);
           setShowQuickAddProduct(false);
           
-          // Force refetch products and then set the form values
-          queryClient.invalidateQueries({ queryKey: ['/api/products'] }).then(() => {
-            console.log("Products refreshed, now setting form values");
-            
-            setTimeout(() => {
-              form.setValue("productId", productId, { shouldValidate: true });
-              form.trigger("productId");
-              
-              // Call handleProductChange which will find the product and set unit price
-              handleProductChange(productId);
-              
-              console.log("Product form value set to:", productId);
-              console.log("Current form value:", form.getValues("productId"));
-            }, 200);
-          });
+          // Immediately set the form values and product data
+          form.setValue("productId", productId, { shouldValidate: true });
+          form.setValue("unitPrice", productData.sellingPrice);
+          form.trigger("productId");
+          setSelectedProduct(productData);
+          
+          console.log("Product form value set to:", productId);
+          console.log("Unit price set to:", productData.sellingPrice);
+          
+          // Also invalidate queries to refresh the products list
+          queryClient.invalidateQueries({ queryKey: ['/api/products'] });
           
           toast({
             title: "Product Added",

@@ -26,7 +26,7 @@ type FormData = z.infer<typeof formSchema>;
 interface QuickAddProductModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onProductAdded: (productId: string) => void;
+  onProductAdded: (productId: string, productData: any) => void;
 }
 
 export default function QuickAddProductModal({ open, onOpenChange, onProductAdded }: QuickAddProductModalProps) {
@@ -55,7 +55,7 @@ export default function QuickAddProductModal({ open, onOpenChange, onProductAdde
         title: "Success",
         description: "Product has been added successfully.",
       });
-      onProductAdded(newProduct.id);
+      onProductAdded(newProduct.id, newProduct);
       onOpenChange(false);
       form.reset();
     },
