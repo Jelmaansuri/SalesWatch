@@ -85,7 +85,19 @@ export default function AddProductModal({ open, onOpenChange, onProductAdded }: 
   const handleUploadComplete = async (result: UploadResult<Record<string, unknown>, Record<string, unknown>>) => {
     if (result.successful && result.successful.length > 0) {
       const uploadURL = result.successful[0].uploadURL;
-      setProductImageUrl(uploadURL || "");
+      
+      // Normalize the upload URL to the object path format
+      try {
+        const response = await apiRequest("POST", "/api/objects/normalize", { 
+          uploadURL: uploadURL 
+        });
+        const data = await response.json();
+        setProductImageUrl(data.objectPath);
+      } catch (error) {
+        // Fallback to the upload URL if normalization fails
+        setProductImageUrl(uploadURL || "");
+      }
+      
       setIsUploading(false);
       toast({
         title: "Success",

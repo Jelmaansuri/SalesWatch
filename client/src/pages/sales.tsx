@@ -315,6 +315,29 @@ export default function Sales() {
                   />
                 </div>
 
+                <FormField
+                  control={form.control}
+                  name="discountAmount"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Customer Discount (RM)</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          placeholder="0.00"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormDescription>
+                        Discount per unit for this customer (default: RM 0.00)
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
                 <div className="grid grid-cols-2 gap-4">
                   <FormField
                     control={form.control}
@@ -441,6 +464,7 @@ export default function Sales() {
                       <TableHead className="min-w-[120px]">Product</TableHead>
                       <TableHead className="min-w-[70px]">Qty</TableHead>
                       <TableHead className="min-w-[80px]">Price</TableHead>
+                      <TableHead className="min-w-[80px]">Discount</TableHead>
                       <TableHead className="min-w-[80px]">Total</TableHead>
                       <TableHead className="min-w-[70px]">Profit</TableHead>
                       <TableHead className="min-w-[80px]">Status</TableHead>
@@ -466,6 +490,9 @@ export default function Sales() {
                       </TableCell>
                       <TableCell>{sale.quantity}</TableCell>
                       <TableCell>{formatCurrency(sale.unitPrice)}</TableCell>
+                      <TableCell className="text-orange-600">
+                        {sale.discountAmount ? formatCurrency(sale.discountAmount) : "RM 0.00"}
+                      </TableCell>
                       <TableCell className="font-medium">
                         {formatCurrency(sale.totalAmount)}
                       </TableCell>

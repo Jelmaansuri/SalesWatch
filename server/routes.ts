@@ -204,15 +204,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Product not found" });
       }
 
-      // Calculate totals and profit
+      // Calculate totals and profit with discount
       const unitPrice = parseFloat(saleData.unitPrice);
+      const discountAmount = parseFloat(saleData.discountAmount || "0.00");
       const quantity = saleData.quantity;
-      const totalAmount = unitPrice * quantity;
+      const discountedUnitPrice = unitPrice - discountAmount;
+      const totalAmount = discountedUnitPrice * quantity;
       const costPrice = parseFloat(product.costPrice);
-      const profit = (unitPrice - costPrice) * quantity;
+      const profit = (discountedUnitPrice - costPrice) * quantity;
 
       const finalSaleData = {
         ...saleData,
+        discountAmount: discountAmount.toString(),
         totalAmount: totalAmount.toString(),
         profit: profit.toString(),
       };
@@ -253,10 +256,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
         
         const unitPrice = updateData.unitPrice ? parseFloat(updateData.unitPrice) : parseFloat(existingSale.unitPrice);
+        const discountAmount = updateData.discountAmount ? parseFloat(updateData.discountAmount) : parseFloat(existingSale.discountAmount || "0.00");
         const quantity = updateData.quantity !== undefined ? updateData.quantity : existingSale.quantity;
-        const totalAmount = unitPrice * quantity;
+        const discountedUnitPrice = unitPrice - discountAmount;
+        const totalAmount = discountedUnitPrice * quantity;
         const costPrice = parseFloat(product.costPrice);
-        const profit = (unitPrice - costPrice) * quantity;
+        const profit = (discountedUnitPrice - costPrice) * quantity;
         
         updateData.totalAmount = totalAmount.toString();
         updateData.profit = profit.toString();
@@ -492,6 +497,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error getting upload URL:", error);
       res.status(500).json({ error: "Failed to get upload URL" });
+    }
+  });
+
+  app.post("/api/objects/normalize", isAuthenticated, async (req, res) => {
+    if (!req.body.uploadURL) {
+      return res.status(400).json({ error: "uploadURL is required" });
+    }
+
+    try {
+      const objectStorageService = new ObjectStorageService();
+      const objectPath = objectStorageService.normalizeObjectEntityPath(
+        req.body.uploadURL,
+      );
+      res.json({ objectPath });
+    } catch (error) {
+      console.error("Error normalizing object path:", error);
+      res.status(500).json({ error: "Failed to normalize object path" });
     }
   });
 
