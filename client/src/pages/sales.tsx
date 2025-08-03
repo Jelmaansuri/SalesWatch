@@ -495,7 +495,8 @@ export default function Sales() {
                       <TableCell>{sale.quantity}</TableCell>
                       <TableCell>{formatCurrency(sale.unitPrice)}</TableCell>
                       <TableCell className="text-orange-600">
-                        {formatCurrency(parseFloat(sale.discountAmount || "0.00"))}
+                        {console.log('Debug discount for sale:', sale.id, 'discountAmount:', sale.discountAmount, 'type:', typeof sale.discountAmount)}
+                        {formatCurrency(sale.discountAmount)}
                       </TableCell>
                       <TableCell className="font-medium">
                         {formatCurrency(sale.totalAmount)}
