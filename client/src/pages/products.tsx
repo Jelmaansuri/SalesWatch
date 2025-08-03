@@ -1,24 +1,138 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import MainLayout from "@/components/layout/main-layout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { insertProductSchema } from "@shared/schema";
 import AddProductModal from "@/components/modals/add-product-modal";
 import { formatCurrency } from "@/lib/currency";
-import { Package, ImageIcon, Plus } from "lucide-react";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
+import { isUnauthorizedError } from "@/lib/authUtils";
+import { Package, ImageIcon, Plus, Edit, Trash2 } from "lucide-react";
 import type { Product } from "@shared/schema";
+import { z } from "zod";
+
+type FormData = z.infer<typeof insertProductSchema>;
 
 export default function Products() {
+  const { toast } = useToast();
   const [showAddModal, setShowAddModal] = useState(false);
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   
   const { data: products, isLoading, refetch } = useQuery<Product[]>({
     queryKey: ["/api/products"],
   });
 
+  const form = useForm<FormData>({
+    resolver: zodResolver(insertProductSchema),
+    defaultValues: {
+      name: "",
+      description: "",
+      sku: "",
+      costPrice: "",
+      sellingPrice: "",
+      stock: 0,
+      status: "active",
+    },
+  });
+
+  const updateProductMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: FormData }) => {
+      const response = await apiRequest("PUT", `/api/products/${id}`, data);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/products"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/analytics"] });
+      setIsEditDialogOpen(false);
+      setEditingProduct(null);
+      form.reset();
+      toast({
+        title: "Success",
+        description: "Product updated successfully",
+      });
+    },
+    onError: (error) => {
+      if (isUnauthorizedError(error)) {
+        toast({
+          title: "Session Expired",
+          description: "Please sign in again",
+          variant: "destructive",
+        });
+        setTimeout(() => window.location.href = "/api/login", 1000);
+        return;
+      }
+      toast({
+        title: "Error",
+        description: "Failed to update product",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const deleteProductMutation = useMutation({
+    mutationFn: async (id: string) => {
+      await apiRequest("DELETE", `/api/products/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/products"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/analytics"] });
+      toast({
+        title: "Success",
+        description: "Product deleted successfully",
+      });
+    },
+    onError: (error) => {
+      if (isUnauthorizedError(error)) {
+        toast({
+          title: "Session Expired",
+          description: "Please sign in again",
+          variant: "destructive",
+        });
+        setTimeout(() => window.location.href = "/api/login", 1000);
+        return;
+      }
+      toast({
+        title: "Error",
+        description: "Failed to delete product",
+        variant: "destructive",
+      });
+    },
+  });
+
   const handleProductAdded = () => {
     setShowAddModal(false);
     refetch();
+  };
+
+  const handleEdit = (product: Product) => {
+    setEditingProduct(product);
+    form.reset({
+      name: product.name,
+      description: product.description || "",
+      sku: product.sku,
+      costPrice: product.costPrice,
+      sellingPrice: product.sellingPrice,
+      stock: product.stock,
+      status: product.status,
+    });
+    setIsEditDialogOpen(true);
+  };
+
+  const handleSubmit = (data: FormData) => {
+    if (editingProduct) {
+      updateProductMutation.mutate({ id: editingProduct.id, data });
+    }
   };
 
   if (isLoading) {
@@ -147,6 +261,44 @@ export default function Products() {
                           </span>
                         </div>
                       </div>
+                      
+                      {/* Action Buttons */}
+                      <div className="pt-3 flex items-center space-x-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleEdit(product)}
+                          className="flex-1"
+                        >
+                          <Edit className="h-4 w-4 mr-1" />
+                          Edit
+                        </Button>
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button variant="outline" size="sm" className="flex-1">
+                              <Trash2 className="h-4 w-4 mr-1 text-red-600" />
+                              Delete
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Delete Product</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                Are you sure you want to delete "{product.name}"? This action cannot be undone.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancel</AlertDialogCancel>
+                              <AlertDialogAction
+                                onClick={() => deleteProductMutation.mutate(product.id)}
+                                className="bg-red-600 hover:bg-red-700"
+                              >
+                                Delete
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
@@ -155,6 +307,111 @@ export default function Products() {
           )}
         </div>
       </div>
+
+      {/* Edit Product Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Edit Product</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-name">Product Name *</Label>
+                <Input
+                  id="edit-name"
+                  {...form.register("name")}
+                  placeholder="Product name"
+                />
+                {form.formState.errors.name && (
+                  <p className="text-sm text-red-600">{form.formState.errors.name.message}</p>
+                )}
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="edit-sku">SKU *</Label>
+                <Input
+                  id="edit-sku"
+                  {...form.register("sku")}
+                  placeholder="SKU123"
+                />
+                {form.formState.errors.sku && (
+                  <p className="text-sm text-red-600">{form.formState.errors.sku.message}</p>
+                )}
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="edit-description">Description</Label>
+              <Textarea
+                id="edit-description"
+                {...form.register("description")}
+                placeholder="Product description..."
+                rows={3}
+              />
+            </div>
+
+            <div className="grid grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-costPrice">Cost Price (RM) *</Label>
+                <Input
+                  id="edit-costPrice"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  {...form.register("costPrice")}
+                  placeholder="0.00"
+                />
+                {form.formState.errors.costPrice && (
+                  <p className="text-sm text-red-600">{form.formState.errors.costPrice.message}</p>
+                )}
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="edit-sellingPrice">Selling Price (RM) *</Label>
+                <Input
+                  id="edit-sellingPrice"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  {...form.register("sellingPrice")}
+                  placeholder="0.00"
+                />
+                {form.formState.errors.sellingPrice && (
+                  <p className="text-sm text-red-600">{form.formState.errors.sellingPrice.message}</p>
+                )}
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="edit-stock">Stock *</Label>
+                <Input
+                  id="edit-stock"
+                  type="number"
+                  min="0"
+                  {...form.register("stock", { valueAsNumber: true })}
+                  placeholder="0"
+                />
+                {form.formState.errors.stock && (
+                  <p className="text-sm text-red-600">{form.formState.errors.stock.message}</p>
+                )}
+              </div>
+            </div>
+
+            <div className="flex justify-end space-x-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setIsEditDialogOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" disabled={updateProductMutation.isPending}>
+                {updateProductMutation.isPending ? "Updating..." : "Update Product"}
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
 
       <AddProductModal
         open={showAddModal}
