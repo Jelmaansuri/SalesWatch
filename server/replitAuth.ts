@@ -55,19 +55,17 @@ function updateUserSession(
 }
 
 // Email whitelist for internal team access only
+// Add your authorized team members' email addresses here:
 const AUTHORIZED_EMAILS: string[] = [
-  // Add your internal team email addresses here
-  // Example: "admin@progenyagrotech.com",
-  // Example: "manager@progenyagrotech.com",
-  // Example: "staff@progenyagrotech.com",
+  // Replace these examples with your actual team email addresses:
+  // "your.email@gmail.com",
+  // "manager.name@gmail.com", 
+  // "staff.member@yahoo.com",
+  // "team.lead@outlook.com",
 ];
 
-// Domain whitelist for company emails
-const AUTHORIZED_DOMAINS: string[] = [
-  // Add your company email domains here
-  // Example: "progenyagrotech.com",
-  // Example: "yourcompany.com.my",
-];
+// Domain whitelist (leave empty since you don't have a company domain)
+const AUTHORIZED_DOMAINS: string[] = [];
 
 function isAuthorizedUser(email: string | null): boolean {
   if (!email) {
