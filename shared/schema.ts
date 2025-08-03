@@ -22,6 +22,7 @@ export const products = pgTable("products", {
   sellingPrice: decimal("selling_price", { precision: 10, scale: 2 }).notNull(),
   stock: integer("stock").default(0).notNull(),
   status: text("status").default("active").notNull(), // active, inactive
+  imageUrl: text("image_url"), // URL for product image
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

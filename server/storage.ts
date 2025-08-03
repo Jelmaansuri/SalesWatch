@@ -60,8 +60,12 @@ export class MemStorage implements IStorage {
   async createCustomer(insertCustomer: InsertCustomer): Promise<Customer> {
     const id = randomUUID();
     const customer: Customer = {
-      ...insertCustomer,
       id,
+      name: insertCustomer.name,
+      email: insertCustomer.email,
+      phone: insertCustomer.phone ?? null,
+      company: insertCustomer.company ?? null,
+      address: insertCustomer.address ?? null,
       createdAt: new Date(),
     };
     this.customers.set(id, customer);
@@ -97,8 +101,15 @@ export class MemStorage implements IStorage {
   async createProduct(insertProduct: InsertProduct): Promise<Product> {
     const id = randomUUID();
     const product: Product = {
-      ...insertProduct,
       id,
+      name: insertProduct.name,
+      sku: insertProduct.sku,
+      description: insertProduct.description ?? null,
+      costPrice: insertProduct.costPrice,
+      sellingPrice: insertProduct.sellingPrice,
+      stock: insertProduct.stock ?? 0,
+      status: insertProduct.status ?? "active",
+      imageUrl: insertProduct.imageUrl ?? null,
       createdAt: new Date(),
     };
     this.products.set(id, product);
@@ -167,8 +178,15 @@ export class MemStorage implements IStorage {
     const id = randomUUID();
     const now = new Date();
     const sale: Sale = {
-      ...insertSale,
       id,
+      status: insertSale.status,
+      customerId: insertSale.customerId,
+      productId: insertSale.productId,
+      quantity: insertSale.quantity,
+      unitPrice: insertSale.unitPrice,
+      totalAmount: insertSale.totalAmount,
+      profit: insertSale.profit,
+      notes: insertSale.notes ?? null,
       createdAt: now,
       updatedAt: now,
     };
@@ -250,8 +268,8 @@ export class MemStorage implements IStorage {
       });
     });
 
-    const results = [];
-    for (const [productId, stats] of productStats.entries()) {
+    const results: Array<{ product: Product; totalRevenue: number; totalProfit: number; unitsSold: number }> = [];
+    Array.from(productStats.entries()).forEach(([productId, stats]) => {
       const product = this.products.get(productId);
       if (product) {
         results.push({
@@ -259,7 +277,7 @@ export class MemStorage implements IStorage {
           ...stats,
         });
       }
-    }
+    });
 
     return results.sort((a, b) => b.totalProfit - a.totalProfit);
   }
