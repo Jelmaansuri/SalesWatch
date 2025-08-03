@@ -33,6 +33,9 @@ import { z } from "zod";
 
 const formSchema = insertSaleSchema.extend({
   unitPrice: z.string().min(1, "Unit price is required"),
+}).partial({
+  totalAmount: true,
+  profit: true,
 });
 
 type FormData = z.infer<typeof formSchema>;
@@ -66,6 +69,8 @@ export default function Sales() {
       unitPrice: "",
       status: "paid",
       notes: "",
+      totalAmount: undefined,
+      profit: undefined,
     },
   });
 
@@ -150,25 +155,24 @@ export default function Sales() {
     console.log("=== EDIT FORM SUBMITTED ===");
     console.log("Form submitted with data:", data);
     console.log("Editing sale:", editingSale);
-    console.log("Form errors:", form.formState.errors);
-    console.log("Form is valid:", form.formState.isValid);
     
     if (!editingSale) {
       console.error("No sale being edited!");
       toast({
-        title: "Error",
+        title: "Error", 
         description: "No sale selected for editing",
         variant: "destructive",
       });
       return;
     }
     
-    try {
-      console.log("Calling updateSaleMutation...");
-      await updateSaleMutation.mutateAsync({ id: editingSale.id, data });
-    } catch (error) {
-      console.error("Update failed:", error);
-    }
+    // Remove undefined/null fields and prepare clean data
+    const cleanData = Object.fromEntries(
+      Object.entries(data).filter(([_, value]) => value !== undefined && value !== null && value !== "")
+    );
+    
+    console.log("Clean data for API:", cleanData);
+    updateSaleMutation.mutate({ id: editingSale.id, data: cleanData });
   };
 
   if (error && isUnauthorizedError(error)) {
