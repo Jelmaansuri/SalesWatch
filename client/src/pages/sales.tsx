@@ -15,6 +15,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import {
   Form,
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -147,7 +148,9 @@ export default function Sales() {
       productId: sale.productId,
       quantity: sale.quantity,
       unitPrice: sale.unitPrice,
+      discountAmount: sale.discountAmount || "0.00",
       status: sale.status,
+      platformSource: sale.platformSource,
       notes: sale.notes || "",
     });
     setIsEditDialogOpen(true);

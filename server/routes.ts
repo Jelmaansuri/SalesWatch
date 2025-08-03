@@ -242,8 +242,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const updateData = insertSaleSchema.partial().parse(req.body);
       console.log(`Parsed update data:`, updateData);
       
-      // If unitPrice is being updated, recalculate totals and profit
-      if (updateData.unitPrice || updateData.quantity || updateData.productId) {
+      // If unitPrice, discount, quantity, or product is being updated, recalculate totals and profit
+      if (updateData.unitPrice || updateData.discountAmount !== undefined || updateData.quantity || updateData.productId) {
         const existingSale = await storage.getSale(req.params.id);
         if (!existingSale) {
           return res.status(404).json({ message: "Sale not found" });
