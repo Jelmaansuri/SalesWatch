@@ -1,7 +1,10 @@
-import { type Customer, type InsertCustomer, type Product, type InsertProduct, type Sale, type InsertSale, type SaleWithDetails, type DashboardMetrics } from "@shared/schema";
+import { type Customer, type InsertCustomer, type Product, type InsertProduct, type Sale, type InsertSale, type SaleWithDetails, type DashboardMetrics, type User, type UpsertUser } from "@shared/schema";
 import { randomUUID } from "crypto";
 
 export interface IStorage {
+  // User operations (required for Replit Auth)
+  getUser(id: string): Promise<User | undefined>;
+  upsertUser(user: UpsertUser): Promise<User>;
   // Customers
   getCustomers(): Promise<Customer[]>;
   getCustomer(id: string): Promise<Customer | undefined>;
@@ -34,14 +37,48 @@ export interface IStorage {
 }
 
 export class MemStorage implements IStorage {
+  private users: Map<string, User>;
   private customers: Map<string, Customer>;
   private products: Map<string, Product>;
   private sales: Map<string, Sale>;
 
   constructor() {
+    this.users = new Map();
     this.customers = new Map();
     this.products = new Map();
     this.sales = new Map();
+  }
+
+  // User operations (required for Replit Auth)
+  async getUser(id: string): Promise<User | undefined> {
+    return this.users.get(id);
+  }
+
+  async upsertUser(userData: UpsertUser): Promise<User> {
+    const existingUser = userData.id ? this.users.get(userData.id) : undefined;
+    
+    if (existingUser) {
+      const updatedUser: User = {
+        ...existingUser,
+        ...userData,
+        updatedAt: new Date(),
+      };
+      this.users.set(existingUser.id, updatedUser);
+      return updatedUser;
+    } else {
+      const id = userData.id || randomUUID();
+      const user: User = {
+        id,
+        email: userData.email ?? null,
+        firstName: userData.firstName ?? null,
+        lastName: userData.lastName ?? null,
+        profileImageUrl: userData.profileImageUrl ?? null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+      this.users.set(id, user);
+      return user;
+    }
   }
 
   // Customers
@@ -224,6 +261,7 @@ export class MemStorage implements IStorage {
     const orderStatusCounts = {
       paid: sales.filter(sale => sale.status === 'paid').length,
       pending_shipment: sales.filter(sale => sale.status === 'pending_shipment').length,
+      shipped: sales.filter(sale => sale.status === 'shipped').length,
       completed: sales.filter(sale => sale.status === 'completed').length,
     };
 

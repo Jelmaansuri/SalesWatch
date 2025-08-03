@@ -3,12 +3,27 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertCustomerSchema, insertProductSchema, insertSaleSchema } from "@shared/schema";
 import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
+import { setupAuth, isAuthenticated } from "./replitAuth";
 import { z } from "zod";
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Auth middleware
+  await setupAuth(app);
+
+  // Auth routes
+  app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      res.json(user);
+    } catch (error) {
+      console.error("Error fetching user:", error);
+      res.status(500).json({ message: "Failed to fetch user" });
+    }
+  });
   
-  // Customers routes
-  app.get("/api/customers", async (req, res) => {
+  // Customers routes (protected)
+  app.get("/api/customers", isAuthenticated, async (req, res) => {
     try {
       const customers = await storage.getCustomers();
       res.json(customers);
@@ -17,7 +32,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/customers/:id", async (req, res) => {
+  app.get("/api/customers/:id", isAuthenticated, async (req, res) => {
     try {
       const customer = await storage.getCustomer(req.params.id);
       if (!customer) {
@@ -29,7 +44,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/customers", async (req, res) => {
+  app.post("/api/customers", isAuthenticated, async (req, res) => {
     try {
       const validatedData = insertCustomerSchema.parse(req.body);
       
@@ -49,7 +64,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/customers/:id", async (req, res) => {
+  app.put("/api/customers/:id", isAuthenticated, async (req, res) => {
     try {
       const updateData = insertCustomerSchema.partial().parse(req.body);
       const customer = await storage.updateCustomer(req.params.id, updateData);
@@ -65,7 +80,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/customers/:id", async (req, res) => {
+  app.delete("/api/customers/:id", isAuthenticated, async (req, res) => {
     try {
       const deleted = await storage.deleteCustomer(req.params.id);
       if (!deleted) {
@@ -77,8 +92,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Products routes
-  app.get("/api/products", async (req, res) => {
+  // Products routes (protected)
+  app.get("/api/products", isAuthenticated, async (req, res) => {
     try {
       const products = await storage.getProducts();
       res.json(products);
@@ -87,7 +102,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/products/:id", async (req, res) => {
+  app.get("/api/products/:id", isAuthenticated, async (req, res) => {
     try {
       const product = await storage.getProduct(req.params.id);
       if (!product) {
@@ -99,7 +114,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/products", async (req, res) => {
+  app.post("/api/products", isAuthenticated, async (req, res) => {
     try {
       const validatedData = insertProductSchema.parse(req.body);
       
@@ -119,7 +134,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/products/:id", async (req, res) => {
+  app.put("/api/products/:id", isAuthenticated, async (req, res) => {
     try {
       const updateData = insertProductSchema.partial().parse(req.body);
       const product = await storage.updateProduct(req.params.id, updateData);
@@ -135,7 +150,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/products/:id", async (req, res) => {
+  app.delete("/api/products/:id", isAuthenticated, async (req, res) => {
     try {
       const deleted = await storage.deleteProduct(req.params.id);
       if (!deleted) {
@@ -147,8 +162,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Sales routes
-  app.get("/api/sales", async (req, res) => {
+  // Sales routes (protected)
+  app.get("/api/sales", isAuthenticated, async (req, res) => {
     try {
       const salesWithDetails = await storage.getSalesWithDetails();
       res.json(salesWithDetails);
@@ -157,7 +172,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/sales/:id", async (req, res) => {
+  app.get("/api/sales/:id", isAuthenticated, async (req, res) => {
     try {
       const sale = await storage.getSaleWithDetails(req.params.id);
       if (!sale) {
@@ -169,7 +184,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/sales", async (req, res) => {
+  app.post("/api/sales", isAuthenticated, async (req, res) => {
     try {
       const saleData = insertSaleSchema.parse(req.body);
       
@@ -208,7 +223,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/sales/:id", async (req, res) => {
+  app.put("/api/sales/:id", isAuthenticated, async (req, res) => {
     try {
       const updateData = insertSaleSchema.partial().parse(req.body);
       const sale = await storage.updateSale(req.params.id, updateData);
@@ -225,7 +240,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/sales/:id", async (req, res) => {
+  app.delete("/api/sales/:id", isAuthenticated, async (req, res) => {
     try {
       const deleted = await storage.deleteSale(req.params.id);
       if (!deleted) {
@@ -254,7 +269,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/objects/upload", async (req, res) => {
+  app.post("/api/objects/upload", isAuthenticated, async (req, res) => {
     const objectStorageService = new ObjectStorageService();
     try {
       const uploadURL = await objectStorageService.getObjectEntityUploadURL();
@@ -265,7 +280,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/products/:id/image", async (req, res) => {
+  app.put("/api/products/:id/image", isAuthenticated, async (req, res) => {
     if (!req.body.imageURL) {
       return res.status(400).json({ error: "imageURL is required" });
     }
@@ -295,8 +310,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Analytics routes
-  app.get("/api/analytics/dashboard", async (req, res) => {
+  // Analytics routes (protected)
+  app.get("/api/analytics/dashboard", isAuthenticated, async (req, res) => {
     try {
       const metrics = await storage.getDashboardMetrics();
       res.json(metrics);
@@ -305,7 +320,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/analytics/revenue-by-month", async (req, res) => {
+  app.get("/api/analytics/revenue-by-month", isAuthenticated, async (req, res) => {
     try {
       const data = await storage.getRevenueByMonth();
       res.json(data);
@@ -314,7 +329,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/analytics/top-products", async (req, res) => {
+  app.get("/api/analytics/top-products", isAuthenticated, async (req, res) => {
     try {
       const data = await storage.getTopProducts();
       res.json(data);
