@@ -406,21 +406,22 @@ export default function Sales() {
                 </Button>
               </div>
             ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Customer</TableHead>
-                    <TableHead>Product</TableHead>
-                    <TableHead>Quantity</TableHead>
-                    <TableHead>Unit Price</TableHead>
-                    <TableHead>Total</TableHead>
-                    <TableHead>Profit</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Platform</TableHead>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="min-w-[120px]">Customer</TableHead>
+                      <TableHead className="min-w-[120px]">Product</TableHead>
+                      <TableHead className="min-w-[70px]">Qty</TableHead>
+                      <TableHead className="min-w-[80px]">Price</TableHead>
+                      <TableHead className="min-w-[80px]">Total</TableHead>
+                      <TableHead className="min-w-[70px]">Profit</TableHead>
+                      <TableHead className="min-w-[80px]">Status</TableHead>
+                      <TableHead className="min-w-[80px]">Platform</TableHead>
+                      <TableHead className="min-w-[90px]">Date</TableHead>
+                      <TableHead className="min-w-[100px]">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
                 <TableBody>
                   {sales.map((sale) => (
                     <TableRow key={sale.id}>
@@ -455,7 +456,7 @@ export default function Sales() {
                         </span>
                       </TableCell>
                       <TableCell>
-                        {new Date(sale.createdAt).toLocaleDateString()}
+                        {sale.saleDate ? new Date(sale.saleDate).toLocaleDateString() : new Date(sale.createdAt).toLocaleDateString()}
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center space-x-2">
@@ -496,6 +497,7 @@ export default function Sales() {
                   ))}
                 </TableBody>
               </Table>
+            </div>
             )}
           </CardContent>
         </Card>
