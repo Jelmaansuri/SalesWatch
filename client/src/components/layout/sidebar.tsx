@@ -1,6 +1,7 @@
 import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
 import { NavigationItem } from "@/lib/types";
+import { useAuth } from "@/hooks/useAuth";
 import { 
   ChartPie, 
   TrendingUp, 
@@ -35,6 +36,7 @@ interface SidebarProps {
 
 export default function Sidebar({ className }: SidebarProps) {
   const [location] = useLocation();
+  const { user } = useAuth();
 
   return (
     <div className={cn("flex flex-col w-64 bg-white dark:bg-gray-900 shadow-lg", className)}>
@@ -68,13 +70,28 @@ export default function Sidebar({ className }: SidebarProps) {
         })}
       </nav>
       
-      {/* User Profile - Removed hardcoded data for production */}
+      {/* User Profile */}
       <div className="flex items-center p-4 border-t dark:border-gray-700">
-        <div className="flex items-center justify-center w-8 h-8 rounded-full bg-my-blue text-white text-sm font-medium">
-          U
-        </div>
+        {user?.profileImageUrl ? (
+          <img 
+            src={user.profileImageUrl} 
+            alt="Profile" 
+            className="w-8 h-8 rounded-full object-cover"
+          />
+        ) : (
+          <div className="flex items-center justify-center w-8 h-8 rounded-full bg-my-blue text-white text-sm font-medium">
+            {user?.firstName ? user.firstName.charAt(0).toUpperCase() : user?.email?.charAt(0).toUpperCase() || 'U'}
+          </div>
+        )}
         <div className="ml-3">
-          <p className="text-sm font-medium">User</p>
+          <p className="text-sm font-medium">
+            {user?.firstName && user?.lastName 
+              ? `${user.firstName} ${user.lastName}`
+              : user?.firstName 
+              ? user.firstName
+              : user?.email?.split('@')[0] || 'User'
+            }
+          </p>
           <p className="text-xs text-gray-500 dark:text-gray-400">Business Manager</p>
         </div>
       </div>
