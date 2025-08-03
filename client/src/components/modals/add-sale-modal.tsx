@@ -16,8 +16,13 @@ import { ORDER_STATUS_LABELS } from "@/lib/types";
 import type { Customer, Product } from "@shared/schema";
 import { z } from "zod";
 
-const formSchema = insertSaleSchema.extend({
+const formSchema = z.object({
+  customerId: z.string().min(1, "Customer is required"),
+  productId: z.string().min(1, "Product is required"),
+  quantity: z.number().min(1, "Quantity must be at least 1"),
   unitPrice: z.string().min(1, "Unit price is required"),
+  status: z.string().min(1, "Status is required"),
+  notes: z.string().optional(),
 });
 
 type FormData = z.infer<typeof formSchema>;
@@ -58,7 +63,32 @@ export default function AddSaleModal({ open, onOpenChange, onSaleAdded }: AddSal
   const createSaleMutation = useMutation({
     mutationFn: async (data: FormData) => {
       console.log("Creating sale with data:", data);
-      const response = await apiRequest("POST", "/api/sales", data);
+      
+      // Calculate the values needed for the sale
+      const unitPrice = parseFloat(data.unitPrice);
+      const quantity = data.quantity;
+      const totalAmount = unitPrice * quantity;
+      
+      // Calculate profit if we have the product selected
+      let profit = 0;
+      if (selectedProduct) {
+        profit = calculateProfit(unitPrice, parseFloat(selectedProduct.costPrice), quantity);
+      }
+      
+      // Prepare the sale data for the API
+      const saleData = {
+        customerId: data.customerId,
+        productId: data.productId,
+        quantity: quantity,
+        unitPrice: data.unitPrice,
+        totalAmount: totalAmount.toFixed(2),
+        profit: profit.toFixed(2),
+        status: data.status,
+        notes: data.notes || "",
+      };
+      
+      console.log("Sending sale data to API:", saleData);
+      const response = await apiRequest("POST", "/api/sales", saleData);
       return response.json();
     },
     onSuccess: () => {
