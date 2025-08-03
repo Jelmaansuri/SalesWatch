@@ -146,14 +146,28 @@ export default function Sales() {
     setIsEditDialogOpen(true);
   };
 
-  const handleSubmit = (data: FormData) => {
+  const handleSubmit = async (data: FormData) => {
+    console.log("=== EDIT FORM SUBMITTED ===");
     console.log("Form submitted with data:", data);
     console.log("Editing sale:", editingSale);
-    if (editingSale) {
-      console.log("Mutating sale update...");
-      updateSaleMutation.mutate({ id: editingSale.id, data });
-    } else {
+    console.log("Form errors:", form.formState.errors);
+    console.log("Form is valid:", form.formState.isValid);
+    
+    if (!editingSale) {
       console.error("No sale being edited!");
+      toast({
+        title: "Error",
+        description: "No sale selected for editing",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    try {
+      console.log("Calling updateSaleMutation...");
+      await updateSaleMutation.mutateAsync({ id: editingSale.id, data });
+    } catch (error) {
+      console.error("Update failed:", error);
     }
   };
 
@@ -349,6 +363,12 @@ export default function Sales() {
                     type="submit" 
                     disabled={updateSaleMutation.isPending}
                     className="bg-blue-600 hover:bg-blue-700 text-white"
+                    onClick={(e) => {
+                      console.log("Update Order button clicked!");
+                      console.log("Form valid:", form.formState.isValid);
+                      console.log("Form errors:", form.formState.errors);
+                      // Don't prevent default, let form submission happen naturally
+                    }}
                   >
                     {updateSaleMutation.isPending ? "Updating..." : "Update Order"}
                   </Button>
