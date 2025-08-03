@@ -56,6 +56,7 @@ export default function AddSaleModal({ open, onOpenChange, onSaleAdded }: AddSal
 
   const createSaleMutation = useMutation({
     mutationFn: async (data: FormData) => {
+      console.log("Creating sale with data:", data);
       const response = await apiRequest("POST", "/api/sales", data);
       return response.json();
     },
@@ -67,10 +68,23 @@ export default function AddSaleModal({ open, onOpenChange, onSaleAdded }: AddSal
         description: "Sale has been created successfully.",
       });
       onSaleAdded();
+      onOpenChange(false);
       form.reset();
       setSelectedProduct(null);
     },
     onError: (error: any) => {
+      console.error("Sale creation error:", error);
+      if (error.message?.includes("Unauthorized") || error.message?.includes("401")) {
+        toast({
+          title: "Session Expired",
+          description: "Please sign in again to continue.",
+          variant: "destructive",
+        });
+        setTimeout(() => {
+          window.location.href = "/api/login";
+        }, 1000);
+        return;
+      }
       toast({
         title: "Error",
         description: error.message || "Failed to create sale.",
@@ -80,6 +94,37 @@ export default function AddSaleModal({ open, onOpenChange, onSaleAdded }: AddSal
   });
 
   const onSubmit = (data: FormData) => {
+    console.log("Form submitted with data:", data);
+    console.log("Form errors:", form.formState.errors);
+    
+    // Validate required fields
+    if (!data.customerId) {
+      toast({
+        title: "Missing Customer",
+        description: "Please select a customer.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    if (!data.productId) {
+      toast({
+        title: "Missing Product", 
+        description: "Please select a product.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    if (!data.unitPrice || parseFloat(data.unitPrice) <= 0) {
+      toast({
+        title: "Invalid Price",
+        description: "Please enter a valid unit price.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     createSaleMutation.mutate(data);
   };
 

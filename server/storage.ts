@@ -47,6 +47,63 @@ export class MemStorage implements IStorage {
     this.customers = new Map();
     this.products = new Map();
     this.sales = new Map();
+    this.initializeSampleData();
+  }
+
+  private initializeSampleData() {
+    // Add sample customers
+    const sampleCustomer1: Customer = {
+      id: "customer-1",
+      name: "Ahmad Restaurant Sdn Bhd",
+      email: "ahmad@restaurant.com.my",
+      phone: "+60123456789",
+      company: "Ahmad Restaurant",
+      address: "Kuala Lumpur, Malaysia",
+      createdAt: new Date(),
+    };
+
+    const sampleCustomer2: Customer = {
+      id: "customer-2", 
+      name: "Siti Trading",
+      email: "siti@trading.com.my",
+      phone: "+60198765432",
+      company: "Siti Trading Sdn Bhd",
+      address: "Penang, Malaysia",
+      createdAt: new Date(),
+    };
+
+    this.customers.set(sampleCustomer1.id, sampleCustomer1);
+    this.customers.set(sampleCustomer2.id, sampleCustomer2);
+
+    // Add sample products
+    const sampleProduct1: Product = {
+      id: "product-1",
+      name: "Premium Fresh Young Ginger",
+      sku: "GINGER-001",
+      description: "Premium quality fresh young ginger, organically grown",
+      costPrice: "8.50",
+      sellingPrice: "15.00",
+      stock: 100,
+      status: "active",
+      imageUrl: null,
+      createdAt: new Date(),
+    };
+
+    const sampleProduct2: Product = {
+      id: "product-2",
+      name: "Organic Young Ginger - Bulk",
+      sku: "GINGER-002", 
+      description: "Bulk organic young ginger for commercial use",
+      costPrice: "12.00",
+      sellingPrice: "22.00",
+      stock: 50,
+      status: "active",
+      imageUrl: null,
+      createdAt: new Date(),
+    };
+
+    this.products.set(sampleProduct1.id, sampleProduct1);
+    this.products.set(sampleProduct2.id, sampleProduct2);
   }
 
   // User operations (required for Replit Auth)
