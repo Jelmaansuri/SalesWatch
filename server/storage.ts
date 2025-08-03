@@ -1,0 +1,268 @@
+import { type Customer, type InsertCustomer, type Product, type InsertProduct, type Sale, type InsertSale, type SaleWithDetails, type DashboardMetrics } from "@shared/schema";
+import { randomUUID } from "crypto";
+
+export interface IStorage {
+  // Customers
+  getCustomers(): Promise<Customer[]>;
+  getCustomer(id: string): Promise<Customer | undefined>;
+  getCustomerByEmail(email: string): Promise<Customer | undefined>;
+  createCustomer(customer: InsertCustomer): Promise<Customer>;
+  updateCustomer(id: string, updates: Partial<Customer>): Promise<Customer | undefined>;
+  deleteCustomer(id: string): Promise<boolean>;
+
+  // Products
+  getProducts(): Promise<Product[]>;
+  getProduct(id: string): Promise<Product | undefined>;
+  getProductBySku(sku: string): Promise<Product | undefined>;
+  createProduct(product: InsertProduct): Promise<Product>;
+  updateProduct(id: string, updates: Partial<Product>): Promise<Product | undefined>;
+  deleteProduct(id: string): Promise<boolean>;
+
+  // Sales
+  getSales(): Promise<Sale[]>;
+  getSalesWithDetails(): Promise<SaleWithDetails[]>;
+  getSale(id: string): Promise<Sale | undefined>;
+  getSaleWithDetails(id: string): Promise<SaleWithDetails | undefined>;
+  createSale(sale: InsertSale): Promise<Sale>;
+  updateSale(id: string, updates: Partial<Sale>): Promise<Sale | undefined>;
+  deleteSale(id: string): Promise<boolean>;
+
+  // Analytics
+  getDashboardMetrics(): Promise<DashboardMetrics>;
+  getRevenueByMonth(): Promise<{ month: string; revenue: number }[]>;
+  getTopProducts(): Promise<Array<{ product: Product; totalRevenue: number; totalProfit: number; unitsSold: number }>>;
+}
+
+export class MemStorage implements IStorage {
+  private customers: Map<string, Customer>;
+  private products: Map<string, Product>;
+  private sales: Map<string, Sale>;
+
+  constructor() {
+    this.customers = new Map();
+    this.products = new Map();
+    this.sales = new Map();
+  }
+
+  // Customers
+  async getCustomers(): Promise<Customer[]> {
+    return Array.from(this.customers.values());
+  }
+
+  async getCustomer(id: string): Promise<Customer | undefined> {
+    return this.customers.get(id);
+  }
+
+  async getCustomerByEmail(email: string): Promise<Customer | undefined> {
+    return Array.from(this.customers.values()).find(customer => customer.email === email);
+  }
+
+  async createCustomer(insertCustomer: InsertCustomer): Promise<Customer> {
+    const id = randomUUID();
+    const customer: Customer = {
+      ...insertCustomer,
+      id,
+      createdAt: new Date(),
+    };
+    this.customers.set(id, customer);
+    return customer;
+  }
+
+  async updateCustomer(id: string, updates: Partial<Customer>): Promise<Customer | undefined> {
+    const customer = this.customers.get(id);
+    if (!customer) return undefined;
+    
+    const updatedCustomer = { ...customer, ...updates };
+    this.customers.set(id, updatedCustomer);
+    return updatedCustomer;
+  }
+
+  async deleteCustomer(id: string): Promise<boolean> {
+    return this.customers.delete(id);
+  }
+
+  // Products
+  async getProducts(): Promise<Product[]> {
+    return Array.from(this.products.values());
+  }
+
+  async getProduct(id: string): Promise<Product | undefined> {
+    return this.products.get(id);
+  }
+
+  async getProductBySku(sku: string): Promise<Product | undefined> {
+    return Array.from(this.products.values()).find(product => product.sku === sku);
+  }
+
+  async createProduct(insertProduct: InsertProduct): Promise<Product> {
+    const id = randomUUID();
+    const product: Product = {
+      ...insertProduct,
+      id,
+      createdAt: new Date(),
+    };
+    this.products.set(id, product);
+    return product;
+  }
+
+  async updateProduct(id: string, updates: Partial<Product>): Promise<Product | undefined> {
+    const product = this.products.get(id);
+    if (!product) return undefined;
+    
+    const updatedProduct = { ...product, ...updates };
+    this.products.set(id, updatedProduct);
+    return updatedProduct;
+  }
+
+  async deleteProduct(id: string): Promise<boolean> {
+    return this.products.delete(id);
+  }
+
+  // Sales
+  async getSales(): Promise<Sale[]> {
+    return Array.from(this.sales.values());
+  }
+
+  async getSalesWithDetails(): Promise<SaleWithDetails[]> {
+    const sales = Array.from(this.sales.values());
+    const salesWithDetails: SaleWithDetails[] = [];
+
+    for (const sale of sales) {
+      const customer = this.customers.get(sale.customerId);
+      const product = this.products.get(sale.productId);
+      
+      if (customer && product) {
+        salesWithDetails.push({
+          ...sale,
+          customer,
+          product,
+        });
+      }
+    }
+
+    return salesWithDetails.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  }
+
+  async getSale(id: string): Promise<Sale | undefined> {
+    return this.sales.get(id);
+  }
+
+  async getSaleWithDetails(id: string): Promise<SaleWithDetails | undefined> {
+    const sale = this.sales.get(id);
+    if (!sale) return undefined;
+
+    const customer = this.customers.get(sale.customerId);
+    const product = this.products.get(sale.productId);
+    
+    if (!customer || !product) return undefined;
+
+    return {
+      ...sale,
+      customer,
+      product,
+    };
+  }
+
+  async createSale(insertSale: InsertSale): Promise<Sale> {
+    const id = randomUUID();
+    const now = new Date();
+    const sale: Sale = {
+      ...insertSale,
+      id,
+      createdAt: now,
+      updatedAt: now,
+    };
+    this.sales.set(id, sale);
+    return sale;
+  }
+
+  async updateSale(id: string, updates: Partial<Sale>): Promise<Sale | undefined> {
+    const sale = this.sales.get(id);
+    if (!sale) return undefined;
+    
+    const updatedSale = { 
+      ...sale, 
+      ...updates, 
+      updatedAt: new Date() 
+    };
+    this.sales.set(id, updatedSale);
+    return updatedSale;
+  }
+
+  async deleteSale(id: string): Promise<boolean> {
+    return this.sales.delete(id);
+  }
+
+  // Analytics
+  async getDashboardMetrics(): Promise<DashboardMetrics> {
+    const sales = Array.from(this.sales.values());
+    const customers = Array.from(this.customers.values());
+
+    const totalRevenue = sales.reduce((sum, sale) => sum + parseFloat(sale.totalAmount), 0);
+    const totalProfit = sales.reduce((sum, sale) => sum + parseFloat(sale.profit), 0);
+    const activeOrders = sales.filter(sale => sale.status !== 'completed').length;
+    const totalCustomers = customers.length;
+
+    const orderStatusCounts = {
+      paid: sales.filter(sale => sale.status === 'paid').length,
+      pending_shipment: sales.filter(sale => sale.status === 'pending_shipment').length,
+      completed: sales.filter(sale => sale.status === 'completed').length,
+    };
+
+    return {
+      totalRevenue,
+      totalProfit,
+      activeOrders,
+      totalCustomers,
+      orderStatusCounts,
+    };
+  }
+
+  async getRevenueByMonth(): Promise<{ month: string; revenue: number }[]> {
+    const sales = Array.from(this.sales.values());
+    const monthlyRevenue = new Map<string, number>();
+
+    sales.forEach(sale => {
+      const month = sale.createdAt.toLocaleDateString('en-MY', { 
+        month: 'short',
+        year: 'numeric'
+      });
+      const current = monthlyRevenue.get(month) || 0;
+      monthlyRevenue.set(month, current + parseFloat(sale.totalAmount));
+    });
+
+    return Array.from(monthlyRevenue.entries()).map(([month, revenue]) => ({
+      month,
+      revenue,
+    }));
+  }
+
+  async getTopProducts(): Promise<Array<{ product: Product; totalRevenue: number; totalProfit: number; unitsSold: number }>> {
+    const sales = Array.from(this.sales.values());
+    const productStats = new Map<string, { totalRevenue: number; totalProfit: number; unitsSold: number }>();
+
+    sales.forEach(sale => {
+      const current = productStats.get(sale.productId) || { totalRevenue: 0, totalProfit: 0, unitsSold: 0 };
+      productStats.set(sale.productId, {
+        totalRevenue: current.totalRevenue + parseFloat(sale.totalAmount),
+        totalProfit: current.totalProfit + parseFloat(sale.profit),
+        unitsSold: current.unitsSold + sale.quantity,
+      });
+    });
+
+    const results = [];
+    for (const [productId, stats] of productStats.entries()) {
+      const product = this.products.get(productId);
+      if (product) {
+        results.push({
+          product,
+          ...stats,
+        });
+      }
+    }
+
+    return results.sort((a, b) => b.totalProfit - a.totalProfit);
+  }
+}
+
+export const storage = new MemStorage();

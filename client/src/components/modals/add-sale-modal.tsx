@@ -1,0 +1,251 @@
+import { useState } from "react";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { insertSaleSchema } from "@shared/schema";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
+import { formatCurrency, calculateProfit } from "@/lib/currency";
+import { ORDER_STATUS_LABELS } from "@/lib/types";
+import type { Customer, Product } from "@shared/schema";
+import { z } from "zod";
+
+const formSchema = insertSaleSchema.extend({
+  unitPrice: z.string().min(1, "Unit price is required"),
+});
+
+type FormData = z.infer<typeof formSchema>;
+
+interface AddSaleModalProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onSaleAdded: () => void;
+}
+
+export default function AddSaleModal({ open, onOpenChange, onSaleAdded }: AddSaleModalProps) {
+  const { toast } = useToast();
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+
+  const form = useForm<FormData>({
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      customerId: "",
+      productId: "",
+      quantity: 1,
+      unitPrice: "",
+      status: "paid",
+      notes: "",
+    },
+  });
+
+  const { data: customers = [] } = useQuery({
+    queryKey: ["/api/customers"],
+    enabled: open,
+  });
+
+  const { data: products = [] } = useQuery({
+    queryKey: ["/api/products"],
+    enabled: open,
+  });
+
+  const createSaleMutation = useMutation({
+    mutationFn: async (data: FormData) => {
+      const response = await apiRequest("POST", "/api/sales", data);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/sales"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/analytics"] });
+      toast({
+        title: "Success",
+        description: "Sale has been created successfully.",
+      });
+      onSaleAdded();
+      form.reset();
+      setSelectedProduct(null);
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to create sale.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const onSubmit = (data: FormData) => {
+    createSaleMutation.mutate(data);
+  };
+
+  const handleProductChange = (productId: string) => {
+    const product = products.find((p: Product) => p.id === productId);
+    setSelectedProduct(product || null);
+    if (product) {
+      form.setValue("unitPrice", product.sellingPrice);
+    }
+  };
+
+  const watchedQuantity = form.watch("quantity");
+  const watchedUnitPrice = form.watch("unitPrice");
+
+  const totalAmount = watchedQuantity && watchedUnitPrice 
+    ? parseFloat(watchedUnitPrice) * watchedQuantity 
+    : 0;
+
+  const profit = selectedProduct && watchedQuantity && watchedUnitPrice
+    ? calculateProfit(parseFloat(watchedUnitPrice), parseFloat(selectedProduct.costPrice), watchedQuantity)
+    : 0;
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-[500px]">
+        <DialogHeader>
+          <DialogTitle>Add New Sale</DialogTitle>
+        </DialogHeader>
+        
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="customerId">Customer</Label>
+            <Select 
+              value={form.watch("customerId")} 
+              onValueChange={(value) => form.setValue("customerId", value)}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select customer" />
+              </SelectTrigger>
+              <SelectContent>
+                {customers.map((customer: Customer) => (
+                  <SelectItem key={customer.id} value={customer.id}>
+                    {customer.name} - {customer.email}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {form.formState.errors.customerId && (
+              <p className="text-sm text-red-600">{form.formState.errors.customerId.message}</p>
+            )}
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="productId">Product</Label>
+            <Select 
+              value={form.watch("productId")} 
+              onValueChange={(value) => {
+                form.setValue("productId", value);
+                handleProductChange(value);
+              }}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select product" />
+              </SelectTrigger>
+              <SelectContent>
+                {products.map((product: Product) => (
+                  <SelectItem key={product.id} value={product.id}>
+                    {product.name} - {formatCurrency(product.sellingPrice)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {form.formState.errors.productId && (
+              <p className="text-sm text-red-600">{form.formState.errors.productId.message}</p>
+            )}
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="quantity">Quantity</Label>
+              <Input
+                id="quantity"
+                type="number"
+                min="1"
+                {...form.register("quantity", { valueAsNumber: true })}
+              />
+              {form.formState.errors.quantity && (
+                <p className="text-sm text-red-600">{form.formState.errors.quantity.message}</p>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="unitPrice">Unit Price (RM)</Label>
+              <Input
+                id="unitPrice"
+                type="number"
+                step="0.01"
+                min="0"
+                {...form.register("unitPrice")}
+              />
+              {form.formState.errors.unitPrice && (
+                <p className="text-sm text-red-600">{form.formState.errors.unitPrice.message}</p>
+              )}
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="status">Status</Label>
+            <Select 
+              value={form.watch("status")} 
+              onValueChange={(value) => form.setValue("status", value)}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {Object.entries(ORDER_STATUS_LABELS).map(([value, label]) => (
+                  <SelectItem key={value} value={value}>
+                    {label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="notes">Notes (Optional)</Label>
+            <Textarea
+              id="notes"
+              placeholder="Additional notes about this sale..."
+              {...form.register("notes")}
+            />
+          </div>
+
+          {/* Summary */}
+          {totalAmount > 0 && (
+            <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg space-y-2">
+              <div className="flex justify-between">
+                <span className="text-sm font-medium">Total Amount:</span>
+                <span className="text-sm font-bold">{formatCurrency(totalAmount)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-sm font-medium">Expected Profit:</span>
+                <span className="text-sm font-bold text-my-green">{formatCurrency(profit)}</span>
+              </div>
+            </div>
+          )}
+
+          <div className="flex justify-end space-x-2 pt-4">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              disabled={createSaleMutation.isPending}
+              className="bg-my-blue hover:bg-my-blue/90"
+            >
+              {createSaleMutation.isPending ? "Creating..." : "Create Sale"}
+            </Button>
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
