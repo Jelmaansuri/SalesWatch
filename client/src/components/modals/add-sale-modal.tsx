@@ -14,7 +14,7 @@ import { insertSaleSchema } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency, calculateProfit } from "@/lib/currency";
-import { ORDER_STATUS_LABELS } from "@/lib/types";
+import { ORDER_STATUS_LABELS, PLATFORM_SOURCE_LABELS } from "@/lib/types";
 import type { Customer, Product } from "@shared/schema";
 import { z } from "zod";
 import QuickAddCustomerModal from "./quick-add-customer-modal";
@@ -29,6 +29,7 @@ const formSchema = z.object({
   unitPrice: z.string().min(1, "Unit price is required"),
   status: z.string().min(1, "Status is required"),
   saleDate: z.date(),
+  platformSource: z.string().min(1, "Platform source is required"),
   notes: z.string().optional(),
 });
 
@@ -56,6 +57,7 @@ export default function AddSaleModal({ open, onOpenChange, onSaleAdded }: AddSal
       unitPrice: "",
       status: "unpaid",
       saleDate: new Date(),
+      platformSource: "others",
       notes: "",
     },
   });
@@ -95,6 +97,7 @@ export default function AddSaleModal({ open, onOpenChange, onSaleAdded }: AddSal
         profit: profit.toFixed(2),
         status: data.status,
         saleDate: data.saleDate.toISOString(),
+        platformSource: data.platformSource,
         notes: data.notes || "",
       };
       
@@ -387,6 +390,25 @@ export default function AddSaleModal({ open, onOpenChange, onSaleAdded }: AddSal
                 </PopoverContent>
               </Popover>
             </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="platformSource">Platform Source</Label>
+            <Select 
+              value={form.watch("platformSource")} 
+              onValueChange={(value) => form.setValue("platformSource", value)}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {Object.entries(PLATFORM_SOURCE_LABELS).map(([value, label]) => (
+                  <SelectItem key={value} value={value}>
+                    {label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="space-y-2">

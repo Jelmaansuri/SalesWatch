@@ -58,6 +58,7 @@ export const sales = pgTable("sales", {
   profit: decimal("profit", { precision: 10, scale: 2 }).notNull(),
   status: text("status").notNull(), // unpaid, paid, pending_shipment, shipped, completed
   saleDate: timestamp("sale_date").defaultNow().notNull(),
+  platformSource: text("platform_source").notNull(), // tiktok, facebook, whatsapp, others
   notes: text("notes"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),

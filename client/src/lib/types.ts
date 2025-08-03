@@ -8,6 +8,15 @@ export const ORDER_STATUS_LABELS: Record<OrderStatus, string> = {
   completed: 'Completed',
 };
 
+export type PlatformSource = 'tiktok' | 'facebook' | 'whatsapp' | 'others';
+
+export const PLATFORM_SOURCE_LABELS: Record<PlatformSource, string> = {
+  tiktok: 'TikTok',
+  facebook: 'Facebook',
+  whatsapp: 'WhatsApp',
+  others: 'Others',
+};
+
 export const ORDER_STATUS_COLORS: Record<OrderStatus, string> = {
   unpaid: 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400',
   paid: 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400',
