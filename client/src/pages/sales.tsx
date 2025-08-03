@@ -35,16 +35,16 @@ export default function Sales() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
 
-  const { data: sales = [], isLoading, error } = useQuery({
+  const { data: sales = [], isLoading, error } = useQuery<SaleWithDetails[]>({
     queryKey: ["/api/sales"],
   });
 
-  const { data: customers = [] } = useQuery({
+  const { data: customers = [] } = useQuery<Customer[]>({
     queryKey: ["/api/customers"],
     enabled: isEditDialogOpen,
   });
 
-  const { data: products = [] } = useQuery({
+  const { data: products = [] } = useQuery<Product[]>({
     queryKey: ["/api/products"],
     enabled: isEditDialogOpen,
   });
@@ -200,7 +200,7 @@ export default function Sales() {
                       <SelectValue placeholder="Select customer" />
                     </SelectTrigger>
                     <SelectContent>
-                      {customers.map((customer: Customer) => (
+                      {customers.map((customer) => (
                         <SelectItem key={customer.id} value={customer.id}>
                           {customer.name} - {customer.email}
                         </SelectItem>
@@ -219,7 +219,7 @@ export default function Sales() {
                       <SelectValue placeholder="Select product" />
                     </SelectTrigger>
                     <SelectContent>
-                      {products.map((product: Product) => (
+                      {products.map((product) => (
                         <SelectItem key={product.id} value={product.id}>
                           {product.name} - {formatCurrency(product.sellingPrice)}
                         </SelectItem>
@@ -333,7 +333,7 @@ export default function Sales() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {sales.map((sale: SaleWithDetails) => (
+                  {sales.map((sale) => (
                     <TableRow key={sale.id}>
                       <TableCell>
                         <div className="flex items-center">
