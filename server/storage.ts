@@ -1,5 +1,8 @@
 import { type Customer, type InsertCustomer, type Product, type InsertProduct, type Sale, type InsertSale, type SaleWithDetails, type DashboardMetrics, type User, type UpsertUser } from "@shared/schema";
 import { randomUUID } from "crypto";
+import { db } from "./db";
+import { customers, products, sales, users } from "@shared/schema";
+import { eq, desc, sql, and } from "drizzle-orm";
 
 export interface IStorage {
   // User operations (required for Replit Auth)
@@ -440,4 +443,417 @@ export class MemStorage implements IStorage {
   }
 }
 
-export const storage = new MemStorage();
+export class DatabaseStorage implements IStorage {
+  // User operations (required for Replit Auth)
+  async getUser(id: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.id, id));
+    return user || undefined;
+  }
+
+  async upsertUser(userData: UpsertUser): Promise<User> {
+    const [user] = await db
+      .insert(users)
+      .values(userData)
+      .onConflictDoUpdate({
+        target: users.id,
+        set: {
+          ...userData,
+          updatedAt: new Date(),
+        },
+      })
+      .returning();
+    return user;
+  }
+
+  // Customer operations
+  async getCustomers(): Promise<Customer[]> {
+    return await db.select().from(customers).orderBy(desc(customers.createdAt));
+  }
+
+  async getCustomer(id: string): Promise<Customer | undefined> {
+    const [customer] = await db.select().from(customers).where(eq(customers.id, id));
+    return customer || undefined;
+  }
+
+  async getCustomerByEmail(email: string): Promise<Customer | undefined> {
+    const [customer] = await db.select().from(customers).where(eq(customers.email, email));
+    return customer || undefined;
+  }
+
+  async createCustomer(customer: InsertCustomer): Promise<Customer> {
+    const [newCustomer] = await db.insert(customers).values({
+      id: randomUUID(),
+      ...customer,
+    }).returning();
+    return newCustomer;
+  }
+
+  async updateCustomer(id: string, updates: Partial<Customer>): Promise<Customer | undefined> {
+    const [updatedCustomer] = await db
+      .update(customers)
+      .set(updates)
+      .where(eq(customers.id, id))
+      .returning();
+    return updatedCustomer || undefined;
+  }
+
+  async deleteCustomer(id: string): Promise<boolean> {
+    const result = await db.delete(customers).where(eq(customers.id, id));
+    return result.rowCount! > 0;
+  }
+
+  // Product operations
+  async getProducts(): Promise<Product[]> {
+    return await db.select().from(products).orderBy(desc(products.createdAt));
+  }
+
+  async getProduct(id: string): Promise<Product | undefined> {
+    const [product] = await db.select().from(products).where(eq(products.id, id));
+    return product || undefined;
+  }
+
+  async getProductBySku(sku: string): Promise<Product | undefined> {
+    const [product] = await db.select().from(products).where(eq(products.sku, sku));
+    return product || undefined;
+  }
+
+  async createProduct(product: InsertProduct): Promise<Product> {
+    const [newProduct] = await db.insert(products).values({
+      id: randomUUID(),
+      ...product,
+    }).returning();
+    return newProduct;
+  }
+
+  async updateProduct(id: string, updates: Partial<Product>): Promise<Product | undefined> {
+    const [updatedProduct] = await db
+      .update(products)
+      .set(updates)
+      .where(eq(products.id, id))
+      .returning();
+    return updatedProduct || undefined;
+  }
+
+  async deleteProduct(id: string): Promise<boolean> {
+    const result = await db.delete(products).where(eq(products.id, id));
+    return result.rowCount! > 0;
+  }
+
+  // Sales operations
+  async getSales(): Promise<Sale[]> {
+    return await db.select().from(sales).orderBy(desc(sales.createdAt));
+  }
+
+  async getSalesWithDetails(): Promise<SaleWithDetails[]> {
+    const result = await db
+      .select({
+        id: sales.id,
+        customerId: sales.customerId,
+        productId: sales.productId,
+        quantity: sales.quantity,
+        unitPrice: sales.unitPrice,
+        discountAmount: sales.discountAmount,
+        totalAmount: sales.totalAmount,
+        profit: sales.profit,
+        status: sales.status,
+        saleDate: sales.saleDate,
+        platformSource: sales.platformSource,
+        notes: sales.notes,
+        createdAt: sales.createdAt,
+        updatedAt: sales.updatedAt,
+        customer: {
+          id: customers.id,
+          name: customers.name,
+          email: customers.email,
+          phone: customers.phone,
+          company: customers.company,
+          address: customers.address,
+          createdAt: customers.createdAt,
+        },
+        product: {
+          id: products.id,
+          name: products.name,
+          sku: products.sku,
+          description: products.description,
+          costPrice: products.costPrice,
+          sellingPrice: products.sellingPrice,
+          stock: products.stock,
+          status: products.status,
+          imageUrl: products.imageUrl,
+          createdAt: products.createdAt,
+        },
+      })
+      .from(sales)
+      .leftJoin(customers, eq(sales.customerId, customers.id))
+      .leftJoin(products, eq(sales.productId, products.id))
+      .orderBy(desc(sales.createdAt));
+    
+    return result.map(row => ({
+      id: row.id,
+      customerId: row.customerId,
+      productId: row.productId,
+      quantity: row.quantity,
+      unitPrice: row.unitPrice,
+      discountAmount: row.discountAmount,
+      totalAmount: row.totalAmount,
+      profit: row.profit,
+      status: row.status,
+      saleDate: row.saleDate,
+      platformSource: row.platformSource,
+      notes: row.notes,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
+      customer: row.customer!,
+      product: row.product!,
+    }));
+  }
+
+  async getSale(id: string): Promise<Sale | undefined> {
+    const [sale] = await db.select().from(sales).where(eq(sales.id, id));
+    return sale || undefined;
+  }
+
+  async getSaleWithDetails(id: string): Promise<SaleWithDetails | undefined> {
+    const result = await db
+      .select({
+        id: sales.id,
+        customerId: sales.customerId,
+        productId: sales.productId,
+        quantity: sales.quantity,
+        unitPrice: sales.unitPrice,
+        discountAmount: sales.discountAmount,
+        totalAmount: sales.totalAmount,
+        profit: sales.profit,
+        status: sales.status,
+        saleDate: sales.saleDate,
+        platformSource: sales.platformSource,
+        notes: sales.notes,
+        createdAt: sales.createdAt,
+        updatedAt: sales.updatedAt,
+        customer: {
+          id: customers.id,
+          name: customers.name,
+          email: customers.email,
+          phone: customers.phone,
+          company: customers.company,
+          address: customers.address,
+          createdAt: customers.createdAt,
+        },
+        product: {
+          id: products.id,
+          name: products.name,
+          sku: products.sku,
+          description: products.description,
+          costPrice: products.costPrice,
+          sellingPrice: products.sellingPrice,
+          stock: products.stock,
+          status: products.status,
+          imageUrl: products.imageUrl,
+          createdAt: products.createdAt,
+        },
+      })
+      .from(sales)
+      .leftJoin(customers, eq(sales.customerId, customers.id))
+      .leftJoin(products, eq(sales.productId, products.id))
+      .where(eq(sales.id, id));
+
+    if (result.length === 0) return undefined;
+
+    const row = result[0];
+    return {
+      id: row.id,
+      customerId: row.customerId,
+      productId: row.productId,
+      quantity: row.quantity,
+      unitPrice: row.unitPrice,
+      discountAmount: row.discountAmount,
+      totalAmount: row.totalAmount,
+      profit: row.profit,
+      status: row.status,
+      saleDate: row.saleDate,
+      platformSource: row.platformSource,
+      notes: row.notes,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
+      customer: row.customer!,
+      product: row.product!,
+    };
+  }
+
+  async createSale(sale: InsertSale): Promise<Sale> {
+    const unitPriceNum = typeof sale.unitPrice === 'string' ? parseFloat(sale.unitPrice) : sale.unitPrice;
+    const discountAmountNum = sale.discountAmount ? (typeof sale.discountAmount === 'string' ? parseFloat(sale.discountAmount) : sale.discountAmount) : 0;
+    const totalAmount = (unitPriceNum * sale.quantity) - discountAmountNum;
+    
+    // Get product cost to calculate profit
+    const product = await this.getProduct(sale.productId);
+    if (!product) {
+      throw new Error("Product not found");
+    }
+    
+    const costPriceNum = typeof product.costPrice === 'string' ? parseFloat(product.costPrice) : product.costPrice;
+    const profit = totalAmount - (costPriceNum * sale.quantity);
+
+    const [newSale] = await db.insert(sales).values({
+      id: randomUUID(),
+      ...sale,
+      discountAmount: discountAmountNum.toString(),
+      totalAmount: totalAmount.toString(),
+      profit: profit.toString(),
+    }).returning();
+    return newSale;
+  }
+
+  async updateSale(id: string, updates: Partial<Sale>): Promise<Sale | undefined> {
+    // If quantity, unitPrice, or discountAmount is being updated, recalculate totals
+    if (updates.quantity !== undefined || updates.unitPrice !== undefined || updates.discountAmount !== undefined) {
+      const existingSale = await this.getSale(id);
+      if (!existingSale) return undefined;
+
+      const product = await this.getProduct(existingSale.productId);
+      if (!product) return undefined;
+
+      const quantity = updates.quantity !== undefined ? updates.quantity : existingSale.quantity;
+      const unitPriceNum = updates.unitPrice !== undefined 
+        ? (typeof updates.unitPrice === 'string' ? parseFloat(updates.unitPrice) : updates.unitPrice)
+        : (typeof existingSale.unitPrice === 'string' ? parseFloat(existingSale.unitPrice) : existingSale.unitPrice);
+      const discountAmountNum = updates.discountAmount !== undefined
+        ? (updates.discountAmount ? (typeof updates.discountAmount === 'string' ? parseFloat(updates.discountAmount) : updates.discountAmount) : 0)
+        : (existingSale.discountAmount ? (typeof existingSale.discountAmount === 'string' ? parseFloat(existingSale.discountAmount) : existingSale.discountAmount) : 0);
+      
+      const totalAmount = (unitPriceNum * quantity) - discountAmountNum;
+      const costPriceNum = typeof product.costPrice === 'string' ? parseFloat(product.costPrice) : product.costPrice;
+      const profit = totalAmount - (costPriceNum * quantity);
+
+      updates = {
+        ...updates,
+        totalAmount: totalAmount.toString(),
+        profit: profit.toString(),
+        updatedAt: new Date(),
+      };
+    } else {
+      updates = {
+        ...updates,
+        updatedAt: new Date(),
+      };
+    }
+
+    const [updatedSale] = await db
+      .update(sales)
+      .set(updates)
+      .where(eq(sales.id, id))
+      .returning();
+    return updatedSale || undefined;
+  }
+
+  async deleteSale(id: string): Promise<boolean> {
+    const result = await db.delete(sales).where(eq(sales.id, id));
+    return result.rowCount! > 0;
+  }
+
+  // Stock Management
+  async updateProductStock(productId: string, quantityChange: number): Promise<Product | undefined> {
+    const [updatedProduct] = await db
+      .update(products)
+      .set({
+        stock: sql`${products.stock} + ${quantityChange}`,
+      })
+      .where(eq(products.id, productId))
+      .returning();
+    return updatedProduct || undefined;
+  }
+
+  async checkStockAvailability(productId: string, requiredQuantity: number): Promise<boolean> {
+    const product = await this.getProduct(productId);
+    return product ? product.stock >= requiredQuantity : false;
+  }
+
+  // Analytics
+  async getDashboardMetrics(): Promise<DashboardMetrics> {
+    const allSales = await this.getSales();
+    
+    const totalRevenue = allSales.reduce((sum, sale) => {
+      const amount = typeof sale.totalAmount === 'string' ? parseFloat(sale.totalAmount) : sale.totalAmount;
+      return sum + amount;
+    }, 0);
+    
+    const totalProfit = allSales.reduce((sum, sale) => {
+      const profit = typeof sale.profit === 'string' ? parseFloat(sale.profit) : sale.profit;
+      return sum + profit;
+    }, 0);
+    
+    const activeOrders = allSales.filter(sale => 
+      ['paid', 'pending_shipment', 'shipped'].includes(sale.status)
+    ).length;
+    
+    const allCustomers = await this.getCustomers();
+    const totalCustomers = allCustomers.length;
+    
+    const orderStatusCounts = {
+      unpaid: allSales.filter(s => s.status === 'unpaid').length,
+      paid: allSales.filter(s => s.status === 'paid').length,
+      pending_shipment: allSales.filter(s => s.status === 'pending_shipment').length,
+      shipped: allSales.filter(s => s.status === 'shipped').length,
+      completed: allSales.filter(s => s.status === 'completed').length,
+    };
+
+    return {
+      totalRevenue,
+      totalProfit,
+      activeOrders,
+      totalCustomers,
+      orderStatusCounts,
+    };
+  }
+
+  async getRevenueByMonth(): Promise<{ month: string; revenue: number }[]> {
+    const result = await db
+      .select({
+        month: sql<string>`TO_CHAR(${sales.saleDate}, 'YYYY-MM')`,
+        revenue: sql<number>`SUM(CAST(${sales.totalAmount} AS DECIMAL))`,
+      })
+      .from(sales)
+      .groupBy(sql`TO_CHAR(${sales.saleDate}, 'YYYY-MM')`)
+      .orderBy(sql`TO_CHAR(${sales.saleDate}, 'YYYY-MM')`);
+
+    return result.map(row => ({
+      month: row.month,
+      revenue: Number(row.revenue),
+    }));
+  }
+
+  async getTopProducts(): Promise<Array<{ product: Product; totalRevenue: number; totalProfit: number; unitsSold: number }>> {
+    const result = await db
+      .select({
+        product: {
+          id: products.id,
+          name: products.name,
+          sku: products.sku,
+          description: products.description,
+          costPrice: products.costPrice,
+          sellingPrice: products.sellingPrice,
+          stock: products.stock,
+          status: products.status,
+          imageUrl: products.imageUrl,
+          createdAt: products.createdAt,
+        },
+        totalRevenue: sql<number>`SUM(CAST(${sales.totalAmount} AS DECIMAL))`,
+        totalProfit: sql<number>`SUM(CAST(${sales.profit} AS DECIMAL))`,
+        unitsSold: sql<number>`SUM(${sales.quantity})`,
+      })
+      .from(sales)
+      .leftJoin(products, eq(sales.productId, products.id))
+      .groupBy(products.id, products.name, products.sku, products.description, products.costPrice, products.sellingPrice, products.stock, products.status, products.imageUrl, products.createdAt)
+      .orderBy(sql`SUM(CAST(${sales.totalAmount} AS DECIMAL)) DESC`)
+      .limit(10);
+
+    return result.map(row => ({
+      product: row.product!,
+      totalRevenue: Number(row.totalRevenue),
+      totalProfit: Number(row.totalProfit),
+      unitsSold: Number(row.unitsSold),
+    }));
+  }
+}
+
+export const storage = new DatabaseStorage();
