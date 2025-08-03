@@ -183,10 +183,15 @@ export default function AddSaleModal({ open, onOpenChange, onSaleAdded }: AddSal
   };
 
   const handleProductChange = (productId: string) => {
+    console.log("handleProductChange called with productId:", productId);
     const product = products.find((p: Product) => p.id === productId);
+    console.log("Found product:", product);
     setSelectedProduct(product || null);
     if (product) {
+      console.log("Setting unit price to:", product.sellingPrice);
       form.setValue("unitPrice", product.sellingPrice);
+    } else {
+      console.log("Product not found in current products list");
     }
   };
 
@@ -459,33 +464,24 @@ export default function AddSaleModal({ open, onOpenChange, onSaleAdded }: AddSal
         }}
         onProductAdded={(productId) => {
           console.log("New product added with ID:", productId);
-          // Use setTimeout to ensure the product list is updated first
-          setTimeout(() => {
-            form.setValue("productId", productId, { shouldValidate: true });
-            form.trigger("productId");
-            
-            // Find the newly added product and set its price
-            const newProduct = products.find((p: Product) => p.id === productId);
-            if (newProduct) {
-              console.log("Setting unit price for new product:", newProduct.sellingPrice);
-              form.setValue("unitPrice", newProduct.sellingPrice);
-              setSelectedProduct(newProduct);
-            } else {
-              // If product not found in current list, try to refetch and set price
-              setTimeout(() => {
-                const updatedProduct = products.find((p: Product) => p.id === productId);
-                if (updatedProduct) {
-                  console.log("Setting unit price for updated product:", updatedProduct.sellingPrice);
-                  form.setValue("unitPrice", updatedProduct.sellingPrice);
-                  setSelectedProduct(updatedProduct);
-                }
-              }, 200);
-            }
-            
-            console.log("Product form value set to:", productId);
-            console.log("Current form value:", form.getValues("productId"));
-          }, 100);
           setShowQuickAddProduct(false);
+          
+          // Force refetch products and then set the form values
+          queryClient.invalidateQueries({ queryKey: ['/api/products'] }).then(() => {
+            console.log("Products refreshed, now setting form values");
+            
+            setTimeout(() => {
+              form.setValue("productId", productId, { shouldValidate: true });
+              form.trigger("productId");
+              
+              // Call handleProductChange which will find the product and set unit price
+              handleProductChange(productId);
+              
+              console.log("Product form value set to:", productId);
+              console.log("Current form value:", form.getValues("productId"));
+            }, 200);
+          });
+          
           toast({
             title: "Product Added",
             description: "New product has been selected automatically.",
