@@ -139,8 +139,13 @@ export default function Sales() {
   };
 
   const handleSubmit = (data: FormData) => {
+    console.log("Form submitted with data:", data);
+    console.log("Editing sale:", editingSale);
     if (editingSale) {
+      console.log("Mutating sale update...");
       updateSaleMutation.mutate({ id: editingSale.id, data });
+    } else {
+      console.error("No sale being edited!");
     }
   };
 
@@ -288,8 +293,12 @@ export default function Sales() {
                 >
                   Cancel
                 </Button>
-                <Button type="submit" disabled={updateSaleMutation.isPending}>
-                  {updateSaleMutation.isPending ? "Updating..." : "Update Sale"}
+                <Button 
+                  type="submit" 
+                  disabled={updateSaleMutation.isPending}
+                  className="bg-blue-600 hover:bg-blue-700 text-white"
+                >
+                  {updateSaleMutation.isPending ? "Updating..." : "Update Order"}
                 </Button>
               </div>
             </form>
