@@ -20,18 +20,15 @@ To grant access to new internal team members:
    - Add individual email addresses to `AUTHORIZED_EMAILS` array
    - Add company domains to `AUTHORIZED_DOMAINS` array
 
-2. **Example configuration**:
+2. **Current configuration**:
 ```javascript
 const AUTHORIZED_EMAILS = [
-  "admin@progenyagrotech.com",
-  "manager@progenyagrotech.com", 
-  "staff@progenyagrotech.com",
-  "yourname@progenyagrotech.com",
+  "progenyagrotech@gmail.com",
+  "afiqsyahmifaridun@gmail.com",
 ];
 
 const AUTHORIZED_DOMAINS = [
-  "progenyagrotech.com",
-  "yourcompany.com.my",
+  // No company domains configured
 ];
 ```
 

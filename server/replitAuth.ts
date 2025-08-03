@@ -55,13 +55,10 @@ function updateUserSession(
 }
 
 // Email whitelist for internal team access only
-// Add your authorized team members' email addresses here:
+// PROGENY AGROTECH authorized team members:
 const AUTHORIZED_EMAILS: string[] = [
-  // Replace these examples with your actual team email addresses:
-  // "your.email@gmail.com",
-  // "manager.name@gmail.com", 
-  // "staff.member@yahoo.com",
-  // "team.lead@outlook.com",
+  "progenyagrotech@gmail.com",
+  "afiqsyahmifaridun@gmail.com",
 ];
 
 // Domain whitelist (leave empty since you don't have a company domain)
