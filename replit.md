@@ -24,6 +24,20 @@ PROGENY AGROTECH Management System is a comprehensive business management platfo
 - **Security Implementation**: Internal team access control with email/domain whitelist, unauthorized access prevention, and secure authentication flow
 
 ### Latest Updates (August 3, 2025)
+- **CRITICAL DATABASE PERSISTENCE FIXED**: Successfully switched from MemStorage to DatabaseStorage implementation:
+  - Resolved "Failed to create sale" server error by fixing database schema mismatch
+  - Fixed `discounted_price` vs `discount_amount` column conflict
+  - All sales data now persists properly in PostgreSQL database
+  - Enhanced error logging for better debugging
+  - Data survives user logout/login cycles and app restarts
+- **SESSION PERSISTENCE ENHANCED**: Improved user session management:
+  - Extended session duration from 7 days to 30 days
+  - Added rolling sessions (extends on each request)
+  - Sessions stored in PostgreSQL for reliability
+  - Users stay logged in after browser close/reopen
+  - Better cross-browser compatibility with SameSite settings
+
+### Latest Updates (Previous)
 - **Date Selection Feature**: Added comprehensive date picker to Add Sale form:
   - Calendar widget with today's date as default
   - Full customization capability for backdating or future sales
