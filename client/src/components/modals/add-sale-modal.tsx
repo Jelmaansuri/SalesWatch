@@ -27,7 +27,7 @@ const formSchema = z.object({
   productId: z.string().min(1, "Product is required"),
   quantity: z.number().min(1, "Quantity must be at least 1"),
   unitPrice: z.string().min(1, "Unit price is required"),
-  discountAmount: z.string().optional().default("0.00"),
+  discountedPrice: z.string().optional().default("0.00"),
   status: z.string().min(1, "Status is required"),
   saleDate: z.date(),
   platformSource: z.string().min(1, "Platform source is required"),
@@ -56,7 +56,7 @@ export default function AddSaleModal({ open, onOpenChange, onSaleAdded }: AddSal
       productId: "",
       quantity: 1,
       unitPrice: "",
-      discountAmount: "0.00",
+      discountedPrice: "0.00",
       status: "unpaid",
       saleDate: new Date(),
       platformSource: "others",
@@ -80,15 +80,15 @@ export default function AddSaleModal({ open, onOpenChange, onSaleAdded }: AddSal
       
       // Calculate the values needed for the sale
       const unitPrice = parseFloat(data.unitPrice);
-      const discountAmount = parseFloat(data.discountAmount || "0.00");
+      const discountedPrice = parseFloat(data.discountedPrice || "0.00");
       const quantity = data.quantity;
-      const discountedUnitPrice = unitPrice - discountAmount;
-      const totalAmount = discountedUnitPrice * quantity;
+      const finalUnitPrice = discountedPrice > 0 ? discountedPrice : unitPrice;
+      const totalAmount = finalUnitPrice * quantity;
       
       // Calculate profit if we have the product selected
       let profit = 0;
       if (selectedProduct) {
-        profit = calculateProfit(discountedUnitPrice, parseFloat(selectedProduct.costPrice), quantity);
+        profit = calculateProfit(finalUnitPrice, parseFloat(selectedProduct.costPrice), quantity);
       }
       
       // Prepare the sale data for the API
@@ -97,7 +97,7 @@ export default function AddSaleModal({ open, onOpenChange, onSaleAdded }: AddSal
         productId: data.productId,
         quantity: quantity,
         unitPrice: data.unitPrice,
-        discountAmount: discountAmount.toFixed(2),
+        discountedPrice: discountedPrice.toFixed(2),
         totalAmount: totalAmount.toFixed(2),
         profit: profit.toFixed(2),
         status: data.status,
@@ -211,18 +211,18 @@ export default function AddSaleModal({ open, onOpenChange, onSaleAdded }: AddSal
 
   const watchedQuantity = form.watch("quantity");
   const watchedUnitPrice = form.watch("unitPrice");
-  const watchedDiscountAmount = form.watch("discountAmount");
+  const watchedDiscountedPrice = form.watch("discountedPrice");
 
-  const discountAmount = parseFloat(watchedDiscountAmount || "0.00");
+  const discountedPrice = parseFloat(watchedDiscountedPrice || "0.00");
   const unitPrice = parseFloat(watchedUnitPrice || "0");
-  const discountedUnitPrice = unitPrice - discountAmount;
+  const finalUnitPrice = discountedPrice > 0 ? discountedPrice : unitPrice;
   
   const totalAmount = watchedQuantity && watchedUnitPrice 
-    ? discountedUnitPrice * watchedQuantity 
+    ? finalUnitPrice * watchedQuantity 
     : 0;
 
   const profit = selectedProduct && watchedQuantity && watchedUnitPrice
-    ? calculateProfit(discountedUnitPrice, parseFloat(selectedProduct.costPrice), watchedQuantity)
+    ? calculateProfit(finalUnitPrice, parseFloat(selectedProduct.costPrice), watchedQuantity)
     : 0;
 
   return (
@@ -355,21 +355,20 @@ export default function AddSaleModal({ open, onOpenChange, onSaleAdded }: AddSal
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="discountAmount">Customer Discount (RM)</Label>
+            <Label htmlFor="discountedPrice">Discounted Price (RM)</Label>
             <Input
-              id="discountAmount"
+              id="discountedPrice"
               type="number"
               step="0.01"
               min="0"
-              max={unitPrice || undefined}
               placeholder="0.00"
-              {...form.register("discountAmount")}
+              {...form.register("discountedPrice")}
             />
             <p className="text-xs text-gray-600 dark:text-gray-400">
-              Discount per unit for this customer (default: RM 0.00)
+              Special price per unit for this customer (leave 0.00 for regular price)
             </p>
-            {form.formState.errors.discountAmount && (
-              <p className="text-sm text-red-600">{form.formState.errors.discountAmount.message}</p>
+            {form.formState.errors.discountedPrice && (
+              <p className="text-sm text-red-600">{form.formState.errors.discountedPrice.message}</p>
             )}
           </div>
 

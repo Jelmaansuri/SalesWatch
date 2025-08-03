@@ -33,6 +33,7 @@ import { z } from "zod";
 
 const formSchema = insertSaleSchema.extend({
   unitPrice: z.string().min(1, "Unit price is required"),
+  discountedPrice: z.string().optional().default("0.00"),
 }).partial({
   totalAmount: true,
   profit: true,
@@ -67,6 +68,7 @@ export default function Sales() {
       productId: "",
       quantity: 1,
       unitPrice: "",
+      discountedPrice: "0.00",
       status: "paid",
       notes: "",
       totalAmount: undefined,
@@ -147,6 +149,7 @@ export default function Sales() {
       productId: sale.productId,
       quantity: sale.quantity,
       unitPrice: sale.unitPrice,
+      discountedPrice: sale.discountedPrice,
       status: sale.status,
       notes: sale.notes || "",
     });
@@ -317,10 +320,10 @@ export default function Sales() {
 
                 <FormField
                   control={form.control}
-                  name="discountAmount"
+                  name="discountedPrice"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Customer Discount (RM)</FormLabel>
+                      <FormLabel>Discounted Price (RM)</FormLabel>
                       <FormControl>
                         <Input
                           type="number"
@@ -331,7 +334,7 @@ export default function Sales() {
                         />
                       </FormControl>
                       <FormDescription>
-                        Discount per unit for this customer (default: RM 0.00)
+                        Special price per unit for this customer (leave 0.00 for regular price)
                       </FormDescription>
                       <FormMessage />
                     </FormItem>
@@ -464,7 +467,7 @@ export default function Sales() {
                       <TableHead className="min-w-[120px]">Product</TableHead>
                       <TableHead className="min-w-[70px]">Qty</TableHead>
                       <TableHead className="min-w-[80px]">Price</TableHead>
-                      <TableHead className="min-w-[80px]">Discount</TableHead>
+                      <TableHead className="min-w-[80px]">Discounted Price</TableHead>
                       <TableHead className="min-w-[80px]">Total</TableHead>
                       <TableHead className="min-w-[70px]">Profit</TableHead>
                       <TableHead className="min-w-[80px]">Status</TableHead>
@@ -491,7 +494,7 @@ export default function Sales() {
                       <TableCell>{sale.quantity}</TableCell>
                       <TableCell>{formatCurrency(sale.unitPrice)}</TableCell>
                       <TableCell className="text-orange-600">
-                        {sale.discountAmount ? formatCurrency(sale.discountAmount) : "RM 0.00"}
+                        {sale.discountedPrice ? formatCurrency(sale.discountedPrice) : "RM 0.00"}
                       </TableCell>
                       <TableCell className="font-medium">
                         {formatCurrency(sale.totalAmount)}

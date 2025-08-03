@@ -204,18 +204,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Product not found" });
       }
 
-      // Calculate totals and profit with discount
+      // Calculate totals and profit with discounted price
       const unitPrice = parseFloat(saleData.unitPrice);
-      const discountAmount = parseFloat(saleData.discountAmount || "0.00");
+      const discountedPrice = parseFloat(saleData.discountedPrice || "0.00");
       const quantity = saleData.quantity;
-      const discountedUnitPrice = unitPrice - discountAmount;
-      const totalAmount = discountedUnitPrice * quantity;
+      const finalUnitPrice = discountedPrice > 0 ? discountedPrice : unitPrice;
+      const totalAmount = finalUnitPrice * quantity;
       const costPrice = parseFloat(product.costPrice);
-      const profit = (discountedUnitPrice - costPrice) * quantity;
+      const profit = (finalUnitPrice - costPrice) * quantity;
 
       const finalSaleData = {
         ...saleData,
-        discountAmount: discountAmount.toString(),
+        discountedPrice: discountedPrice.toString(),
         totalAmount: totalAmount.toString(),
         profit: profit.toString(),
       };
@@ -256,12 +256,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
         
         const unitPrice = updateData.unitPrice ? parseFloat(updateData.unitPrice) : parseFloat(existingSale.unitPrice);
-        const discountAmount = updateData.discountAmount ? parseFloat(updateData.discountAmount) : parseFloat(existingSale.discountAmount || "0.00");
+        const discountedPrice = updateData.discountedPrice ? parseFloat(updateData.discountedPrice) : parseFloat(existingSale.discountedPrice || "0.00");
         const quantity = updateData.quantity !== undefined ? updateData.quantity : existingSale.quantity;
-        const discountedUnitPrice = unitPrice - discountAmount;
-        const totalAmount = discountedUnitPrice * quantity;
+        const finalUnitPrice = discountedPrice > 0 ? discountedPrice : unitPrice;
+        const totalAmount = finalUnitPrice * quantity;
         const costPrice = parseFloat(product.costPrice);
-        const profit = (discountedUnitPrice - costPrice) * quantity;
+        const profit = (finalUnitPrice - costPrice) * quantity;
         
         updateData.totalAmount = totalAmount.toString();
         updateData.profit = profit.toString();
