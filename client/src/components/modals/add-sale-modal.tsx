@@ -15,6 +15,9 @@ import { formatCurrency, calculateProfit } from "@/lib/currency";
 import { ORDER_STATUS_LABELS } from "@/lib/types";
 import type { Customer, Product } from "@shared/schema";
 import { z } from "zod";
+import QuickAddCustomerModal from "./quick-add-customer-modal";
+import QuickAddProductModal from "./quick-add-product-modal";
+import { Plus } from "lucide-react";
 
 const formSchema = z.object({
   customerId: z.string().min(1, "Customer is required"),
@@ -36,6 +39,8 @@ interface AddSaleModalProps {
 export default function AddSaleModal({ open, onOpenChange, onSaleAdded }: AddSaleModalProps) {
   const { toast } = useToast();
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [showQuickAddCustomer, setShowQuickAddCustomer] = useState(false);
+  const [showQuickAddProduct, setShowQuickAddProduct] = useState(false);
 
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
@@ -210,13 +215,23 @@ export default function AddSaleModal({ open, onOpenChange, onSaleAdded }: AddSal
               value={form.watch("customerId") || ""} 
               onValueChange={(value) => {
                 console.log("Customer selected:", value);
-                form.setValue("customerId", value, { shouldValidate: true });
+                if (value === "add-new-customer") {
+                  setShowQuickAddCustomer(true);
+                } else {
+                  form.setValue("customerId", value, { shouldValidate: true });
+                }
               }}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Select customer" />
               </SelectTrigger>
               <SelectContent>
+                <SelectItem value="add-new-customer" className="text-blue-600 font-medium border-b">
+                  <div className="flex items-center gap-2">
+                    <Plus className="h-4 w-4" />
+                    Add New Customer
+                  </div>
+                </SelectItem>
                 {customers.map((customer: Customer) => (
                   <SelectItem key={customer.id} value={customer.id}>
                     {customer.name} - {customer.email}
@@ -235,14 +250,24 @@ export default function AddSaleModal({ open, onOpenChange, onSaleAdded }: AddSal
               value={form.watch("productId") || ""} 
               onValueChange={(value) => {
                 console.log("Product selected:", value);
-                form.setValue("productId", value, { shouldValidate: true });
-                handleProductChange(value);
+                if (value === "add-new-product") {
+                  setShowQuickAddProduct(true);
+                } else {
+                  form.setValue("productId", value, { shouldValidate: true });
+                  handleProductChange(value);
+                }
               }}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Select product" />
               </SelectTrigger>
               <SelectContent>
+                <SelectItem value="add-new-product" className="text-blue-600 font-medium border-b">
+                  <div className="flex items-center gap-2">
+                    <Plus className="h-4 w-4" />
+                    Add New Product
+                  </div>
+                </SelectItem>
                 {products.map((product: Product) => (
                   <SelectItem key={product.id} value={product.id} disabled={product.stock === 0}>
                     <div className="flex justify-between items-center w-full">
@@ -393,6 +418,26 @@ export default function AddSaleModal({ open, onOpenChange, onSaleAdded }: AddSal
           </div>
         </form>
       </DialogContent>
+      
+      {/* Quick Add Modals */}
+      <QuickAddCustomerModal
+        open={showQuickAddCustomer}
+        onOpenChange={setShowQuickAddCustomer}
+        onCustomerAdded={(customerId) => {
+          form.setValue("customerId", customerId, { shouldValidate: true });
+          setShowQuickAddCustomer(false);
+        }}
+      />
+      
+      <QuickAddProductModal
+        open={showQuickAddProduct}
+        onOpenChange={setShowQuickAddProduct}
+        onProductAdded={(productId) => {
+          form.setValue("productId", productId, { shouldValidate: true });
+          handleProductChange(productId);
+          setShowQuickAddProduct(false);
+        }}
+      />
     </Dialog>
   );
 }
