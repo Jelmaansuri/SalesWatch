@@ -149,12 +149,12 @@ export default function AddSaleModal({ open, onOpenChange, onSaleAdded }: AddSal
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Add New Sale</DialogTitle>
         </DialogHeader>
         
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4" noValidate>
           <div className="space-y-2">
             <Label htmlFor="customerId">Customer</Label>
             <Select 
@@ -268,23 +268,39 @@ export default function AddSaleModal({ open, onOpenChange, onSaleAdded }: AddSal
               </div>
               <div className="flex justify-between">
                 <span className="text-sm font-medium">Expected Profit:</span>
-                <span className="text-sm font-bold text-my-green">{formatCurrency(profit)}</span>
+                <span className="text-sm font-bold text-green-600">{formatCurrency(profit)}</span>
               </div>
             </div>
           )}
 
-          <div className="flex justify-end space-x-2 pt-4">
+          <div className="flex justify-end space-x-2 pt-4 border-t mt-6 pt-6">
             <Button
               type="button"
               variant="outline"
-              onClick={() => onOpenChange(false)}
+              onClick={(e) => {
+                e.preventDefault();
+                console.log("Cancel button clicked");
+                onOpenChange(false);
+              }}
+              disabled={createSaleMutation.isPending}
+              className="min-w-[100px]"
             >
               Cancel
             </Button>
             <Button
-              type="submit"
+              type="button"
               disabled={createSaleMutation.isPending}
-              className="bg-my-blue hover:bg-my-blue/90"
+              onClick={(e) => {
+                e.preventDefault();
+                console.log("Create Sale button clicked - triggering form submit");
+                const formElement = e.currentTarget.closest('form');
+                if (formElement) {
+                  formElement.requestSubmit();
+                } else {
+                  form.handleSubmit(onSubmit)();
+                }
+              }}
+              className="bg-blue-600 hover:bg-blue-700 text-white min-w-[120px] relative z-10"
             >
               {createSaleMutation.isPending ? "Creating..." : "Create Sale"}
             </Button>
