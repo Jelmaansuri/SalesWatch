@@ -225,14 +225,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.put("/api/sales/:id", isAuthenticated, async (req, res) => {
     try {
+      console.log(`Updating sale ${req.params.id} with data:`, req.body);
+      
       const updateData = insertSaleSchema.partial().parse(req.body);
+      console.log(`Parsed update data:`, updateData);
+      
+      // If unitPrice is being updated, recalculate totals and profit
+      if (updateData.unitPrice || updateData.quantity || updateData.productId) {
+        const existingSale = await storage.getSale(req.params.id);
+        if (!existingSale) {
+          return res.status(404).json({ message: "Sale not found" });
+        }
+        
+        const productId = updateData.productId || existingSale.productId;
+        const product = await storage.getProduct(productId);
+        if (!product) {
+          return res.status(400).json({ message: "Product not found" });
+        }
+        
+        const unitPrice = updateData.unitPrice ? parseFloat(updateData.unitPrice) : parseFloat(existingSale.unitPrice);
+        const quantity = updateData.quantity !== undefined ? updateData.quantity : existingSale.quantity;
+        const totalAmount = unitPrice * quantity;
+        const costPrice = parseFloat(product.costPrice);
+        const profit = (unitPrice - costPrice) * quantity;
+        
+        updateData.totalAmount = totalAmount.toString();
+        updateData.profit = profit.toString();
+      }
+      
       const sale = await storage.updateSale(req.params.id, updateData);
       if (!sale) {
         return res.status(404).json({ message: "Sale not found" });
       }
+      
+      console.log(`Updated sale:`, sale);
+      
       const saleWithDetails = await storage.getSaleWithDetails(sale.id);
       res.json(saleWithDetails);
     } catch (error) {
+      console.error("Error updating sale:", error);
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Invalid data", errors: error.errors });
       }

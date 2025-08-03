@@ -228,6 +228,10 @@ export class MemStorage implements IStorage {
     return Array.from(this.sales.values());
   }
 
+  async getSale(id: string): Promise<Sale | undefined> {
+    return this.sales.get(id);
+  }
+
   async getSalesWithDetails(): Promise<SaleWithDetails[]> {
     const sales = Array.from(this.sales.values());
     const salesWithDetails: SaleWithDetails[] = [];
@@ -246,10 +250,6 @@ export class MemStorage implements IStorage {
     }
 
     return salesWithDetails.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
-  }
-
-  async getSale(id: string): Promise<Sale | undefined> {
-    return this.sales.get(id);
   }
 
   async getSaleWithDetails(id: string): Promise<SaleWithDetails | undefined> {
