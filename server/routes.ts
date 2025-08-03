@@ -186,6 +186,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/sales", isAuthenticated, async (req, res) => {
     try {
+      // Convert saleDate string to Date object if provided
+      if (req.body.saleDate && typeof req.body.saleDate === 'string') {
+        req.body.saleDate = new Date(req.body.saleDate);
+      }
+      
       const saleData = insertSaleSchema.parse(req.body);
       
       // Verify customer and product exist
