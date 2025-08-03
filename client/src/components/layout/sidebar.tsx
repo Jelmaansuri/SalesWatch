@@ -7,7 +7,8 @@ import {
   Package, 
   Users, 
   ClipboardList, 
-  FileText 
+  FileText,
+  Sprout
 } from "lucide-react";
 
 const navigation: NavigationItem[] = [
@@ -38,8 +39,9 @@ export default function Sidebar({ className }: SidebarProps) {
   return (
     <div className={cn("flex flex-col w-64 bg-white dark:bg-gray-900 shadow-lg", className)}>
       {/* Logo */}
-      <div className="flex items-center justify-center h-16 px-4 bg-my-blue">
-        <h1 className="text-xl font-bold text-white">SalesTracker Pro</h1>
+      <div className="flex items-center justify-center h-16 px-4 bg-green-600">
+        <Sprout className="h-6 w-6 text-white mr-2" />
+        <h1 className="text-lg font-bold text-white">PROGENY AGROTECH</h1>
       </div>
       
       {/* Navigation Menu */}

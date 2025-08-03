@@ -1,8 +1,8 @@
-# SalesTracker Pro
+# PROGENY AGROTECH Management System
 
 ## Overview
 
-SalesTracker Pro is a comprehensive sales and inventory management system built for small to medium businesses. The application provides a complete solution for tracking sales, managing products and customers, analyzing performance metrics, and generating business insights. It features a modern, responsive web interface with support for dark/light themes and is designed with Malaysian business practices in mind, including MYR currency formatting.
+PROGENY AGROTECH Management System is a comprehensive business management platform designed specifically for PROGENY AGROTECH, a Malaysian agricultural company specializing in premium fresh young ginger farming and distribution. The application provides a complete solution for tracking sales, managing ginger products and customers, analyzing farm performance metrics, and generating agricultural business insights. It features a modern, responsive web interface with support for dark/light themes and is designed with Malaysian agricultural business practices in mind, including MYR currency formatting.
 
 ## Recent Changes (August 2025)
 
@@ -25,6 +25,8 @@ SalesTracker Pro is a comprehensive sales and inventory management system built 
 ## User Preferences
 
 Preferred communication style: Simple, everyday language.
+Company: PROGENY AGROTECH - Malaysian fresh young ginger farming and agriculture business.
+Focus: Agricultural business management, ginger production, farm-to-market operations.
 
 ## System Architecture
 
