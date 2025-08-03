@@ -24,6 +24,23 @@ PROGENY AGROTECH Management System is a comprehensive business management platfo
 - **Security Implementation**: Internal team access control with email/domain whitelist, unauthorized access prevention, and secure authentication flow
 
 ### Latest Updates (August 3, 2025)
+- **Date Selection Feature**: Added comprehensive date picker to Add Sale form:
+  - Calendar widget with today's date as default
+  - Full customization capability for backdating or future sales
+  - Clean dropdown format with formatted date display
+  - Database schema updated with sale_date field
+  - Backend support for custom sale dates
+- **Platform Source Tracking**: Implemented marketing channel analytics:
+  - Dropdown options: TikTok, Facebook, WhatsApp, Others
+  - Required field validation for platform selection
+  - Database schema updated with platform_source field
+  - Sales table includes Platform column for transaction records
+  - Marketing analytics ready for future reporting insights
+- **Status Workflow Updates**: Enhanced order lifecycle descriptions:
+  - Updated workflow to include "Unpaid" status
+  - Complete flow: Unpaid → Paid → Pending Shipment → Shipped → Completed
+  - Consistent descriptions across Sales and Orders pages
+  - Form validation and backend support for all status types
 - **Excel Export System**: Implemented comprehensive Excel reporting with 5 detailed worksheets:
   - Executive Summary with key business metrics
   - Detailed Sales with every transaction and profit analysis

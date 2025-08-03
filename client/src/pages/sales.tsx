@@ -25,7 +25,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { formatCurrency } from "@/lib/currency";
-import { ORDER_STATUS_LABELS, ORDER_STATUS_COLORS } from "@/lib/types";
+import { ORDER_STATUS_LABELS, ORDER_STATUS_COLORS, PLATFORM_SOURCE_LABELS } from "@/lib/types";
 import { Plus, Edit, Trash2, ShoppingCart, User, Package } from "lucide-react";
 import AddSaleModal from "@/components/modals/add-sale-modal";
 import type { SaleWithDetails, Customer, Product } from "@shared/schema";
@@ -196,7 +196,7 @@ export default function Sales() {
               Sales Management  
             </h1>
             <p className="text-gray-600 dark:text-gray-300">
-              Track orders through complete workflow: Paid → Pending Shipment → Shipped → Completed
+              Track orders through complete workflow: Unpaid → Paid → Pending Shipment → Shipped → Completed
             </p>
           </div>
           <Button onClick={() => setIsAddModalOpen(true)}>
@@ -416,6 +416,7 @@ export default function Sales() {
                     <TableHead>Total</TableHead>
                     <TableHead>Profit</TableHead>
                     <TableHead>Status</TableHead>
+                    <TableHead>Platform</TableHead>
                     <TableHead>Date</TableHead>
                     <TableHead>Actions</TableHead>
                   </TableRow>
@@ -447,6 +448,11 @@ export default function Sales() {
                         <Badge variant="secondary" className={ORDER_STATUS_COLORS[sale.status as keyof typeof ORDER_STATUS_COLORS]}>
                           {ORDER_STATUS_LABELS[sale.status as keyof typeof ORDER_STATUS_LABELS]}
                         </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <span className="text-sm text-gray-600 dark:text-gray-400">
+                          {PLATFORM_SOURCE_LABELS[sale.platformSource as keyof typeof PLATFORM_SOURCE_LABELS]}
+                        </span>
                       </TableCell>
                       <TableCell>
                         {new Date(sale.createdAt).toLocaleDateString()}
