@@ -39,6 +39,12 @@ PROGENY AGROTECH Management System is a comprehensive business management platfo
   - Visual stock indicators on products page (green >10, yellow 1-10, red 0)
   - Stock availability display in sale creation forms
   - Automatic UI updates across all pages when stock changes
+- **Quick-Add Functionality**: Enhanced sales form with instant customer/product creation:
+  - "Add New Customer" option in customer dropdown
+  - "Add New Product" option in product dropdown
+  - Modal forms for quick data entry without leaving sales page
+  - Automatic selection of newly created records in the form
+  - Seamless workflow for rapid sales entry
 
 ## User Preferences
 

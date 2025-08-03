@@ -422,20 +422,44 @@ export default function AddSaleModal({ open, onOpenChange, onSaleAdded }: AddSal
       {/* Quick Add Modals */}
       <QuickAddCustomerModal
         open={showQuickAddCustomer}
-        onOpenChange={setShowQuickAddCustomer}
+        onOpenChange={(open) => {
+          setShowQuickAddCustomer(open);
+          // Reset selection if modal is closed without adding
+          if (!open && !form.watch("customerId")) {
+            form.setValue("customerId", "");
+          }
+        }}
         onCustomerAdded={(customerId) => {
+          console.log("New customer added with ID:", customerId);
           form.setValue("customerId", customerId, { shouldValidate: true });
+          form.trigger("customerId"); // Validate the field
           setShowQuickAddCustomer(false);
+          toast({
+            title: "Customer Added",
+            description: "New customer has been selected automatically.",
+          });
         }}
       />
       
       <QuickAddProductModal
         open={showQuickAddProduct}
-        onOpenChange={setShowQuickAddProduct}
+        onOpenChange={(open) => {
+          setShowQuickAddProduct(open);
+          // Reset selection if modal is closed without adding
+          if (!open && !form.watch("productId")) {
+            form.setValue("productId", "");
+          }
+        }}
         onProductAdded={(productId) => {
+          console.log("New product added with ID:", productId);
           form.setValue("productId", productId, { shouldValidate: true });
+          form.trigger("productId"); // Validate the field
           handleProductChange(productId);
           setShowQuickAddProduct(false);
+          toast({
+            title: "Product Added",
+            description: "New product has been selected automatically.",
+          });
         }}
       />
     </Dialog>
