@@ -352,6 +352,7 @@ export class MemStorage implements IStorage {
     const totalCustomers = customers.length;
 
     const orderStatusCounts = {
+      unpaid: sales.filter(sale => sale.status === 'unpaid').length,
       paid: sales.filter(sale => sale.status === 'paid').length,
       pending_shipment: sales.filter(sale => sale.status === 'pending_shipment').length,
       shipped: sales.filter(sale => sale.status === 'shipped').length,

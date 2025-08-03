@@ -50,7 +50,7 @@ export default function AddSaleModal({ open, onOpenChange, onSaleAdded }: AddSal
       productId: "",
       quantity: 1,
       unitPrice: "",
-      status: "paid",
+      status: "unpaid",
       notes: "",
     },
   });

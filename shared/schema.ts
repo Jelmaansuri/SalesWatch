@@ -56,7 +56,7 @@ export const sales = pgTable("sales", {
   unitPrice: decimal("unit_price", { precision: 10, scale: 2 }).notNull(),
   totalAmount: decimal("total_amount", { precision: 10, scale: 2 }).notNull(),
   profit: decimal("profit", { precision: 10, scale: 2 }).notNull(),
-  status: text("status").notNull(), // paid, pending_shipment, shipped, completed
+  status: text("status").notNull(), // unpaid, paid, pending_shipment, shipped, completed
   notes: text("notes"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
@@ -98,12 +98,16 @@ export type SaleWithDetails = Sale & {
 export type UpsertUser = typeof users.$inferInsert;
 export type User = typeof users.$inferSelect;
 
+// Status enum for sales/orders
+export const statusEnum = z.enum(["unpaid", "paid", "pending_shipment", "shipped", "completed"]);
+
 export type DashboardMetrics = {
   totalRevenue: number;
   totalProfit: number;
   activeOrders: number;
   totalCustomers: number;
   orderStatusCounts: {
+    unpaid: number;
     paid: number;
     pending_shipment: number;
     shipped: number;
