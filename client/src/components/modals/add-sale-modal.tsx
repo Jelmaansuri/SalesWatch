@@ -44,12 +44,12 @@ export default function AddSaleModal({ open, onOpenChange, onSaleAdded }: AddSal
     },
   });
 
-  const { data: customers = [] } = useQuery({
+  const { data: customers = [] } = useQuery<Customer[]>({
     queryKey: ["/api/customers"],
     enabled: open,
   });
 
-  const { data: products = [] } = useQuery({
+  const { data: products = [] } = useQuery<Product[]>({
     queryKey: ["/api/products"],
     enabled: open,
   });

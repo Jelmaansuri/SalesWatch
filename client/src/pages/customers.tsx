@@ -26,7 +26,7 @@ export default function Customers() {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
 
-  const { data: customers = [], isLoading, error } = useQuery({
+  const { data: customers = [], isLoading, error } = useQuery<Customer[]>({
     queryKey: ["/api/customers"],
   });
 

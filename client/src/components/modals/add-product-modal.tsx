@@ -85,7 +85,7 @@ export default function AddProductModal({ open, onOpenChange, onProductAdded }: 
   const handleUploadComplete = async (result: UploadResult<Record<string, unknown>, Record<string, unknown>>) => {
     if (result.successful && result.successful.length > 0) {
       const uploadURL = result.successful[0].uploadURL;
-      setProductImageUrl(uploadURL);
+      setProductImageUrl(uploadURL || "");
       setIsUploading(false);
       toast({
         title: "Success",

@@ -15,8 +15,8 @@ export default function MetricsCards({ metrics }: MetricsCardsProps) {
       icon: TrendingUp,
       iconColor: "text-my-blue",
       bgColor: "bg-my-blue bg-opacity-10",
-      change: "+12.5%",
-      changeType: "positive",
+      change: null,
+      changeType: null,
     },
     {
       title: "Total Profit",
@@ -24,8 +24,8 @@ export default function MetricsCards({ metrics }: MetricsCardsProps) {
       icon: DollarSign,
       iconColor: "text-my-green",
       bgColor: "bg-my-green bg-opacity-10",
-      change: "+8.2%",
-      changeType: "positive",
+      change: null,
+      changeType: null,
     },
     {
       title: "Active Orders",
@@ -33,8 +33,8 @@ export default function MetricsCards({ metrics }: MetricsCardsProps) {
       icon: ShoppingCart,
       iconColor: "text-my-orange",
       bgColor: "bg-my-orange bg-opacity-10",
-      change: "+15.3%",
-      changeType: "positive",
+      change: null,
+      changeType: null,
     },
     {
       title: "Total Customers",
@@ -42,8 +42,8 @@ export default function MetricsCards({ metrics }: MetricsCardsProps) {
       icon: Users,
       iconColor: "text-my-gold",
       bgColor: "bg-my-gold bg-opacity-10",
-      change: "+5.7%",
-      changeType: "positive",
+      change: null,
+      changeType: null,
     },
   ];
 
@@ -67,14 +67,16 @@ export default function MetricsCards({ metrics }: MetricsCardsProps) {
                   <Icon className={`h-6 w-6 ${card.iconColor}`} />
                 </div>
               </div>
-              <div className="mt-4 flex items-center">
-                <span className="text-my-green text-sm font-medium">
-                  {card.change}
-                </span>
-                <span className="text-gray-500 dark:text-gray-400 text-sm ml-2">
-                  from last month
-                </span>
-              </div>
+              {card.change && (
+                <div className="mt-4 flex items-center">
+                  <span className={`text-sm font-medium ${card.changeType === 'positive' ? 'text-my-green' : 'text-red-500'}`}>
+                    {card.change}
+                  </span>
+                  <span className="text-gray-500 dark:text-gray-400 text-sm ml-2">
+                    from last month
+                  </span>
+                </div>
+              )}
             </CardContent>
           </Card>
         );

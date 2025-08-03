@@ -7,18 +7,18 @@ import RecentSales from "@/components/dashboard/recent-sales";
 import QuickActions from "@/components/dashboard/quick-actions";
 import ProductPerformance from "@/components/dashboard/product-performance";
 import { Skeleton } from "@/components/ui/skeleton";
-import type { DashboardMetrics, SaleWithDetails } from "@shared/schema";
+import type { DashboardMetrics, SaleWithDetails, Product } from "@shared/schema";
 
 export default function Dashboard() {
   const { data: metrics, isLoading: metricsLoading, refetch: refetchMetrics } = useQuery<DashboardMetrics>({
     queryKey: ["/api/analytics/dashboard"],
   });
 
-  const { data: revenueData = [], isLoading: revenueLoading } = useQuery({
+  const { data: revenueData = [], isLoading: revenueLoading } = useQuery<{ month: string; revenue: number }[]>({
     queryKey: ["/api/analytics/revenue-by-month"],
   });
 
-  const { data: topProducts = [], isLoading: topProductsLoading } = useQuery({
+  const { data: topProducts = [], isLoading: topProductsLoading } = useQuery<Array<{ product: Product; totalRevenue: number; totalProfit: number; unitsSold: number }>>({
     queryKey: ["/api/analytics/top-products"],
   });
 

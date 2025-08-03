@@ -66,14 +66,14 @@ export default function Sidebar({ className }: SidebarProps) {
         })}
       </nav>
       
-      {/* User Profile */}
+      {/* User Profile - Removed hardcoded data for production */}
       <div className="flex items-center p-4 border-t dark:border-gray-700">
         <div className="flex items-center justify-center w-8 h-8 rounded-full bg-my-blue text-white text-sm font-medium">
-          AR
+          U
         </div>
         <div className="ml-3">
-          <p className="text-sm font-medium">Ahmad Rahman</p>
-          <p className="text-xs text-gray-500 dark:text-gray-400">Sales Manager</p>
+          <p className="text-sm font-medium">User</p>
+          <p className="text-xs text-gray-500 dark:text-gray-400">Business Manager</p>
         </div>
       </div>
     </div>
