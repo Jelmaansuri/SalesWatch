@@ -160,6 +160,17 @@ export default function AddSaleModal({ open, onOpenChange, onSaleAdded }: AddSal
       });
       return;
     }
+
+    // Validate stock availability
+    if (selectedProduct && data.quantity > selectedProduct.stock) {
+      console.log("Insufficient stock:", data.quantity, "requested,", selectedProduct.stock, "available");
+      toast({
+        title: "Insufficient Stock",
+        description: `Only ${selectedProduct.stock} units available. Please reduce quantity.`,
+        variant: "destructive",
+      });
+      return;
+    }
     
     console.log("All validation passed, creating sale...");
     createSaleMutation.mutate(data);
@@ -232,8 +243,17 @@ export default function AddSaleModal({ open, onOpenChange, onSaleAdded }: AddSal
               </SelectTrigger>
               <SelectContent>
                 {products.map((product: Product) => (
-                  <SelectItem key={product.id} value={product.id}>
-                    {product.name} - {formatCurrency(product.sellingPrice)}
+                  <SelectItem key={product.id} value={product.id} disabled={product.stock === 0}>
+                    <div className="flex justify-between items-center w-full">
+                      <span>{product.name} - {formatCurrency(product.sellingPrice)}</span>
+                      <span className={`text-xs ml-2 ${
+                        product.stock > 10 ? 'text-green-600' : 
+                        product.stock > 0 ? 'text-yellow-600' : 
+                        'text-red-600'
+                      }`}>
+                        Stock: {product.stock}
+                      </span>
+                    </div>
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -250,8 +270,18 @@ export default function AddSaleModal({ open, onOpenChange, onSaleAdded }: AddSal
                 id="quantity"
                 type="number"
                 min="1"
-                {...form.register("quantity", { valueAsNumber: true })}
+                max={selectedProduct?.stock || undefined}
+                {...form.register("quantity", { 
+                  valueAsNumber: true,
+                  min: { value: 1, message: "Quantity must be at least 1" },
+                  max: selectedProduct ? { value: selectedProduct.stock, message: `Maximum ${selectedProduct.stock} units available` } : undefined
+                })}
               />
+              {selectedProduct && (
+                <p className="text-xs text-gray-600 dark:text-gray-400">
+                  Available stock: {selectedProduct.stock} units
+                </p>
+              )}
               {form.formState.errors.quantity && (
                 <p className="text-sm text-red-600">{form.formState.errors.quantity.message}</p>
               )}

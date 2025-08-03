@@ -219,6 +219,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Invalid data", errors: error.errors });
       }
+      if (error instanceof Error && error.message.includes("Insufficient stock")) {
+        return res.status(400).json({ message: error.message });
+      }
+      console.error("Error creating sale:", error);
       res.status(500).json({ message: "Failed to create sale" });
     }
   });
@@ -266,6 +270,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error("Error updating sale:", error);
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Invalid data", errors: error.errors });
+      }
+      if (error instanceof Error && error.message.includes("Insufficient stock")) {
+        return res.status(400).json({ message: error.message });
       }
       res.status(500).json({ message: "Failed to update sale" });
     }

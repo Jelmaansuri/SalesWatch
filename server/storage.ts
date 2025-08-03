@@ -30,6 +30,10 @@ export interface IStorage {
   updateSale(id: string, updates: Partial<Sale>): Promise<Sale | undefined>;
   deleteSale(id: string): Promise<boolean>;
 
+  // Stock Management
+  updateProductStock(productId: string, quantityChange: number): Promise<Product | undefined>;
+  checkStockAvailability(productId: string, requiredQuantity: number): Promise<boolean>;
+
   // Analytics
   getDashboardMetrics(): Promise<DashboardMetrics>;
   getRevenueByMonth(): Promise<{ month: string; revenue: number }[]>;
@@ -269,6 +273,12 @@ export class MemStorage implements IStorage {
   }
 
   async createSale(insertSale: InsertSale): Promise<Sale> {
+    // Check stock availability
+    const stockAvailable = await this.checkStockAvailability(insertSale.productId, insertSale.quantity);
+    if (!stockAvailable) {
+      throw new Error("Insufficient stock for this product");
+    }
+
     const id = randomUUID();
     const now = new Date();
     const sale: Sale = {
@@ -284,6 +294,10 @@ export class MemStorage implements IStorage {
       createdAt: now,
       updatedAt: now,
     };
+    
+    // Update stock when sale is created (reduce stock)
+    await this.updateProductStock(insertSale.productId, -insertSale.quantity);
+    
     this.sales.set(id, sale);
     return sale;
   }
@@ -291,6 +305,22 @@ export class MemStorage implements IStorage {
   async updateSale(id: string, updates: Partial<Sale>): Promise<Sale | undefined> {
     const sale = this.sales.get(id);
     if (!sale) return undefined;
+    
+    // Handle quantity changes to update stock
+    if (updates.quantity !== undefined && updates.quantity !== sale.quantity) {
+      const quantityDiff = updates.quantity - sale.quantity;
+      
+      // Check stock availability if increasing quantity
+      if (quantityDiff > 0) {
+        const stockAvailable = await this.checkStockAvailability(sale.productId, quantityDiff);
+        if (!stockAvailable) {
+          throw new Error("Insufficient stock for this quantity increase");
+        }
+      }
+      
+      // Update stock (negative diff means returning stock, positive means using more stock)
+      await this.updateProductStock(sale.productId, -quantityDiff);
+    }
     
     const updatedSale = { 
       ...sale, 
@@ -302,6 +332,12 @@ export class MemStorage implements IStorage {
   }
 
   async deleteSale(id: string): Promise<boolean> {
+    const sale = this.sales.get(id);
+    if (!sale) return false;
+    
+    // Return stock when sale is deleted
+    await this.updateProductStock(sale.productId, sale.quantity);
+    
     return this.sales.delete(id);
   }
 
@@ -375,6 +411,28 @@ export class MemStorage implements IStorage {
     });
 
     return results.sort((a, b) => b.totalProfit - a.totalProfit);
+  }
+
+  // Stock Management Methods
+  async updateProductStock(productId: string, quantityChange: number): Promise<Product | undefined> {
+    const product = this.products.get(productId);
+    if (!product) return undefined;
+    
+    const newStock = product.stock + quantityChange;
+    if (newStock < 0) {
+      throw new Error("Stock cannot be negative");
+    }
+    
+    const updatedProduct = { ...product, stock: newStock };
+    this.products.set(productId, updatedProduct);
+    return updatedProduct;
+  }
+
+  async checkStockAvailability(productId: string, requiredQuantity: number): Promise<boolean> {
+    const product = this.products.get(productId);
+    if (!product) return false;
+    
+    return product.stock >= requiredQuantity;
   }
 }
 
