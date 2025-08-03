@@ -463,7 +463,25 @@ export default function AddSaleModal({ open, onOpenChange, onSaleAdded }: AddSal
           setTimeout(() => {
             form.setValue("productId", productId, { shouldValidate: true });
             form.trigger("productId");
-            handleProductChange(productId);
+            
+            // Find the newly added product and set its price
+            const newProduct = products.find((p: Product) => p.id === productId);
+            if (newProduct) {
+              console.log("Setting unit price for new product:", newProduct.sellingPrice);
+              form.setValue("unitPrice", newProduct.sellingPrice);
+              setSelectedProduct(newProduct);
+            } else {
+              // If product not found in current list, try to refetch and set price
+              setTimeout(() => {
+                const updatedProduct = products.find((p: Product) => p.id === productId);
+                if (updatedProduct) {
+                  console.log("Setting unit price for updated product:", updatedProduct.sellingPrice);
+                  form.setValue("unitPrice", updatedProduct.sellingPrice);
+                  setSelectedProduct(updatedProduct);
+                }
+              }, 200);
+            }
+            
             console.log("Product form value set to:", productId);
             console.log("Current form value:", form.getValues("productId"));
           }, 100);
