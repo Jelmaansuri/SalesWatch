@@ -290,6 +290,7 @@ export class MemStorage implements IStorage {
       unitPrice: insertSale.unitPrice,
       totalAmount: insertSale.totalAmount,
       profit: insertSale.profit,
+      saleDate: insertSale.saleDate || now,
       notes: insertSale.notes ?? null,
       createdAt: now,
       updatedAt: now,

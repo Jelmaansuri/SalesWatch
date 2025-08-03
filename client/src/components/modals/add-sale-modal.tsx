@@ -6,6 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertSaleSchema } from "@shared/schema";
@@ -17,7 +19,8 @@ import type { Customer, Product } from "@shared/schema";
 import { z } from "zod";
 import QuickAddCustomerModal from "./quick-add-customer-modal";
 import QuickAddProductModal from "./quick-add-product-modal";
-import { Plus } from "lucide-react";
+import { Plus, CalendarIcon } from "lucide-react";
+import { format } from "date-fns";
 
 const formSchema = z.object({
   customerId: z.string().min(1, "Customer is required"),
@@ -25,6 +28,7 @@ const formSchema = z.object({
   quantity: z.number().min(1, "Quantity must be at least 1"),
   unitPrice: z.string().min(1, "Unit price is required"),
   status: z.string().min(1, "Status is required"),
+  saleDate: z.date(),
   notes: z.string().optional(),
 });
 
@@ -51,6 +55,7 @@ export default function AddSaleModal({ open, onOpenChange, onSaleAdded }: AddSal
       quantity: 1,
       unitPrice: "",
       status: "unpaid",
+      saleDate: new Date(),
       notes: "",
     },
   });
@@ -89,6 +94,7 @@ export default function AddSaleModal({ open, onOpenChange, onSaleAdded }: AddSal
         totalAmount: totalAmount.toFixed(2),
         profit: profit.toFixed(2),
         status: data.status,
+        saleDate: data.saleDate.toISOString(),
         notes: data.notes || "",
       };
       
@@ -335,23 +341,52 @@ export default function AddSaleModal({ open, onOpenChange, onSaleAdded }: AddSal
             </div>
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="status">Status</Label>
-            <Select 
-              value={form.watch("status")} 
-              onValueChange={(value) => form.setValue("status", value)}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {Object.entries(ORDER_STATUS_LABELS).map(([value, label]) => (
-                  <SelectItem key={value} value={value}>
-                    {label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="status">Status</Label>
+              <Select 
+                value={form.watch("status")} 
+                onValueChange={(value) => form.setValue("status", value)}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {Object.entries(ORDER_STATUS_LABELS).map(([value, label]) => (
+                    <SelectItem key={value} value={value}>
+                      {label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="saleDate">Sale Date</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className="w-full justify-start text-left font-normal"
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {form.watch("saleDate") ? (
+                      format(form.watch("saleDate"), "PPP")
+                    ) : (
+                      <span>Pick a date</span>
+                    )}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0">
+                  <Calendar
+                    mode="single"
+                    selected={form.watch("saleDate")}
+                    onSelect={(date) => date && form.setValue("saleDate", date)}
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
           </div>
 
           <div className="space-y-2">
