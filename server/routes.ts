@@ -667,6 +667,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const updateData = insertPlotSchema.partial().parse(req.body);
       
+      // Automated harvest tracking: when status changes to "harvested" and harvest amount is provided
+      if (updateData.status === "harvested" && updateData.harvestAmountKg) {
+        console.log("🌾 HARVEST TRACKING: Plot being marked as harvested with", updateData.harvestAmountKg, "kg");
+        
+        const existingPlot = await storage.getPlot(req.params.id);
+        if (existingPlot) {
+          // Update total harvested amount across all cycles
+          const currentTotal = parseFloat(existingPlot.totalHarvestedKg || "0");
+          const newHarvest = parseFloat(updateData.harvestAmountKg || "0");
+          updateData.totalHarvestedKg = (currentTotal + newHarvest).toString();
+          
+          console.log("📊 HARVEST SUMMARY: Previous total:", currentTotal, "kg | New harvest:", newHarvest, "kg | Updated total:", updateData.totalHarvestedKg, "kg");
+          
+          // Auto-set actual harvest date if not provided
+          if (!updateData.actualHarvestDate) {
+            updateData.actualHarvestDate = new Date().toISOString();
+            console.log("📅 AUTO-SET: Actual harvest date to today");
+          }
+        }
+      }
+      
       // Filter out null values for dates that might cause issues
       const filteredUpdateData = Object.fromEntries(
         Object.entries(updateData).filter(([key, value]) => 
@@ -674,12 +695,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         )
       );
       
+      console.log("Updating plot with enhanced data:", filteredUpdateData);
+      
       const plot = await storage.updatePlot(req.params.id, filteredUpdateData);
       if (!plot) {
         return res.status(404).json({ message: "Plot not found" });
       }
+      
+      console.log("✅ PLOT UPDATED: Harvest tracking complete");
       res.json(plot);
     } catch (error) {
+      console.error("❌ PLOT UPDATE ERROR:", error);
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Validation error", errors: error.errors });
       }

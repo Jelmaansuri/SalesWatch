@@ -84,10 +84,13 @@ export const plots = pgTable("plots", {
   // Cycle tracking fields
   currentCycle: integer("current_cycle").notNull().default(1), // Current cycle number (1, 2, 3, etc.)
   totalCycles: integer("total_cycles").notNull().default(1), // Total planned cycles for this plot
-  cycleHistory: text("cycle_history").default("[]"), // JSON array of previous cycle data
+  cycleHistory: text("cycle_history").default("[]"), // JSON array of previous cycle data with harvest amounts
   nextPlantingDate: timestamp("next_planting_date"), // Calculated next planting date for multi-cycle
   restPeriodDays: integer("rest_period_days").default(30), // Days to rest between cycles
   isMultiCycle: boolean("is_multi_cycle").default(false), // Whether this plot supports multiple cycles
+  // Harvest tracking fields
+  harvestAmountKg: decimal("harvest_amount_kg", { precision: 10, scale: 2 }), // Current cycle harvest amount in kg
+  totalHarvestedKg: decimal("total_harvested_kg", { precision: 10, scale: 2 }).default("0"), // Cumulative harvest across all cycles
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -126,6 +129,7 @@ export const insertPlotSchema = createInsertSchema(plots).omit({
   nettingOpenDate: z.string().nullable().transform((val) => val ? new Date(val) : null).optional(),
   nextPlantingDate: z.string().nullable().transform((val) => val ? new Date(val) : null).optional(),
   cycleHistory: z.string().optional(),
+  harvestAmountKg: z.number().min(0, "Harvest amount must be positive").optional(),
 });
 
 // Types
