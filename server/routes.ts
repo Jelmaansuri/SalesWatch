@@ -219,9 +219,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = req.user.claims.sub;
       const requestData = { ...req.body, userId };
       
-      // Convert saleDate string to Date object if provided
-      if (requestData.saleDate && typeof requestData.saleDate === 'string') {
-        requestData.saleDate = new Date(requestData.saleDate);
+      // Ensure saleDate is handled properly
+      if (requestData.saleDate) {
+        if (typeof requestData.saleDate === 'string') {
+          requestData.saleDate = new Date(requestData.saleDate);
+        } else if (requestData.saleDate instanceof Date) {
+          // Already a Date object, keep as is
+        }
       }
       
       console.log("Processing sale creation with data:", requestData);

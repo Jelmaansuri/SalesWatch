@@ -102,7 +102,10 @@ export const insertSaleSchema = createInsertSchema(sales).omit({
   updatedAt: true,
 }).extend({
   userId: z.string().optional(), // Allow userId to be set by server
-  saleDate: z.string().transform((val) => new Date(val)),
+  saleDate: z.union([
+    z.string().transform((val) => new Date(val)),
+    z.date()
+  ]),
 });
 
 export const insertPlotSchema = createInsertSchema(plots).omit({
