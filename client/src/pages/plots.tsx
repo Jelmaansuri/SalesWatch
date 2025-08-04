@@ -321,91 +321,99 @@ function PlotCard({ plot, onEdit, onDelete, onHarvest }: {
           </div>
         )}
 
-        {/* Cycle Management */}
-        {plot.isMultiCycle && (
-          <div className="border-t pt-4 mt-4">
-            <div className="flex items-center justify-between mb-3">
+        {/* Cycle Information - Always Show for ALL Plots */}
+        <div className="border-t pt-4 mt-4">
+          <div className="space-y-2 bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg border border-blue-200 dark:border-blue-800">
+            <div className="flex justify-between items-center">
               <div className="flex items-center gap-2">
-                <BarChart3 className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-                <span className="font-medium text-sm">Cycle Management</span>
+                <BarChart3 className="h-4 w-4 text-blue-600" />
+                <span className="text-sm font-semibold text-blue-800 dark:text-blue-200">
+                  Cycle {plot.currentCycle}
+                  {plot.isMultiCycle && plot.totalCycles > 1 ? ` of ${plot.totalCycles}` : ''}
+                </span>
               </div>
-              <div className="text-xs text-gray-500">
-                {plot.nextPlantingDate && (
-                  `Next: ${format(parseISO(plot.nextPlantingDate), "MMM dd, yyyy")}`
-                )}
-              </div>
-            </div>
-
-            {/* Cycle Information */}
-            <div className="space-y-2">
-              <div className="flex justify-between items-center">
-                <div className="flex items-center gap-2">
-                  <BarChart3 className="h-3 w-3 text-blue-500" />
-                  <span className="text-xs font-medium">Cycle {plot.currentCycle}</span>
-                  {plot.isMultiCycle && (
-                    <span className="text-xs text-gray-500">of {plot.totalCycles}</span>
-                  )}
-                </div>
+              <div className="flex gap-1">
                 {plot.status === "harvested" && (
-                  <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-200">
+                  <Badge variant="default" className="text-xs bg-green-600 text-white">
                     Harvested
                   </Badge>
                 )}
+                {plot.isMultiCycle && plot.totalCycles > 1 && (
+                  <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-300">
+                    Multi-Cycle
+                  </Badge>
+                )}
               </div>
-              {plot.isMultiCycle && (
+            </div>
+            
+            {/* Progress Bar for Multi-cycle plots */}
+            {plot.isMultiCycle && plot.totalCycles > 1 && (
+              <div className="space-y-1">
+                <div className="flex justify-between text-xs text-blue-600 dark:text-blue-300">
+                  <span>Progress</span>
+                  <span>{Math.round((plot.currentCycle / plot.totalCycles) * 100)}%</span>
+                </div>
                 <Progress 
                   value={(plot.currentCycle / plot.totalCycles) * 100} 
                   className="w-full h-2" 
                 />
-              )}
-            </div>
-
-            {/* Harvest Summary */}
-            {plot.totalHarvestedKg > 0 && (
-              <div className="bg-green-50 dark:bg-green-900/20 p-3 rounded-lg">
-                <div className="text-lg font-bold text-green-700 dark:text-green-400">
-                  {plot.totalHarvestedKg} kg
-                </div>
-                <div className="text-xs text-green-600 dark:text-green-500">
-                  Total Harvested
-                </div>
-                {plot.isMultiCycle && (
-                  <div className="text-xs text-gray-600 dark:text-gray-400 mt-1">
-                    Cycle {plot.currentCycle} of {plot.totalCycles}
-                  </div>
-                )}
               </div>
             )}
-
-            {/* Harvest Action Button */}
-            {(plot.status === "ready_for_harvest" || plot.status === "harvested") && (
-              <div className="flex gap-2 mt-3">
-                <Button 
-                  size="sm" 
-                  variant={plot.status === "harvested" ? "outline" : "default"}
-                  className={`flex-1 text-xs ${plot.status === "harvested" ? "border-green-600 text-green-600 hover:bg-green-50" : "bg-green-600 hover:bg-green-700"}`}
-                  onClick={() => onHarvest?.(plot)}
-                  data-testid={`button-harvest-${plot.id}`}
-                >
-                  <Package className="h-3 w-3 mr-1" />
-                  {plot.status === "harvested" ? "Update Harvest" : "Record Harvest"}
-                </Button>
+            
+            {/* Next Planting Date for Multi-cycle */}
+            {plot.isMultiCycle && plot.status === "harvested" && (
+              <div className="flex justify-between items-center text-xs">
+                <span className="text-gray-600 dark:text-gray-400">Next Planting:</span>
+                <span className="font-medium text-blue-600">30 days after harvest</span>
               </div>
             )}
-
-            {plot.currentCycle === plot.totalCycles && plot.status === "harvested" && (
-              <div className="flex items-center gap-2 p-2 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800 mt-3">
-                <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
-                <span className="text-sm text-green-700 dark:text-green-300">
-                  All cycles completed successfully!
-                </span>
+            
+            {/* Harvest Amount if Available */}
+            {plot.status === "harvested" && plot.harvestAmountKg && parseFloat(plot.harvestAmountKg.toString()) > 0 && (
+              <div className="flex justify-between items-center text-xs">
+                <span className="text-gray-600 dark:text-gray-400">This Cycle:</span>
+                <span className="font-medium text-green-600">{parseFloat(plot.harvestAmountKg.toString()).toFixed(1)} kg</span>
               </div>
             )}
+            
+            {/* Total Harvest if Available */}
+            {plot.totalHarvestedKg && parseFloat(plot.totalHarvestedKg.toString()) > 0 && (
+              <div className="flex justify-between items-center text-xs">
+                <span className="text-gray-600 dark:text-gray-400">Total Harvested:</span>
+                <span className="font-semibold text-green-700">{parseFloat(plot.totalHarvestedKg.toString()).toFixed(1)} kg</span>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Harvest Action Button */}
+        {(plot.status === "ready_for_harvest" || plot.status === "harvested") && (
+          <div className="flex gap-2 mt-4">
+            <Button 
+              size="sm" 
+              variant={plot.status === "harvested" ? "outline" : "default"}
+              className={`flex-1 text-xs ${plot.status === "harvested" ? "border-green-600 text-green-600 hover:bg-green-50" : "bg-green-600 hover:bg-green-700"}`}
+              onClick={() => onHarvest?.(plot)}
+              data-testid={`button-harvest-${plot.id}`}
+            >
+              <Package className="h-3 w-3 mr-1" />
+              {plot.status === "harvested" ? "Update Harvest" : "Record Harvest"}
+            </Button>
+          </div>
+        )}
+
+        {/* Completion Message */}
+        {plot.currentCycle === plot.totalCycles && plot.status === "harvested" && (
+          <div className="flex items-center gap-2 p-2 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800 mt-3">
+            <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
+            <span className="text-sm text-green-700 dark:text-green-300">
+              All cycles completed successfully!
+            </span>
           </div>
         )}
 
         {plot.notes && (
-          <div className="text-sm text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-800 p-2 rounded">
+          <div className="text-sm text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-800 p-2 rounded mt-4">
             <strong>Notes:</strong> {plot.notes}
           </div>
         )}
@@ -438,8 +446,7 @@ function PlotForm({
       currentCycle: plot.currentCycle || 1,
       totalCycles: plot.totalCycles || 1,
       isMultiCycle: plot.isMultiCycle || false,
-      restPeriodDays: plot.restPeriodDays || 30,
-      nextPlantingDate: plot.nextPlantingDate ? parseISO(plot.nextPlantingDate) : undefined,
+
       daysToMaturity: plot.daysToMaturity,
       daysToOpenNetting: plot.daysToOpenNetting,
       nettingOpenDate: plot.nettingOpenDate ? parseISO(plot.nettingOpenDate) : undefined,
