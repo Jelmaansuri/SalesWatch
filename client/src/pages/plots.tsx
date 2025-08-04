@@ -24,10 +24,20 @@ import { z } from "zod";
 import Sidebar from "@/components/layout/sidebar";
 import Header from "@/components/layout/header";
 
-const plotFormSchema = insertPlotSchema.extend({
+const plotFormSchema = z.object({
+  userId: z.string().optional(),
+  name: z.string().min(1, "Name is required"),
+  polybagCount: z.number().min(1, "Polybag count must be at least 1"),
+  location: z.string().min(1, "Location is required"),
+  cropType: z.string().min(1, "Crop type is required"),
   plantingDate: z.date(),
-  expectedHarvestDate: z.date(),
+  expectedHarvestDate: z.date().optional(),
   actualHarvestDate: z.date().optional(),
+  daysToMaturity: z.number().min(1, "Days to maturity must be at least 1"),
+  daysToOpenNetting: z.number().min(1, "Days to open netting must be at least 1"),
+  nettingOpenDate: z.date().optional(),
+  status: z.string().min(1, "Status is required"),
+  notes: z.string().optional(),
 });
 
 type PlotFormData = z.infer<typeof plotFormSchema>;
@@ -318,15 +328,16 @@ function PlotForm({
       location: "",
       cropType: "ginger",
       plantingDate: new Date(),
-      expectedHarvestDate: addDays(new Date(), 240), // Default 8 months for ginger
-      daysToMaturity: 240,
-      daysToOpenNetting: 30,
+      daysToMaturity: 135, // PROGENY standard for ginger
+      daysToOpenNetting: 75, // PROGENY standard for shade netting
       status: "planted",
       notes: "",
     }
   });
 
   const handleSubmit = (data: PlotFormData) => {
+    console.log("Form data being submitted:", data);
+    console.log("Form errors:", form.formState.errors);
     onSubmit(data);
     onOpenChange(false);
     form.reset();
@@ -654,7 +665,16 @@ function PlotForm({
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
                 Cancel
               </Button>
-              <Button type="submit" data-testid="button-save-plot">
+              <Button 
+                type="submit" 
+                data-testid="button-save-plot"
+                onClick={(e) => {
+                  console.log("Submit button clicked");
+                  console.log("Form valid:", form.formState.isValid);
+                  console.log("Form errors:", form.formState.errors);
+                  console.log("Form values:", form.getValues());
+                }}
+              >
                 {plot ? "Update Plot" : "Create Plot"}
               </Button>
             </DialogFooter>
