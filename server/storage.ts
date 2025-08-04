@@ -898,6 +898,17 @@ export class DatabaseStorage implements IStorage {
     const allCustomers = await this.getCustomers();
     const totalCustomers = allCustomers.length;
     
+    // Calculate completed cycles from all plots
+    const allPlots = await db.select().from(plots);
+    const completedCycles = allPlots.reduce((sum, plot) => {
+      // Count harvested cycles: if status is harvested, count the current cycle
+      // For multi-cycle plots, count all completed cycles (currentCycle represents total completed)
+      if (plot.status === 'harvested') {
+        return sum + plot.currentCycle;
+      }
+      return sum;
+    }, 0);
+    
     const orderStatusCounts = {
       unpaid: allSales.filter(s => s.status === 'unpaid').length,
       paid: allSales.filter(s => s.status === 'paid').length,
@@ -911,6 +922,7 @@ export class DatabaseStorage implements IStorage {
       totalProfit,
       activeOrders,
       totalCustomers,
+      completedCycles,
       orderStatusCounts,
     };
   }

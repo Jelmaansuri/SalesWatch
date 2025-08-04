@@ -163,6 +163,7 @@ export type DashboardMetrics = {
   totalProfit: number;
   activeOrders: number;
   totalCustomers: number;
+  completedCycles: number; // Total number of completed harvest cycles across all plots
   orderStatusCounts: {
     unpaid: number;
     paid: number;

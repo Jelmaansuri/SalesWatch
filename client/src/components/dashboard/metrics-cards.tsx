@@ -1,5 +1,5 @@
 import { Card, CardContent } from "@/components/ui/card";
-import { TrendingUp, DollarSign, ShoppingCart, Users } from "lucide-react";
+import { TrendingUp, DollarSign, Wheat, Users } from "lucide-react";
 import { formatCurrency } from "@/lib/currency";
 import type { DashboardMetrics } from "@shared/schema";
 
@@ -28,11 +28,11 @@ export default function MetricsCards({ metrics }: MetricsCardsProps) {
       changeType: null,
     },
     {
-      title: "Active Orders",
-      value: metrics.activeOrders.toString(),
-      icon: ShoppingCart,
-      iconColor: "text-my-orange",
-      bgColor: "bg-my-orange bg-opacity-10",
+      title: "Harvested",
+      value: metrics.completedCycles.toString(),
+      icon: Wheat,
+      iconColor: "text-purple-600",
+      bgColor: "bg-purple-600 bg-opacity-10",
       change: null,
       changeType: null,
     },
