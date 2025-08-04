@@ -42,7 +42,7 @@ function Router() {
           <Route path="/orders" component={Orders} />
           <Route path="/reports" component={Reports} />
           <Route path="/plots" component={Plots} />
-          <Route component={NotFound} />
+          <Route path="*" component={NotFound} />
         </>
       )}
     </Switch>
