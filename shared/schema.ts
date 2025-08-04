@@ -130,7 +130,7 @@ export const insertPlotSchema = createInsertSchema(plots).omit({
   nettingOpenDate: z.string().nullable().transform((val) => val ? new Date(val) : null).optional(),
   nextPlantingDate: z.string().nullable().transform((val) => val ? new Date(val) : null).optional(),
   cycleHistory: z.string().optional(),
-  harvestAmountKg: z.number().min(0, "Harvest amount must be positive").nullable().optional(),
+  harvestAmountKg: z.number().min(0, "Harvest amount must be positive").optional(),
 });
 
 // Types

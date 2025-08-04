@@ -1302,62 +1302,16 @@ export default function Plots() {
     setNextCycleModalOpen(true);
   };
 
-  const handleNextCycleSubmit = async (data: PlotFormData) => {
-    if (!nextCyclePlot) return;
-
-    try {
-      // NEXT CYCLE LOGIC: Keep existing total, reset current cycle harvest to null
-      const currentTotal = parseFloat(nextCyclePlot.totalHarvestedKg?.toString() || "0");
-      
-      console.log(`🔄 NEXT CYCLE: ${nextCyclePlot.name} advancing from cycle ${nextCyclePlot.currentCycle} to ${data.currentCycle}`);
-      console.log(`Preserving total harvested: ${currentTotal}kg from previous cycles`);
-      
-      // Prepare payload for next cycle with preserved total
-      const nextCyclePayload = {
-        ...data,
-        // Fix validation errors based on schema requirements
-        harvestAmountKg: 0,                          // Reset to 0 for new cycle (not null to avoid validation issues)
-        totalHarvestedKg: currentTotal.toString(),   // Convert to string as required by schema
-        actualHarvestDate: null,                     // Reset harvest date for new cycle
-        status: data.status,                         // Use the status from form
-        userId: nextCyclePlot.userId,                // Ensure userId is included
-        // Make sure dates are properly formatted
-        plantingDate: data.plantingDate instanceof Date ? data.plantingDate.toISOString() : data.plantingDate,
-        expectedHarvestDate: data.expectedHarvestDate instanceof Date ? data.expectedHarvestDate.toISOString() : data.expectedHarvestDate,
-        nettingOpenDate: data.nettingOpenDate instanceof Date ? data.nettingOpenDate.toISOString() : data.nettingOpenDate,
-      };
-
-      console.log("Next cycle payload:", nextCyclePayload);
-      
-      const response = await fetch(`/api/plots/${nextCyclePlot.id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(nextCyclePayload),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.text();
-        console.error("Next cycle API error:", errorData);
-        throw new Error(`Failed to start next cycle: ${errorData}`);
-      }
-
-      // Invalidate cache to refresh data
-      queryClient.invalidateQueries({ queryKey: ["/api/plots"] });
-      
-      setNextCycleModalOpen(false);
-      setNextCyclePlot(null);
-      toast({
-        title: "Next cycle started!",
-        description: `${data.name} has been set up for Cycle ${data.currentCycle}`,
-      });
-    } catch (error) {
-      console.error("Error starting next cycle:", error);
-      toast({
-        title: "Error",
-        description: "Failed to start next cycle",
-        variant: "destructive",
-      });
+  const handleNextCycleSubmit = (data: PlotFormData) => {
+    if (nextCyclePlot) {
+      updateMutation.mutate({ id: nextCyclePlot.id, data });
     }
+    setNextCycleModalOpen(false);
+    setNextCyclePlot(null);
+    toast({
+      title: "Next cycle started!",
+      description: `${data.name} has been set up for Cycle ${data.currentCycle}`,
+    });
   };
 
   // Handle harvest submission
@@ -1365,37 +1319,36 @@ export default function Plots() {
     if (!harvestingPlot) return;
 
     try {
-      // 🔒 MANDATORY HARVEST LOGIC FOR ALL PLOTS (EXISTING AND NEW)
-      // This logic is documented in replit.md and must be applied consistently
+      // HARVEST ACCUMULATION LOGIC - WORKS FOR ALL PLOTS (EXISTING AND NEW)
       const currentTotal = parseFloat(harvestingPlot.totalHarvestedKg?.toString() || "0");
-      const currentCycleAmount = harvestingPlot.harvestAmountKg ? parseFloat(harvestingPlot.harvestAmountKg.toString()) : 0;
+      const currentCycleAmount = parseFloat(harvestingPlot.harvestAmountKg?.toString() || "0");
       
-      // CORRECT HARVEST LOGIC: Update cycle amount + recalculate total from all cycles
+      // CORRECTED LOGIC: Check if we're advancing to a NEW cycle vs editing current cycle
       let newTotal;
       
-      // SIMPLIFIED LOGIC: 
-      // 1. For SAME cycle: Replace the cycle amount, recalculate total
-      // 2. For NEW cycle: Add new cycle amount to total
+      // Detect if this form submission is advancing to a new cycle
+      // IMPORTANT: Only count as new cycle if currentCycle is GREATER than harvestingPlot.currentCycle
+      const isAdvancingToNewCycle = data.currentCycle > harvestingPlot.currentCycle;
       
-      // CRITICAL FIX: Detect if this is first harvest for current cycle  
-      const isFirstHarvestForCycle = currentCycleAmount === 0;
-      
-      console.log(`🔍 DETECTION for ${harvestingPlot.name}:`, {
-        currentCycleAmount,
-        typeOfCurrentCycle: typeof currentCycleAmount,
-        isFirstHarvest: isFirstHarvestForCycle,
-        rawHarvestAmount: harvestingPlot.harvestAmountKg,
-        rawHarvestType: typeof harvestingPlot.harvestAmountKg
-      });
-      
-      if (isFirstHarvestForCycle) {
-        // FIRST HARVEST for this cycle: ADD to total
+      if (isAdvancingToNewCycle) {
+        // NEW CYCLE: Always accumulate to total
         newTotal = currentTotal + data.harvestAmountKg;
-        console.log(`FIRST HARVEST CYCLE ${harvestingPlot.currentCycle}: Adding ${data.harvestAmountKg}kg to existing total ${currentTotal}kg`);
+        console.log(`NEW CYCLE ${harvestingPlot.currentCycle}→${data.currentCycle}: Adding ${data.harvestAmountKg}kg to total ${currentTotal}kg`);
       } else {
-        // EDITING EXISTING HARVEST: Replace current cycle amount in total
-        newTotal = currentTotal - currentCycleAmount + data.harvestAmountKg;
-        console.log(`UPDATE CYCLE ${harvestingPlot.currentCycle}: Replacing ${currentCycleAmount}kg → ${data.harvestAmountKg}kg`);
+        // SAME CYCLE: Check if editing existing harvest or first harvest
+        const hasExistingHarvest = currentCycleAmount > 0 && 
+          harvestingPlot.status === "harvested" && 
+          harvestingPlot.actualHarvestDate;
+          
+        if (hasExistingHarvest) {
+          // EDITING current cycle's harvest: Replace old amount with new amount
+          newTotal = currentTotal - currentCycleAmount + data.harvestAmountKg;
+          console.log(`EDIT CURRENT CYCLE ${harvestingPlot.currentCycle}: Replacing ${currentCycleAmount}kg → ${data.harvestAmountKg}kg`);
+        } else {
+          // FIRST harvest for this cycle: Add to total
+          newTotal = currentTotal + data.harvestAmountKg;
+          console.log(`FIRST HARVEST CYCLE ${harvestingPlot.currentCycle}: Adding ${data.harvestAmountKg}kg to total ${currentTotal}kg`);
+        }
       }
       
       // Logic is now handled above with cycle detection
@@ -1413,23 +1366,20 @@ export default function Plots() {
         hasActualHarvestDate: !!harvestingPlot.actualHarvestDate,
         previousTotal: currentTotal,
         currentCycleOldAmount: currentCycleAmount,
-        currentCycleAmountType: typeof currentCycleAmount,
         newHarvestAmount: data.harvestAmountKg,
         calculatedNewTotal: newTotal,
-        operation: isFirstHarvestForCycle ? 'FIRST_HARVEST_FOR_CYCLE' : 'UPDATE_EXISTING_HARVEST',
-        cycleDetails: {
-          plotCycle: harvestingPlot.currentCycle,
-          isFirstHarvest: isFirstHarvestForCycle,
-          modalType: 'HARVEST_MODAL',
-          detectionConditions: {
-            isZero: currentCycleAmount === 0,
-            isNull: currentCycleAmount === null,
-            parsedZero: parseFloat(currentCycleAmount?.toString() || "0") === 0
-          }
+        operation: isAdvancingToNewCycle ? 'ADVANCE_NEW_CYCLE' : 
+          (currentCycleAmount > 0 && harvestingPlot.status === "harvested" ? 'EDIT_CURRENT_CYCLE' : 'FIRST_HARVEST'),
+        cycleChange: {
+          fromCycle: harvestingPlot.currentCycle,
+          toCycle: data.currentCycle,
+          isAdvancing: isAdvancingToNewCycle
         },
-        formula: isFirstHarvestForCycle ? 
-          `FIRST: ${currentTotal} + ${data.harvestAmountKg} = ${newTotal}` :
-          `UPDATE: ${currentTotal} - ${currentCycleAmount} + ${data.harvestAmountKg} = ${newTotal}`
+        formula: isAdvancingToNewCycle ? 
+          `NEW CYCLE: ${currentTotal} + ${data.harvestAmountKg} = ${newTotal}` :
+          (currentCycleAmount > 0 ? 
+            `EDIT: ${currentTotal} - ${currentCycleAmount} + ${data.harvestAmountKg} = ${newTotal}` :
+            `FIRST: ${currentTotal} + ${data.harvestAmountKg} = ${newTotal}`)
       });
 
       let payload: any = {
