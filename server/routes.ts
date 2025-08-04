@@ -4,11 +4,42 @@ import { storage } from "./storage";
 import { insertCustomerSchema, insertProductSchema, insertSaleSchema } from "@shared/schema";
 import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
+import { db } from "./db";
+import { sql } from "drizzle-orm";
 import { z } from "zod";
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  console.log("Registering routes...");
+  
   // Auth middleware
   await setupAuth(app);
+
+  // Health check endpoint
+  app.get('/api/health', async (req, res) => {
+    console.log("Health check endpoint called");
+    try {
+      // Test database connection
+      const testResult = await db.execute(sql`SELECT 1 as test`);
+      const response = { 
+        status: 'healthy', 
+        database: 'connected',
+        timestamp: new Date().toISOString(),
+        testResult: testResult.rows
+      };
+      console.log("Health check response:", response);
+      res.json(response);
+    } catch (error) {
+      console.error("Health check failed:", error);
+      const errorResponse = { 
+        status: 'unhealthy', 
+        database: 'disconnected',
+        error: error instanceof Error ? error.message : String(error),
+        timestamp: new Date().toISOString()
+      };
+      console.log("Health check error response:", errorResponse);
+      res.status(500).json(errorResponse);
+    }
+  });
 
   // Auth routes
   app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
@@ -49,21 +80,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/customers", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
+      console.log("Creating customer for userId:", userId);
+      console.log("Request body:", req.body);
+      
       const validatedData = insertCustomerSchema.parse(req.body);
+      console.log("Validated data:", validatedData);
       
       // Check if email already exists
       const existingCustomer = await storage.getCustomerByEmail(validatedData.email, userId);
       if (existingCustomer) {
+        console.log("Customer with email already exists:", validatedData.email);
         return res.status(400).json({ message: "Customer with this email already exists" });
       }
 
+      console.log("Creating customer with data:", validatedData);
       const customer = await storage.createCustomer(validatedData, userId);
+      console.log("Customer created successfully:", customer.id);
       res.status(201).json(customer);
     } catch (error) {
+      console.error("Error creating customer:", error);
+      console.error("Error stack:", error instanceof Error ? error.stack : String(error));
       if (error instanceof z.ZodError) {
+        console.error("Zod validation errors:", error.errors);
         return res.status(400).json({ message: "Invalid data", errors: error.errors });
       }
-      res.status(500).json({ message: "Failed to create customer" });
+      res.status(500).json({ message: "Failed to create customer", error: error instanceof Error ? error.message : String(error) });
     }
   });
 

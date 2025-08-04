@@ -492,12 +492,24 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createCustomer(customer: InsertCustomer, userId: string): Promise<Customer> {
-    const [newCustomer] = await db.insert(customers).values({
-      id: randomUUID(),
-      userId,
-      ...customer,
-    }).returning();
-    return newCustomer;
+    try {
+      console.log("DatabaseStorage: Creating customer with data:", customer, "for user:", userId);
+      
+      const customerRecord = {
+        id: randomUUID(),
+        userId,
+        ...customer,
+      };
+      
+      console.log("DatabaseStorage: Inserting customer record:", customerRecord);
+      const [newCustomer] = await db.insert(customers).values(customerRecord).returning();
+      console.log("DatabaseStorage: Customer created successfully:", newCustomer);
+      return newCustomer;
+    } catch (error) {
+      console.error("DatabaseStorage: Error creating customer:", error);
+      console.error("DatabaseStorage: Error stack:", error instanceof Error ? error.stack : String(error));
+      throw error;
+    }
   }
 
   async updateCustomer(id: string, updates: Partial<Customer>, userId: string): Promise<Customer | undefined> {
