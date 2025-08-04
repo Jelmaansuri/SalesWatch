@@ -1315,11 +1315,12 @@ export default function Plots() {
       // Prepare payload for next cycle with preserved total
       const nextCyclePayload = {
         ...data,
-        harvestAmountKg: null,           // Reset current cycle harvest  
-        totalHarvestedKg: currentTotal,  // Keep accumulated total as number
-        actualHarvestDate: null,         // Reset harvest date for new cycle
-        status: data.status,             // Use the status from form
-        userId: nextCyclePlot.userId,    // Ensure userId is included
+        // Fix validation errors based on schema requirements
+        harvestAmountKg: 0,                          // Set to 0 instead of null (required number)
+        totalHarvestedKg: currentTotal.toString(),   // Convert to string as required by schema
+        actualHarvestDate: null,                     // Reset harvest date for new cycle
+        status: data.status,                         // Use the status from form
+        userId: nextCyclePlot.userId,                // Ensure userId is included
         // Make sure dates are properly formatted
         plantingDate: data.plantingDate instanceof Date ? data.plantingDate.toISOString() : data.plantingDate,
         expectedHarvestDate: data.expectedHarvestDate instanceof Date ? data.expectedHarvestDate.toISOString() : data.expectedHarvestDate,
@@ -1376,8 +1377,8 @@ export default function Plots() {
       // 1. For SAME cycle: Replace the cycle amount, recalculate total
       // 2. For NEW cycle: Add new cycle amount to total
       
-      // CRITICAL FIX: Detect if this is first harvest for current cycle
-      const isFirstHarvestForCycle = currentCycleAmount === 0;
+      // CRITICAL FIX: Detect if this is first harvest for current cycle  
+      const isFirstHarvestForCycle = currentCycleAmount === 0 || currentCycleAmount === null;
       
       if (isFirstHarvestForCycle) {
         // FIRST HARVEST for this cycle: ADD to total
