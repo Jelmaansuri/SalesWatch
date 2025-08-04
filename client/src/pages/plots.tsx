@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { CalendarIcon, Plus, Sprout, Clock, Target, AlertTriangle, CheckCircle, MapPin, BarChart3, Eye, Edit, Trash2 } from "lucide-react";
+import { CalendarIcon, Plus, Sprout, Clock, Target, AlertTriangle, CheckCircle, MapPin, BarChart3, Eye, Edit, Trash2, Package } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { format, addDays, differenceInDays, parseISO } from "date-fns";
@@ -41,13 +41,18 @@ const plotFormSchema = z.object({
   currentCycle: z.number().min(1, "Current cycle must be at least 1").default(1),
   totalCycles: z.number().min(1, "Total cycles must be at least 1").default(1),
   isMultiCycle: z.boolean().default(false),
-  restPeriodDays: z.number().min(0, "Rest period days must be at least 0").default(30),
-  nextPlantingDate: z.date().optional(),
-  // Harvest tracking fields
-  harvestAmountKg: z.number().min(0, "Harvest amount must be positive").optional(),
 });
 
 type PlotFormData = z.infer<typeof plotFormSchema>;
+
+// Harvest Modal Schema
+const harvestSchema = z.object({
+  harvestAmountKg: z.number().min(0.1, "Harvest amount must be at least 0.1 kg"),
+  actualHarvestDate: z.date(),
+  proceedToNextCycle: z.boolean().default(false),
+});
+
+type HarvestFormData = z.infer<typeof harvestSchema>;
 
 interface Plot {
   id: string;
@@ -68,8 +73,6 @@ interface Plot {
   currentCycle: number;
   totalCycles: number;
   cycleHistory?: string;
-  nextPlantingDate?: string;
-  restPeriodDays: number;
   isMultiCycle: boolean;
   // Harvest tracking fields
   harvestAmountKg?: number;
@@ -78,11 +81,11 @@ interface Plot {
   updatedAt: string;
 }
 
-function PlotCard({ plot, onEdit, onDelete, handleStartNextCycle }: { 
+function PlotCard({ plot, onEdit, onDelete, onHarvest }: { 
   plot: Plot; 
   onEdit: (plot: Plot) => void; 
   onDelete: (plotId: string) => void; 
-  handleStartNextCycle?: (plot: Plot) => void;
+  onHarvest?: (plot: Plot) => void;
 }) {
   const plantingDate = parseISO(plot.plantingDate);
   const expectedHarvestDate = parseISO(plot.expectedHarvestDate);
@@ -346,34 +349,34 @@ function PlotCard({ plot, onEdit, onDelete, handleStartNextCycle }: {
             </div>
 
             {/* Harvest Summary */}
-            {plot.harvestAmountKg && (
+            {plot.totalHarvestedKg > 0 && (
               <div className="bg-green-50 dark:bg-green-900/20 p-3 rounded-lg">
                 <div className="text-lg font-bold text-green-700 dark:text-green-400">
-                  {plot.harvestAmountKg} kg
+                  {plot.totalHarvestedKg} kg
                 </div>
                 <div className="text-xs text-green-600 dark:text-green-500">
-                  Cycle {plot.currentCycle} Harvest
+                  Total Harvested
                 </div>
-                {plot.totalHarvestedKg > 0 && (
+                {plot.isMultiCycle && (
                   <div className="text-xs text-gray-600 dark:text-gray-400 mt-1">
-                    Total: {plot.totalHarvestedKg} kg across all cycles
+                    Cycle {plot.currentCycle} of {plot.totalCycles}
                   </div>
                 )}
               </div>
             )}
 
-            {/* Cycle Action Buttons */}
-            {plot.status === "harvested" && plot.currentCycle < plot.totalCycles && (
+            {/* Harvest Action Button */}
+            {plot.status === "ready_for_harvest" && (
               <div className="flex gap-2 mt-3">
                 <Button 
                   size="sm" 
-                  variant="outline" 
-                  className="flex-1 text-xs"
-                  onClick={() => handleStartNextCycle?.(plot)}
-                  data-testid={`button-start-next-cycle-${plot.id}`}
+                  variant="default" 
+                  className="flex-1 text-xs bg-green-600 hover:bg-green-700"
+                  onClick={() => onHarvest?.(plot)}
+                  data-testid={`button-harvest-${plot.id}`}
                 >
-                  <Plus className="h-3 w-3 mr-1" />
-                  Start Cycle {plot.currentCycle + 1}
+                  <Package className="h-3 w-3 mr-1" />
+                  Record Harvest
                 </Button>
               </div>
             )}
@@ -463,13 +466,10 @@ function PlotForm({
         nettingOpenDate: plot.nettingOpenDate ? parseISO(plot.nettingOpenDate) : undefined,
         status: plot.status,
         notes: plot.notes || "",
-        // Cycle tracking fields
+        // Cycle tracking fields  
         currentCycle: plot.currentCycle || 1,
         totalCycles: plot.totalCycles || 1,
         isMultiCycle: plot.isMultiCycle || false,
-        restPeriodDays: plot.restPeriodDays || 30,
-        nextPlantingDate: plot.nextPlantingDate ? parseISO(plot.nextPlantingDate) : undefined,
-        harvestAmountKg: plot.harvestAmountKg || undefined,
       });
     } else {
       form.reset({
@@ -486,7 +486,6 @@ function PlotForm({
         currentCycle: 1,
         totalCycles: 1,
         isMultiCycle: false,
-        restPeriodDays: 30,
       });
     }
   }, [plot, form]);
@@ -769,158 +768,49 @@ function PlotForm({
               />
             </div>
 
-            {(form.watch("status") === "harvested" || plot?.status === "harvested") && (
-              <div className="grid grid-cols-2 gap-4">
-                <FormField
-                  control={form.control}
-                  name="actualHarvestDate"
-                  render={({ field }) => (
-                    <FormItem className="flex flex-col">
-                      <FormLabel>Actual Harvest Date</FormLabel>
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <FormControl>
-                            <Button
-                              variant="outline"
-                              className={cn(
-                                "w-full pl-3 text-left font-normal",
-                                !field.value && "text-muted-foreground"
-                              )}
-                              data-testid="button-actual-harvest-date"
-                            >
-                              {field.value ? (
-                                format(field.value, "PPP")
-                              ) : (
-                                <span>Pick a date</span>
-                              )}
-                              <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                            </Button>
-                          </FormControl>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0" align="start">
-                          <Calendar
-                            mode="single"
-                            selected={field.value}
-                            onSelect={field.onChange}
-                            initialFocus
-                          />
-                        </PopoverContent>
-                      </Popover>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="harvestAmountKg"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Harvest Amount (kg)</FormLabel>
-                      <FormControl>
-                        <Input 
-                          type="number" 
-                          step="0.1"
-                          placeholder="e.g., 125.5" 
-                          {...field}
-                          value={field.value || ""}
-                          onChange={e => field.onChange(parseFloat(e.target.value) || 0)}
-                          data-testid="input-harvest-amount"
-                        />
-                      </FormControl>
-                      <FormDescription>
-                        Total weight harvested in kilograms
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-            )}
-
-            {/* Cycle Management Section */}
-            <div className="space-y-4 border-t pt-4">
-              <div className="flex items-center gap-2">
-                <BarChart3 className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-                <Label className="text-sm font-medium">Cycle Management</Label>
-              </div>
-
+            {(plot?.status === "harvested") && (
               <FormField
                 control={form.control}
-                name="isMultiCycle"
+                name="actualHarvestDate"
                 render={({ field }) => (
-                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
-                    <div className="space-y-0.5">
-                      <FormLabel className="text-base">Multi-Cycle Plot</FormLabel>
-                      <FormDescription>
-                        Enable to track multiple planting cycles for this plot
-                      </FormDescription>
-                    </div>
-                    <FormControl>
-                      <input
-                        type="checkbox"
-                        checked={field.value}
-                        onChange={field.onChange}
-                        className="h-4 w-4"
-                        data-testid="checkbox-multi-cycle"
-                      />
-                    </FormControl>
+                  <FormItem className="flex flex-col">
+                    <FormLabel>Actual Harvest Date</FormLabel>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <FormControl>
+                          <Button
+                            variant="outline"
+                            className={cn(
+                              "w-full pl-3 text-left font-normal",
+                              !field.value && "text-muted-foreground"
+                            )}
+                            data-testid="button-actual-harvest-date"
+                          >
+                            {field.value ? (
+                              format(field.value, "PPP")
+                            ) : (
+                              <span>Pick a date</span>
+                            )}
+                            <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                          </Button>
+                        </FormControl>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                          mode="single"
+                          selected={field.value}
+                          onSelect={field.onChange}
+                          initialFocus
+                        />
+                      </PopoverContent>
+                    </Popover>
+                    <FormMessage />
                   </FormItem>
                 )}
               />
+            )}
 
-              {form.watch("isMultiCycle") && (
-                <div className="grid grid-cols-2 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="totalCycles"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Total Cycles Planned</FormLabel>
-                        <FormControl>
-                          <Input 
-                            type="number" 
-                            placeholder="3" 
-                            {...field}
-                            value={field.value || ""}
-                            onChange={e => field.onChange(parseInt(e.target.value) || 1)}
-                            data-testid="input-total-cycles"
-                          />
-                        </FormControl>
-                        <FormDescription>
-                          Total number of planting cycles for this plot
-                        </FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
 
-                  <FormField
-                    control={form.control}
-                    name="restPeriodDays"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Rest Period (Days)</FormLabel>
-                        <FormControl>
-                          <Input 
-                            type="number" 
-                            placeholder="30" 
-                            {...field}
-                            value={field.value || ""}
-                            onChange={e => field.onChange(parseInt(e.target.value) || 30)}
-                            data-testid="input-rest-period"
-                          />
-                        </FormControl>
-                        <FormDescription>
-                          Days to rest between cycles
-                        </FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-              )}
-            </div>
 
             <FormField
               control={form.control}
@@ -966,76 +856,228 @@ function PlotForm({
   );
 }
 
+// Harvest Modal Component
+function HarvestModal({ 
+  plot, 
+  isOpen, 
+  onClose, 
+  onSubmit 
+}: { 
+  plot: Plot | null; 
+  isOpen: boolean; 
+  onClose: () => void; 
+  onSubmit: (data: HarvestFormData) => void; 
+}) {
+  const harvestForm = useForm<HarvestFormData>({
+    resolver: zodResolver(harvestSchema),
+    defaultValues: {
+      harvestAmountKg: 0,
+      actualHarvestDate: new Date(),
+      proceedToNextCycle: false,
+    },
+  });
+
+  const handleSubmit = (data: HarvestFormData) => {
+    onSubmit(data);
+    harvestForm.reset();
+  };
+
+  if (!plot) return null;
+
+  return (
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="sm:max-w-[500px]">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Package className="h-5 w-5 text-green-600" />
+            Record Harvest - {plot.name}
+          </DialogTitle>
+          <DialogDescription>
+            Capture harvest data for this plot and optionally proceed to the next cycle.
+          </DialogDescription>
+        </DialogHeader>
+
+        <Form {...harvestForm}>
+          <form onSubmit={harvestForm.handleSubmit(handleSubmit)} className="space-y-6">
+            <div className="grid grid-cols-2 gap-4">
+              <FormField
+                control={harvestForm.control}
+                name="harvestAmountKg"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Harvest Amount (kg)</FormLabel>
+                    <FormControl>
+                      <Input 
+                        type="number" 
+                        step="0.1"
+                        placeholder="e.g., 125.5" 
+                        {...field}
+                        value={field.value || ""}
+                        onChange={e => field.onChange(parseFloat(e.target.value) || 0)}
+                        data-testid="input-harvest-amount"
+                      />
+                    </FormControl>
+                    <FormDescription>
+                      Total weight harvested in kilograms
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={harvestForm.control}
+                name="actualHarvestDate"
+                render={({ field }) => (
+                  <FormItem className="flex flex-col">
+                    <FormLabel>Harvest Date</FormLabel>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <FormControl>
+                          <Button
+                            variant="outline"
+                            className={cn(
+                              "w-full pl-3 text-left font-normal",
+                              !field.value && "text-muted-foreground"
+                            )}
+                          >
+                            {field.value ? (
+                              format(field.value, "PPP")
+                            ) : (
+                              <span>Pick a date</span>
+                            )}
+                            <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                          </Button>
+                        </FormControl>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                          mode="single"
+                          selected={field.value}
+                          onSelect={field.onChange}
+                          initialFocus
+                        />
+                      </PopoverContent>
+                    </Popover>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            {plot.isMultiCycle && plot.currentCycle < plot.totalCycles && (
+              <FormField
+                control={harvestForm.control}
+                name="proceedToNextCycle"
+                render={({ field }) => (
+                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                    <div className="space-y-0.5">
+                      <FormLabel className="text-base">Start Next Cycle</FormLabel>
+                      <FormDescription>
+                        Automatically setup for Cycle {plot.currentCycle + 1} of {plot.totalCycles}
+                      </FormDescription>
+                    </div>
+                    <FormControl>
+                      <input
+                        type="checkbox"
+                        checked={field.value}
+                        onChange={field.onChange}
+                        className="h-4 w-4"
+                      />
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
+            )}
+
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={onClose}>
+                Cancel
+              </Button>
+              <Button type="submit" className="bg-green-600 hover:bg-green-700">
+                Record Harvest
+              </Button>
+            </DialogFooter>
+          </form>
+        </Form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export default function Plots() {
   const [showForm, setShowForm] = useState(false);
   const [editingPlot, setEditingPlot] = useState<Plot | undefined>();
+  const [harvestModalOpen, setHarvestModalOpen] = useState(false);
+  const [harvestingPlot, setHarvestingPlot] = useState<Plot | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // Cycle progression function
-  const handleStartNextCycle = async (plot: Plot) => {
-    if (plot.currentCycle >= plot.totalCycles) {
-      toast({ 
-        title: "Info", 
-        description: "This plot has completed all planned cycles.",
-        variant: "default"
-      });
-      return;
-    }
+  // Handle harvest modal opening
+  const handleHarvest = (plot: Plot) => {
+    setHarvestingPlot(plot);
+    setHarvestModalOpen(true);
+  };
+
+  // Handle harvest submission
+  const handleHarvestSubmit = async (data: HarvestFormData) => {
+    if (!harvestingPlot) return;
 
     try {
-      // Update cycle history with harvest data
-      const currentCycleData = {
-        cycle: plot.currentCycle,
-        harvestDate: plot.actualHarvestDate,
-        harvestAmountKg: plot.harvestAmountKg || 0,
-        plantingDate: plot.plantingDate,
-      };
-      
-      const existingHistory = plot.cycleHistory ? JSON.parse(plot.cycleHistory) : [];
-      const updatedHistory = [...existingHistory, currentCycleData];
+      // Update total harvested amount
+      const currentTotal = parseFloat(harvestingPlot.totalHarvestedKg || "0");
+      const newTotal = currentTotal + data.harvestAmountKg;
 
-      // Calculate next planting date (harvest date + rest period)
-      const nextPlantingDate = addDays(
-        new Date(plot.actualHarvestDate || new Date()), 
-        plot.restPeriodDays
-      );
-
-      // Reset for next cycle
-      const payload = {
-        currentCycle: plot.currentCycle + 1,
-        cycleHistory: JSON.stringify(updatedHistory),
-        nextPlantingDate: nextPlantingDate.toISOString(),
-        status: "planted", // Reset to planted for new cycle
-        plantingDate: nextPlantingDate.toISOString(),
-        actualHarvestDate: null,
-        harvestAmountKg: null,
-        // Recalculate dates for new cycle
-        expectedHarvestDate: addDays(nextPlantingDate, plot.daysToMaturity).toISOString(),
-        nettingOpenDate: addDays(nextPlantingDate, plot.daysToOpenNetting).toISOString(),
+      let payload: any = {
+        status: "harvested",
+        actualHarvestDate: data.actualHarvestDate.toISOString(),
+        harvestAmountKg: data.harvestAmountKg,
+        totalHarvestedKg: newTotal.toString(),
       };
 
-      const response = await fetch(`/api/plots/${plot.id}`, {
+      // If proceeding to next cycle, setup next cycle data
+      if (data.proceedToNextCycle && harvestingPlot.currentCycle < harvestingPlot.totalCycles) {
+        const nextPlantingDate = addDays(data.actualHarvestDate, 30); // 30-day rest period
+        payload = {
+          ...payload,
+          currentCycle: harvestingPlot.currentCycle + 1,
+          status: "planted",
+          plantingDate: nextPlantingDate.toISOString(),
+          expectedHarvestDate: addDays(nextPlantingDate, harvestingPlot.daysToMaturity).toISOString(),
+          nettingOpenDate: addDays(nextPlantingDate, harvestingPlot.daysToOpenNetting).toISOString(),
+          actualHarvestDate: null,
+          harvestAmountKg: null,
+        };
+      }
+
+      const response = await fetch(`/api/plots/${harvestingPlot.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
 
       if (!response.ok) {
-        throw new Error("Failed to start next cycle");
+        throw new Error("Failed to record harvest");
       }
 
       queryClient.invalidateQueries({ queryKey: ["/api/plots"] });
+      setHarvestModalOpen(false);
+      setHarvestingPlot(null);
+      
+      const message = data.proceedToNextCycle 
+        ? `Harvest recorded and Cycle ${harvestingPlot.currentCycle + 1} started for ${harvestingPlot.name}`
+        : `Harvest of ${data.harvestAmountKg}kg recorded for ${harvestingPlot.name}`;
+      
       toast({ 
         title: "Success", 
-        description: `Started Cycle ${plot.currentCycle + 1} for ${plot.name}`,
+        description: message,
         variant: "default"
       });
     } catch (error) {
-      console.error("Error starting next cycle:", error);
+      console.error("Error recording harvest:", error);
       toast({ 
         title: "Error", 
-        description: "Failed to start next cycle",
+        description: "Failed to record harvest",
         variant: "destructive"
       });
     }
@@ -1068,9 +1110,6 @@ export default function Plots() {
         currentCycle: data.currentCycle || 1,
         totalCycles: data.totalCycles || 1,
         isMultiCycle: data.isMultiCycle || false,
-        restPeriodDays: data.restPeriodDays || 30,
-        nextPlantingDate: data.nextPlantingDate?.toISOString() || null,
-        harvestAmountKg: data.harvestAmountKg || null,
       };
       console.log("Payload being sent:", payload);
       
@@ -1115,9 +1154,6 @@ export default function Plots() {
         currentCycle: data.currentCycle || 1,
         totalCycles: data.totalCycles || 1,
         isMultiCycle: data.isMultiCycle || false,
-        restPeriodDays: data.restPeriodDays || 30,
-        nextPlantingDate: data.nextPlantingDate?.toISOString() || null,
-        harvestAmountKg: data.harvestAmountKg || null,
       };
       
       const response = await fetch(`/api/plots/${id}`, {
@@ -1199,6 +1235,9 @@ export default function Plots() {
   );
   const harvestedPlots = plots.filter((plot: Plot) => plot.status === "harvested");
   const totalPolybags = plots.reduce((sum: number, plot: Plot) => sum + plot.polybagCount, 0);
+  const totalHarvestedKg = plots.reduce((sum: number, plot: Plot) => 
+    sum + parseFloat(plot.totalHarvestedKg || "0"), 0
+  );
   
   // Plots needing attention (netting open due or ready for harvest)
   const plotsNeedingAttention = plots.filter((plot: Plot) => {
@@ -1234,7 +1273,7 @@ export default function Plots() {
         </div>
 
         {/* Summary Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-6 mb-8">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Total Plots</CardTitle>
@@ -1292,6 +1331,20 @@ export default function Plots() {
               </p>
             </CardContent>
           </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total Harvest</CardTitle>
+              <Package className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-green-600" data-testid="text-total-harvest">
+                {totalHarvestedKg.toFixed(1)} kg
+              </div>
+              <p className="text-xs text-muted-foreground">
+                All plots combined
+              </p>
+            </CardContent>
+          </Card>
         </div>
 
         {/* Plots Grid */}
@@ -1319,7 +1372,7 @@ export default function Plots() {
                 plot={plot}
                 onEdit={handleEdit}
                 onDelete={handleDelete}
-                handleStartNextCycle={handleStartNextCycle}
+                onHarvest={handleHarvest}
               />
             ))}
           </div>
@@ -1334,6 +1387,17 @@ export default function Plots() {
             if (!open) setEditingPlot(undefined);
           }}
           onSubmit={handleSubmit}
+        />
+
+        {/* Harvest Modal */}
+        <HarvestModal
+          plot={harvestingPlot}
+          isOpen={harvestModalOpen}
+          onClose={() => {
+            setHarvestModalOpen(false);
+            setHarvestingPlot(null);
+          }}
+          onSubmit={handleHarvestSubmit}
         />
       </div>
     </MainLayout>
