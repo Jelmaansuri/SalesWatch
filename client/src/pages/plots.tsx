@@ -1333,8 +1333,7 @@ export default function Plots() {
       const isEditingCurrentCycleHarvest = 
         data.currentCycle === harvestingPlot.currentCycle &&  // Same cycle number
         currentCycleAmount > 0 &&                             // Already has harvest amount
-        harvestingPlot.status === "harvested" &&              // Already harvested
-        harvestingPlot.actualHarvestDate;                     // Has harvest date
+        harvestingPlot.status === "harvested";                // Already harvested (harvest date check removed)
       
       if (isEditingCurrentCycleHarvest) {
         // EDITING existing harvest: Replace old amount with new amount
@@ -1370,10 +1369,11 @@ export default function Plots() {
         calculatedNewTotal: newTotal,
         operation: isEditingCurrentCycleHarvest ? 'EDIT_HARVEST' : 
           (data.currentCycle > harvestingPlot.currentCycle ? 'NEW_CYCLE_ADVANCE' : 'FIRST_HARVEST'),
-        cycleInfo: {
-          plotCurrentCycle: harvestingPlot.currentCycle,
-          submissionCycle: data.currentCycle,
-          isEditingExisting: isEditingCurrentCycleHarvest
+        detectionChecks: {
+          sameCycle: data.currentCycle === harvestingPlot.currentCycle,
+          hasCurrentAmount: currentCycleAmount > 0,
+          isHarvested: harvestingPlot.status === "harvested",
+          allConditionsMet: isEditingCurrentCycleHarvest
         },
         formula: isEditingCurrentCycleHarvest ? 
           `EDIT: ${currentTotal} - ${currentCycleAmount} + ${data.harvestAmountKg} = ${newTotal}` :
