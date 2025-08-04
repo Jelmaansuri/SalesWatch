@@ -1322,8 +1322,12 @@ export default function Plots() {
       // Calculate total harvested amount (accumulate across cycles)
       const currentTotal = parseFloat(harvestingPlot.totalHarvestedKg?.toString() || "0");
       const currentCycleAmount = parseFloat(harvestingPlot.harvestAmountKg?.toString() || "0");
-      // Add new harvest, subtract current cycle's previous amount (if any)
-      const newTotal = currentTotal - currentCycleAmount + data.harvestAmountKg;
+      
+      // If this is updating an existing harvest for the current cycle, replace the current cycle amount
+      // If this is a new harvest (harvestAmountKg is null/0), add to the total
+      const newTotal = currentCycleAmount > 0 ? 
+        currentTotal - currentCycleAmount + data.harvestAmountKg : // Replace existing harvest for this cycle
+        currentTotal + data.harvestAmountKg; // Add new harvest to total
 
       let payload: any = {
         status: "harvested",
@@ -1346,6 +1350,7 @@ export default function Plots() {
           nettingOpenDate: addDays(nextPlantingDate, harvestingPlot.daysToOpenNetting).toISOString(),
           actualHarvestDate: null,
           harvestAmountKg: null,
+          // Keep the total accumulated harvest amount
         };
       }
 
@@ -1360,6 +1365,7 @@ export default function Plots() {
       }
 
       queryClient.invalidateQueries({ queryKey: ["/api/plots"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/analytics/dashboard"] });
       setHarvestModalOpen(false);
       setHarvestingPlot(null);
       
