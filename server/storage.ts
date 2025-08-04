@@ -1062,6 +1062,8 @@ export class DatabaseStorage implements IStorage {
     const nettingOpenDate = new Date(plantingDate);
     nettingOpenDate.setDate(plantingDate.getDate() + plot.daysToOpenNetting);
     
+    // PROGENY AGROTECH: Ensure proper harvest accumulation initialization
+    // New plots should start with totalHarvestedKg as "0.00" for proper accumulation
     const [newPlot] = await db.insert(plots).values([{
       ...plot,
       id: randomUUID(),
@@ -1069,8 +1071,9 @@ export class DatabaseStorage implements IStorage {
       actualHarvestDate: plot.actualHarvestDate ?? null,
       expectedHarvestDate: plot.expectedHarvestDate ?? new Date(),
       harvestAmountKg: plot.harvestAmountKg?.toString() || null,
-      totalHarvestedKg: plot.totalHarvestedKg?.toString() || null,
+      totalHarvestedKg: plot.totalHarvestedKg?.toString() || "0.00", // Initialize to 0 for proper accumulation
     }]).returning();
+    console.log(`Plot created: ${newPlot.name} - initialized with totalHarvestedKg: ${newPlot.totalHarvestedKg}`);
     return newPlot;
   }
 

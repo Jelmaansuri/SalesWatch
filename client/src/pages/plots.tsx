@@ -1402,6 +1402,9 @@ export default function Plots() {
         currentCycle: data.currentCycle || 1,
         totalCycles: data.totalCycles || 1,
         isMultiCycle: data.isMultiCycle || false,
+        // PROGENY AGROTECH: Initialize harvest tracking fields properly
+        harvestAmountKg: null, // Current cycle harvest starts as null
+        totalHarvestedKg: "0.00", // Total accumulated harvest starts at 0
       };
       console.log("Payload being sent:", payload);
       
