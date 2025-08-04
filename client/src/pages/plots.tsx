@@ -480,7 +480,6 @@ function PlotForm({
       currentCycle: 1,
       totalCycles: 1,
       isMultiCycle: false,
-      restPeriodDays: 30,
     }
   });
 
@@ -541,7 +540,25 @@ function PlotForm({
   const handleSubmit = (data: PlotFormData) => {
     console.log("Form data being submitted:", data);
     console.log("Form errors:", form.formState.errors);
-    onSubmit(data);
+    
+    // Calculate expected harvest and netting dates based on planting date
+    const plantingDate = new Date(data.plantingDate);
+    const expectedHarvestDate = addDays(plantingDate, data.daysToMaturity);
+    const nettingOpenDate = addDays(plantingDate, data.daysToOpenNetting);
+
+    // Auto-set isMultiCycle based on totalCycles
+    const isMultiCycle = data.totalCycles > 1;
+
+    // Enrich the data with calculated dates and multi-cycle flag
+    const enrichedData = {
+      ...data,
+      expectedHarvestDate,
+      nettingOpenDate,
+      isMultiCycle,
+    };
+
+    console.log("Enriched data with calculated dates:", enrichedData);
+    onSubmit(enrichedData);
     onOpenChange(false);
     form.reset();
   };
@@ -844,7 +861,58 @@ function PlotForm({
               />
             )}
 
+            {/* Multi-Cycle Planning Section */}
+            <div className="border-t pt-4">
+              <h4 className="text-sm font-medium mb-3 text-gray-900 dark:text-gray-100">Multi-Cycle Planning</h4>
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="totalCycles"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Total Planned Cycles</FormLabel>
+                      <FormControl>
+                        <Input 
+                          type="number" 
+                          placeholder="1" 
+                          min="1"
+                          max={20}
+                          {...field} 
+                          value={field.value || ""} 
+                          onChange={e => field.onChange(parseInt(e.target.value) || 1)} 
+                          data-testid="input-total-cycles" 
+                        />
+                      </FormControl>
+                      <FormDescription>Set to 1 for single harvest, {">"}1 for multiple cycles</FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
+                <FormField
+                  control={form.control}
+                  name="currentCycle"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Current Cycle</FormLabel>
+                      <FormControl>
+                        <Input 
+                          type="number" 
+                          placeholder="1" 
+                          min="1"
+                          {...field} 
+                          value={field.value || ""} 
+                          onChange={e => field.onChange(parseInt(e.target.value) || 1)} 
+                          data-testid="input-current-cycle" 
+                        />
+                      </FormControl>
+                      <FormDescription>Current cycle number (usually 1 for new plots)</FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+            </div>
 
             <FormField
               control={form.control}
@@ -1276,7 +1344,7 @@ export default function Plots() {
 
     try {
       // Update total harvested amount
-      const currentTotal = parseFloat(harvestingPlot.totalHarvestedKg || "0");
+      const currentTotal = parseFloat(harvestingPlot.totalHarvestedKg?.toString() || "0");
       const newTotal = currentTotal + data.harvestAmountKg;
 
       let payload: any = {
@@ -1467,7 +1535,13 @@ export default function Plots() {
       // Trigger harvest modal if status changed to harvested
       if (isStatusChangingToHarvested) {
         setTimeout(() => {
-          setHarvestingPlot({ ...editingPlot, ...enrichedData });
+          setHarvestingPlot({ 
+            ...editingPlot, 
+            ...enrichedData,
+            plantingDate: enrichedData.plantingDate.toISOString(),
+            expectedHarvestDate: enrichedData.expectedHarvestDate.toISOString(),
+            nettingOpenDate: enrichedData.nettingOpenDate.toISOString(),
+          });
           setHarvestModalOpen(true);
         }, 500); // Small delay to allow form close animation
       }
@@ -1499,7 +1573,7 @@ export default function Plots() {
   const harvestedPlots = plots.filter((plot: Plot) => plot.status === "harvested");
   const totalPolybags = plots.reduce((sum: number, plot: Plot) => sum + plot.polybagCount, 0);
   const totalHarvestedKg = plots.reduce((sum: number, plot: Plot) => 
-    sum + parseFloat(plot.totalHarvestedKg || "0"), 0
+    sum + parseFloat(plot.totalHarvestedKg?.toString() || "0"), 0
   );
   
   // Plots needing attention (netting open due or ready for harvest)
