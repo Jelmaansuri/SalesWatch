@@ -62,13 +62,21 @@ function PlotCard({ plot, onEdit, onDelete }: {
   const nettingOpenDate = plot.nettingOpenDate ? parseISO(plot.nettingOpenDate) : null;
   const today = new Date();
   
-  // Calculate days since planting (HST - Hours Since Transplant equivalent)
-  const daysSincePlanting = differenceInDays(today, plantingDate);
-  const weeksPlanted = Math.floor(daysSincePlanting / 7);
+  // PROGENY AGROTECH Calculation Standards (from Excel template)
+  const daysSincePlanting = Math.max(0, differenceInDays(today, plantingDate));
+  const hstDays = daysSincePlanting; // HST (Hours Since Transplant) shown as days
+  const mstWeeks = Math.floor(daysSincePlanting / 7); // MST (Months Since Transplant) shown as weeks
   
-  // Calculate progress towards harvest
+  // Days remaining calculations
+  const daysToHarvest = Math.max(0, differenceInDays(expectedHarvestDate, today));
+  const daysToOpenShade = nettingOpenDate ? Math.max(0, differenceInDays(nettingOpenDate, today)) : 0;
+  
+  // Progress calculations
   const totalDaysToMaturity = plot.daysToMaturity;
   const harvestProgress = Math.min((daysSincePlanting / totalDaysToMaturity) * 100, 100);
+  
+  // Status indicators
+  const isShadeOpeningSoon = daysToOpenShade <= 7 && daysToOpenShade > 0;
   
   // Status badge colors
   const getStatusColor = (status: string) => {
@@ -136,23 +144,49 @@ function PlotCard({ plot, onEdit, onDelete }: {
       </CardHeader>
       
       <CardContent className="space-y-4">
-        {/* HST and Weeks Display */}
+        {/* PROGENY Standard Metrics: HST and MST Display */}
         <div className="grid grid-cols-2 gap-4">
           <div className="bg-green-50 dark:bg-green-900/20 p-3 rounded-lg">
             <div className="text-2xl font-bold text-green-700 dark:text-green-400" data-testid={`text-hst-${plot.id}`}>
-              {daysSincePlanting} HST
+              {hstDays}
             </div>
-            <div className="text-sm text-green-600 dark:text-green-500">Days Since Planting</div>
+            <div className="text-sm text-green-600 dark:text-green-500">HST (Days Since Transplant)</div>
           </div>
           <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg">
-            <div className="text-2xl font-bold text-blue-700 dark:text-blue-400" data-testid={`text-weeks-${plot.id}`}>
-              {weeksPlanted} Weeks
+            <div className="text-2xl font-bold text-blue-700 dark:text-blue-400" data-testid={`text-mst-${plot.id}`}>
+              {mstWeeks}
             </div>
-            <div className="text-sm text-blue-600 dark:text-blue-500">Weeks After Planted</div>
+            <div className="text-sm text-blue-600 dark:text-blue-500">MST (Weeks Since Transplant)</div>
           </div>
         </div>
+        
+        {/* Days Remaining Tracking */}
+        <div className="grid grid-cols-2 gap-4">
+          <div className="bg-orange-50 dark:bg-orange-900/20 p-3 rounded-lg">
+            <div className="text-xl font-bold text-orange-700 dark:text-orange-400" data-testid={`text-days-harvest-${plot.id}`}>
+              {daysToHarvest}
+            </div>
+            <div className="text-sm text-orange-600 dark:text-orange-500">Days Remaining to Harvest</div>
+          </div>
+          {nettingOpenDate && (
+            <div className={cn("p-3 rounded-lg", 
+              isShadeOpeningSoon ? "bg-red-50 dark:bg-red-900/20" : "bg-purple-50 dark:bg-purple-900/20"
+            )}>
+              <div className={cn("text-xl font-bold", 
+                isShadeOpeningSoon ? "text-red-700 dark:text-red-400" : "text-purple-700 dark:text-purple-400"
+              )} data-testid={`text-days-shade-${plot.id}`}>
+                {daysToOpenShade}
+              </div>
+              <div className={cn("text-sm", 
+                isShadeOpeningSoon ? "text-red-600 dark:text-red-500" : "text-purple-600 dark:text-purple-500"
+              )}>
+                Days to Open Shade
+              </div>
+            </div>
+          )}
+        </div>
 
-        {/* Harvest Progress */}
+        {/* Harvest Progress (PROGENY Standard) */}
         <div className="space-y-2">
           <div className="flex justify-between text-sm">
             <span>Progress to Harvest</span>
@@ -160,8 +194,8 @@ function PlotCard({ plot, onEdit, onDelete }: {
           </div>
           <Progress value={harvestProgress} className="w-full" />
           <div className="text-xs text-gray-500 dark:text-gray-400">
-            {totalDaysToMaturity - daysSincePlanting > 0 
-              ? `${totalDaysToMaturity - daysSincePlanting} days remaining`
+            {daysToHarvest > 0 
+              ? `${daysToHarvest} days remaining to harvest`
               : "Ready for harvest!"
             }
           </div>
@@ -198,21 +232,30 @@ function PlotCard({ plot, onEdit, onDelete }: {
           )}
         </div>
 
-        {/* Alerts */}
-        {shouldOpenNetting && (
-          <div className="flex items-center gap-2 p-2 bg-orange-50 dark:bg-orange-900/20 rounded-lg border border-orange-200 dark:border-orange-800">
-            <AlertTriangle className="h-4 w-4 text-orange-600 dark:text-orange-400" />
-            <span className="text-sm text-orange-700 dark:text-orange-300">
-              Time to open netting for protection!
+        {/* PROGENY Alert System */}
+        {isShadeOpeningSoon && (
+          <div className="flex items-center gap-2 p-2 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-800">
+            <AlertTriangle className="h-4 w-4 text-red-600 dark:text-red-400" />
+            <span className="text-sm text-red-700 dark:text-red-300 font-medium">
+              Urgent: Open shade in {daysToOpenShade} days!
             </span>
           </div>
         )}
 
-        {harvestProgress >= 100 && !actualHarvestDate && (
+        {shouldOpenNetting && (
+          <div className="flex items-center gap-2 p-2 bg-orange-50 dark:bg-orange-900/20 rounded-lg border border-orange-200 dark:border-orange-800">
+            <AlertTriangle className="h-4 w-4 text-orange-600 dark:text-orange-400" />
+            <span className="text-sm text-orange-700 dark:text-orange-300">
+              Time to open shade netting for protection!
+            </span>
+          </div>
+        )}
+
+        {daysToHarvest === 0 && !actualHarvestDate && (
           <div className="flex items-center gap-2 p-2 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
             <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
             <span className="text-sm text-green-700 dark:text-green-300">
-              Plot is ready for harvest!
+              Harvest day reached! Ready for collection.
             </span>
           </div>
         )}

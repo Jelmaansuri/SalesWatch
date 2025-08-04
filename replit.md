@@ -33,6 +33,15 @@ PROGENY AGROTECH Management System is a comprehensive business management platfo
 - **Security Implementation**: Internal team access control with email/domain whitelist, unauthorized access prevention, and secure authentication flow
 
 ### Latest Updates (August 4, 2025)
+- **PROGENY AGROTECH CALCULATION STANDARDS IMPLEMENTED**: Enhanced plot management with authentic agricultural calculations:
+  - Integrated calculation formulas from PROGENY's Excel template for ginger farming
+  - HST (Hours Since Transplant) tracking displayed as days since planting
+  - MST (Months Since Transplant) tracking displayed as weeks since transplant
+  - Days remaining calculations for both harvest and shade opening schedules
+  - Enhanced alert system with urgent notifications for shade opening (7-day warning)
+  - Polybag-based tracking instead of hectare measurements for precision agriculture
+  - Automatic netting open date calculation from planting date + specified days
+  - PROGENY standard recommendations integrated (75 days for shade opening, 135 days to harvest)
 - **FOREIGN KEY CONSTRAINT ISSUE RESOLVED**: Fixed database deletion errors that were preventing customer/product deletion:
   - Implemented proper error handling for foreign key constraint violations
   - Added pre-deletion checks to verify if customers/products have associated sales records
