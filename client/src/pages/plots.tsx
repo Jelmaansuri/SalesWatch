@@ -151,7 +151,7 @@ function PlotCard({ plot, onEdit, onDelete, onHarvest, onNextCycle }: {
               {/* Cycle Indicator */}
               {plot.isMultiCycle && (
                 <Badge variant="outline" className="text-xs">
-                  Cycle {plot.currentCycle}/{plot.totalCycles}
+                  Cycle {plot.currentCycle}/{plot.totalCycles > 999 ? "∞" : plot.totalCycles}
                 </Badge>
               )}
             </div>
@@ -411,7 +411,7 @@ function PlotCard({ plot, onEdit, onDelete, onHarvest, onNextCycle }: {
                 data-testid={`button-next-cycle-${plot.id}`}
               >
                 <RefreshCw className="h-3 w-3 mr-1" />
-                Proceed to Next Cycle ({plot.currentCycle + 1} of {plot.totalCycles})
+                Proceed to Next Cycle ({plot.currentCycle + 1} {plot.totalCycles > 999 ? "of ∞" : `of ${plot.totalCycles}`})
               </Button>
             )}
           </div>
@@ -876,14 +876,13 @@ function PlotForm({
                           type="number" 
                           placeholder="1" 
                           min="1"
-                          max={20}
                           {...field} 
                           value={field.value || ""} 
                           onChange={e => field.onChange(parseInt(e.target.value) || 1)} 
                           data-testid="input-total-cycles" 
                         />
                       </FormControl>
-                      <FormDescription>Set to 1 for single harvest, {">"}1 for multiple cycles</FormDescription>
+                      <FormDescription>Set to 1 for single harvest, {">"}1 for unlimited multiple cycles</FormDescription>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -1156,7 +1155,7 @@ function NextCycleModal({
             Start Next Cycle - {plot.name}
           </DialogTitle>
           <DialogDescription>
-            Proceeding to Cycle {plot.currentCycle + 1} of {plot.totalCycles}. Update the planting date and any other details for the new cycle.
+            Proceeding to Cycle {plot.currentCycle + 1} {plot.totalCycles > 999 ? "of unlimited cycles" : `of ${plot.totalCycles}`}. Update the planting date and any other details for the new cycle.
           </DialogDescription>
         </DialogHeader>
 
@@ -1196,12 +1195,15 @@ function NextCycleModal({
                           selected={field.value}
                           onSelect={field.onChange}
                           disabled={(date) =>
-                            date > new Date() || date < new Date("1900-01-01")
+                            date < new Date("1900-01-01")
                           }
                           initialFocus
                         />
                       </PopoverContent>
                     </Popover>
+                    <FormDescription>
+                      Select any date for future planning - today, tomorrow, or any future date
+                    </FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -1286,6 +1288,12 @@ function NextCycleModal({
                 </FormItem>
               )}
             />
+
+            <div className="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg p-3 mb-4">
+              <p className="text-sm text-blue-800 dark:text-blue-200">
+                <strong>Future Planning:</strong> You can select any future date for planning purposes. The system allows scheduling cycles weeks or months ahead for better operational planning.
+              </p>
+            </div>
 
             <DialogFooter>
               <Button type="button" variant="outline" onClick={onClose}>
