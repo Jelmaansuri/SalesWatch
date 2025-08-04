@@ -636,11 +636,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userId = req.user.claims.sub;
       const plotData = { ...req.body, userId };
+      
+      console.log("Received plot data:", plotData);
+      console.log("Using schema:", insertPlotSchema);
+      
       const validatedData = insertPlotSchema.parse(plotData);
+      console.log("Validated data:", validatedData);
+      
       const plot = await storage.createPlot(validatedData);
       res.status(201).json(plot);
     } catch (error) {
+      console.error("Plot creation error:", error);
       if (error instanceof z.ZodError) {
+        console.error("Validation errors:", error.errors);
         return res.status(400).json({ message: "Validation error", errors: error.errors });
       }
       res.status(500).json({ message: "Failed to create plot" });

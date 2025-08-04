@@ -697,18 +697,34 @@ export default function PlotsPage() {
 
   const createMutation = useMutation({
     mutationFn: async (data: PlotFormData) => {
+      console.log("Sending data to server:", data);
+      const payload = {
+        name: data.name,
+        polybagCount: data.polybagCount,
+        location: data.location,
+        cropType: data.cropType,
+        plantingDate: data.plantingDate.toISOString(),
+        expectedHarvestDate: data.expectedHarvestDate?.toISOString(),
+        actualHarvestDate: data.actualHarvestDate?.toISOString(),
+        daysToMaturity: data.daysToMaturity,
+        daysToOpenNetting: data.daysToOpenNetting,
+        nettingOpenDate: data.nettingOpenDate?.toISOString(),
+        status: data.status,
+        notes: data.notes || null,
+      };
+      console.log("Payload being sent:", payload);
+      
       const response = await fetch("/api/plots", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...data,
-          plantingDate: data.plantingDate.toISOString(),
-          expectedHarvestDate: data.expectedHarvestDate.toISOString(),
-          actualHarvestDate: data.actualHarvestDate?.toISOString(),
-          nettingOpenDate: data.nettingOpenDate?.toISOString(),
-        }),
+        body: JSON.stringify(payload),
       });
-      if (!response.ok) throw new Error("Failed to create plot");
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error("Server error:", errorData);
+        throw new Error(errorData.message || "Failed to create plot");
+      }
       return response.json();
     },
     onSuccess: () => {
@@ -722,18 +738,32 @@ export default function PlotsPage() {
 
   const updateMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: PlotFormData }) => {
+      const payload = {
+        name: data.name,
+        polybagCount: data.polybagCount,
+        location: data.location,
+        cropType: data.cropType,
+        plantingDate: data.plantingDate.toISOString(),
+        expectedHarvestDate: data.expectedHarvestDate?.toISOString(),
+        actualHarvestDate: data.actualHarvestDate?.toISOString(),
+        daysToMaturity: data.daysToMaturity,
+        daysToOpenNetting: data.daysToOpenNetting,
+        nettingOpenDate: data.nettingOpenDate?.toISOString(),
+        status: data.status,
+        notes: data.notes || null,
+      };
+      
       const response = await fetch(`/api/plots/${id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...data,
-          plantingDate: data.plantingDate.toISOString(),
-          expectedHarvestDate: data.expectedHarvestDate.toISOString(),
-          actualHarvestDate: data.actualHarvestDate?.toISOString(),
-          nettingOpenDate: data.nettingOpenDate?.toISOString(),
-        }),
+        body: JSON.stringify(payload),
       });
-      if (!response.ok) throw new Error("Failed to update plot");
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error("Server error:", errorData);
+        throw new Error(errorData.message || "Failed to update plot");
+      }
       return response.json();
     },
     onSuccess: () => {
