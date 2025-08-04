@@ -1323,31 +1323,24 @@ export default function Plots() {
       const currentTotal = parseFloat(harvestingPlot.totalHarvestedKg?.toString() || "0");
       const currentCycleAmount = parseFloat(harvestingPlot.harvestAmountKg?.toString() || "0");
       
-      // PLOT AA LOGIC: Match exactly how Plot AA behaves for ALL plots
+      // CORRECT HARVEST LOGIC: Update cycle amount + recalculate total from all cycles
       let newTotal;
       
-      // The key insight: Plot AA accumulates across cycles perfectly
-      // We need to detect when it's truly a NEW cycle vs editing current cycle harvest
+      // SIMPLIFIED LOGIC: 
+      // 1. For SAME cycle: Replace the cycle amount, recalculate total
+      // 2. For NEW cycle: Add new cycle amount to total
       
-      // Check if this is editing an existing harvest amount for the current cycle
-      const isEditingCurrentCycleHarvest = 
-        data.currentCycle === harvestingPlot.currentCycle &&  // Same cycle number
-        currentCycleAmount > 0 &&                             // Already has harvest amount
-        harvestingPlot.status === "harvested";                // Already harvested (harvest date check removed)
+      const isEditingCurrentCycle = data.currentCycle === harvestingPlot.currentCycle;
       
-      if (isEditingCurrentCycleHarvest) {
-        // EDITING existing harvest: Replace old amount with new amount
+      if (isEditingCurrentCycle) {
+        // EDITING CURRENT CYCLE: Replace current cycle amount, recalculate total
+        // Total = Previous Total - Old Current Cycle Amount + New Current Cycle Amount
         newTotal = currentTotal - currentCycleAmount + data.harvestAmountKg;
-        console.log(`EDIT HARVEST CYCLE ${harvestingPlot.currentCycle}: Replacing ${currentCycleAmount}kg → ${data.harvestAmountKg}kg`);
+        console.log(`UPDATE CYCLE ${harvestingPlot.currentCycle}: ${currentCycleAmount}kg → ${data.harvestAmountKg}kg`);
       } else {
-        // ALL OTHER CASES: Accumulate (first harvest or new cycle)
+        // NEW CYCLE: Add new cycle amount to existing total
         newTotal = currentTotal + data.harvestAmountKg;
-        
-        if (data.currentCycle > harvestingPlot.currentCycle) {
-          console.log(`NEW CYCLE ${harvestingPlot.currentCycle}→${data.currentCycle}: Adding ${data.harvestAmountKg}kg to total ${currentTotal}kg`);
-        } else {
-          console.log(`FIRST HARVEST CYCLE ${harvestingPlot.currentCycle}: Adding ${data.harvestAmountKg}kg to total ${currentTotal}kg`);
-        }
+        console.log(`NEW CYCLE ${harvestingPlot.currentCycle}→${data.currentCycle}: Adding ${data.harvestAmountKg}kg`);
       }
       
       // Logic is now handled above with cycle detection
@@ -1367,17 +1360,15 @@ export default function Plots() {
         currentCycleOldAmount: currentCycleAmount,
         newHarvestAmount: data.harvestAmountKg,
         calculatedNewTotal: newTotal,
-        operation: isEditingCurrentCycleHarvest ? 'EDIT_HARVEST' : 
-          (data.currentCycle > harvestingPlot.currentCycle ? 'NEW_CYCLE_ADVANCE' : 'FIRST_HARVEST'),
-        detectionChecks: {
-          sameCycle: data.currentCycle === harvestingPlot.currentCycle,
-          hasCurrentAmount: currentCycleAmount > 0,
-          isHarvested: harvestingPlot.status === "harvested",
-          allConditionsMet: isEditingCurrentCycleHarvest
+        operation: isEditingCurrentCycle ? 'UPDATE_CURRENT_CYCLE' : 'ADD_NEW_CYCLE',
+        cycleDetails: {
+          plotCycle: harvestingPlot.currentCycle,
+          submissionCycle: data.currentCycle,
+          isCurrentCycle: isEditingCurrentCycle
         },
-        formula: isEditingCurrentCycleHarvest ? 
-          `EDIT: ${currentTotal} - ${currentCycleAmount} + ${data.harvestAmountKg} = ${newTotal}` :
-          `ACCUMULATE: ${currentTotal} + ${data.harvestAmountKg} = ${newTotal}`
+        formula: isEditingCurrentCycle ? 
+          `UPDATE: ${currentTotal} - ${currentCycleAmount} + ${data.harvestAmountKg} = ${newTotal}` :
+          `ADD: ${currentTotal} + ${data.harvestAmountKg} = ${newTotal}`
       });
 
       let payload: any = {
