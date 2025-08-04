@@ -164,6 +164,7 @@ export type DashboardMetrics = {
   activeOrders: number;
   totalCustomers: number;
   completedCycles: number; // Total number of completed harvest cycles across all plots
+  totalHarvestKg: number; // Total harvest amount across all plots in kg
   orderStatusCounts: {
     unpaid: number;
     paid: number;

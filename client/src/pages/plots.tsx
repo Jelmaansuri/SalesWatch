@@ -1427,6 +1427,7 @@ export default function Plots() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/plots"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/analytics/dashboard"] });
       toast({ title: "Success", description: "Plot created successfully" });
     },
     onError: () => {
@@ -1470,6 +1471,7 @@ export default function Plots() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/plots"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/analytics/dashboard"] });
       toast({ title: "Success", description: "Plot updated successfully" });
       setEditingPlot(undefined);
     },

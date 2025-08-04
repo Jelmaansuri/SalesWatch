@@ -398,12 +398,23 @@ export class MemStorage implements IStorage {
       completed: sales.filter(sale => sale.status === 'completed').length,
     };
 
+    // Calculate total harvest amount across all plots
+    const totalHarvestKg = plots.reduce((sum, plot) => {
+      if (plot.totalHarvestedKg) {
+        const harvestAmount = typeof plot.totalHarvestedKg === 'string' ? 
+          parseFloat(plot.totalHarvestedKg) : plot.totalHarvestedKg;
+        return sum + harvestAmount;
+      }
+      return sum;
+    }, 0);
+
     return {
       totalRevenue,
       totalProfit,
       activeOrders,
       totalCustomers,
       completedCycles,
+      totalHarvestKg,
       orderStatusCounts,
     };
   }
@@ -513,6 +524,15 @@ export class MemStorage implements IStorage {
       notes: insertPlot.notes || null,
       createdAt: now,
       updatedAt: now,
+      // Add missing fields
+      currentCycle: insertPlot.currentCycle || 1,
+      totalCycles: insertPlot.totalCycles || 1,
+      isMultiCycle: insertPlot.isMultiCycle || false,
+      cycleHistory: insertPlot.cycleHistory || null,
+      nextPlantingDate: insertPlot.nextPlantingDate || null,
+      harvestAmountKg: insertPlot.harvestAmountKg || null,
+      totalHarvestedKg: insertPlot.totalHarvestedKg || null,
+      restPeriodDays: insertPlot.restPeriodDays || null,
     };
     
     this.plots.set(id, plot);
@@ -927,6 +947,16 @@ export class DatabaseStorage implements IStorage {
       return sum;
     }, 0);
     
+    // Calculate total harvest amount across all plots
+    const totalHarvestKg = allPlots.reduce((sum, plot) => {
+      if (plot.totalHarvestedKg) {
+        const harvestAmount = typeof plot.totalHarvestedKg === 'string' ? 
+          parseFloat(plot.totalHarvestedKg) : plot.totalHarvestedKg;
+        return sum + harvestAmount;
+      }
+      return sum;
+    }, 0);
+
     const orderStatusCounts = {
       unpaid: allSales.filter(s => s.status === 'unpaid').length,
       paid: allSales.filter(s => s.status === 'paid').length,
@@ -941,6 +971,7 @@ export class DatabaseStorage implements IStorage {
       activeOrders,
       totalCustomers,
       completedCycles,
+      totalHarvestKg,
       orderStatusCounts,
     };
   }
@@ -1016,6 +1047,8 @@ export class DatabaseStorage implements IStorage {
       nettingOpenDate: nettingOpenDate,
       actualHarvestDate: plot.actualHarvestDate ?? null,
       expectedHarvestDate: plot.expectedHarvestDate ?? new Date(),
+      harvestAmountKg: plot.harvestAmountKg?.toString() || null,
+      totalHarvestedKg: plot.totalHarvestedKg?.toString() || null,
     }]).returning();
     return newPlot;
   }
