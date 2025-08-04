@@ -21,8 +21,7 @@ import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { insertPlotSchema } from "@shared/schema";
 import { z } from "zod";
-import Sidebar from "@/components/layout/sidebar";
-import Header from "@/components/layout/header";
+import MainLayout from "@/components/layout/main-layout";
 
 const plotFormSchema = z.object({
   userId: z.string().optional(),
@@ -896,134 +895,128 @@ export default function Plots() {
   });
 
   return (
-    <div className="flex h-screen bg-gray-50 dark:bg-gray-900">
-      <Sidebar />
-      <div className="flex-1 flex flex-col overflow-hidden">
-        <Header title="Plot Management" />
-        <main className="flex-1 overflow-x-hidden overflow-y-auto p-6">
-          <div className="max-w-7xl mx-auto">
-            {/* Header */}
-            <div className="mb-8">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">
-                    Plot Management
-                  </h1>
-                  <p className="text-gray-600 dark:text-gray-400 mt-1">
-                    Track and manage your agricultural land plots
-                  </p>
-                </div>
-                <Button onClick={handleAddNew} data-testid="button-add-plot">
-                  <Plus className="h-4 w-4 mr-2" />
-                  Add New Plot
-                </Button>
-              </div>
+    <MainLayout title="Plot Management">
+      <div className="space-y-6">
+        {/* Header */}
+        <div className="mb-8">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">
+                Plot Management
+              </h1>
+              <p className="text-gray-600 dark:text-gray-400 mt-1">
+                Track and manage your agricultural land plots
+              </p>
             </div>
-
-            {/* Summary Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Total Plots</CardTitle>
-                  <Sprout className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold" data-testid="text-total-plots">{plots.length}</div>
-                  <p className="text-xs text-muted-foreground">
-                    {totalPolybags} polybags total
-                  </p>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Active Plots</CardTitle>
-                  <Clock className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold text-green-600" data-testid="text-active-plots">
-                    {activePlots.length}
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    Currently growing
-                  </p>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Needs Attention</CardTitle>
-                  <AlertTriangle className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold text-orange-600" data-testid="text-attention-plots">
-                    {plotsNeedingAttention.length}
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    Action required
-                  </p>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Harvested</CardTitle>
-                  <CheckCircle className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold text-purple-600" data-testid="text-harvested-plots">
-                    {harvestedPlots.length}
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    Completed cycles
-                  </p>
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* Plots Grid */}
-            {isLoading ? (
-              <div className="text-center py-8">Loading plots...</div>
-            ) : plots.length === 0 ? (
-              <Card className="p-8 text-center">
-                <Sprout className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">
-                  No plots yet
-                </h3>
-                <p className="text-gray-600 dark:text-gray-400 mb-4">
-                  Start tracking your agricultural land by creating your first plot.
-                </p>
-                <Button onClick={handleAddNew}>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Create First Plot
-                </Button>
-              </Card>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                {plots.map((plot) => (
-                  <PlotCard
-                    key={plot.id}
-                    plot={plot}
-                    onEdit={handleEdit}
-                    onDelete={handleDelete}
-                  />
-                ))}
-              </div>
-            )}
+            <Button onClick={handleAddNew} data-testid="button-add-plot">
+              <Plus className="h-4 w-4 mr-2" />
+              Add New Plot
+            </Button>
           </div>
-        </main>
-      </div>
+        </div>
 
-      {/* Plot Form Modal */}
-      <PlotForm
-        plot={editingPlot}
-        open={showForm}
-        onOpenChange={(open) => {
-          setShowForm(open);
-          if (!open) setEditingPlot(undefined);
-        }}
-        onSubmit={handleSubmit}
-      />
-    </div>
+        {/* Summary Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total Plots</CardTitle>
+              <Sprout className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold" data-testid="text-total-plots">{plots.length}</div>
+              <p className="text-xs text-muted-foreground">
+                {totalPolybags} polybags total
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Active Plots</CardTitle>
+              <Clock className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-green-600" data-testid="text-active-plots">
+                {activePlots.length}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Currently growing
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Needs Attention</CardTitle>
+              <AlertTriangle className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-orange-600" data-testid="text-attention-plots">
+                {plotsNeedingAttention.length}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Action required
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Harvested</CardTitle>
+              <CheckCircle className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-purple-600" data-testid="text-harvested-plots">
+                {harvestedPlots.length}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Completed cycles
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Plots Grid */}
+        {isLoading ? (
+          <div className="text-center py-8">Loading plots...</div>
+        ) : plots.length === 0 ? (
+          <Card className="p-8 text-center">
+            <Sprout className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+            <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">
+              No plots yet
+            </h3>
+            <p className="text-gray-600 dark:text-gray-400 mb-4">
+              Start tracking your agricultural land by creating your first plot.
+            </p>
+            <Button onClick={handleAddNew}>
+              <Plus className="h-4 w-4 mr-2" />
+              Create First Plot
+            </Button>
+          </Card>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+            {plots.map((plot) => (
+              <PlotCard
+                key={plot.id}
+                plot={plot}
+                onEdit={handleEdit}
+                onDelete={handleDelete}
+              />
+            ))}
+          </div>
+        )}
+
+        {/* Plot Form Modal */}
+        <PlotForm
+          plot={editingPlot}
+          open={showForm}
+          onOpenChange={(open) => {
+            setShowForm(open);
+            if (!open) setEditingPlot(undefined);
+          }}
+          onSubmit={handleSubmit}
+        />
+      </div>
+    </MainLayout>
   );
 }
