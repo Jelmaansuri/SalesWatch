@@ -22,6 +22,14 @@ import { useToast } from "@/hooks/use-toast";
 import { insertPlotSchema } from "@shared/schema";
 import { z } from "zod";
 import MainLayout from "@/components/layout/main-layout";
+import { 
+  calculatePlotMetrics, 
+  getStatusColor, 
+  getStatusLabel, 
+  calculateTotalCompletedCycles,
+  formatPlotDate,
+  formatHarvestAmount
+} from "@/lib/plot-calculations";
 
 const plotFormSchema = z.object({
   userId: z.string().optional(),
@@ -88,60 +96,30 @@ function PlotCard({ plot, onEdit, onDelete, onHarvest, onNextCycle }: {
   onHarvest?: (plot: Plot) => void;
   onNextCycle?: (plot: Plot) => void;
 }) {
+  // Use centralized PROGENY AGROTECH calculation logic
+  const metrics = calculatePlotMetrics(plot);
+  const {
+    daysSincePlanting,
+    dapDays,
+    wapWeeks,
+    harvestProgress, 
+    calculatedHarvestDate,
+    calculatedNettingDate,
+    daysToHarvest,
+    daysToOpenShade,
+    isShadeOpeningSoon,
+    shouldOpenNetting,
+    isReadyForHarvest,
+    currentCycleHarvest,
+    totalHarvest
+  } = metrics;
+
+  // Parse dates for display
   const plantingDate = parseISO(plot.plantingDate);
   const expectedHarvestDate = parseISO(plot.expectedHarvestDate);
   const actualHarvestDate = plot.actualHarvestDate ? parseISO(plot.actualHarvestDate) : null;
   const nettingOpenDate = plot.nettingOpenDate ? parseISO(plot.nettingOpenDate) : null;
-  const today = new Date();
-  
-  // PROGENY AGROTECH Calculation Standards (supports negative values for future dates)
-  const daysSincePlanting = differenceInDays(today, plantingDate); // Can be negative for future dates
-  const dapDays = daysSincePlanting; // DAP (Days After Planting) - negative means days until planting
-  const wapWeeks = Math.floor(daysSincePlanting / 7); // WAP (Weeks After Planting) - negative means weeks until planting
-  
-  // Calculate Expected Harvest Date and Netting Open Date from planting date
-  const calculatedHarvestDate = addDays(plantingDate, plot.daysToMaturity);
-  const calculatedNettingDate = addDays(plantingDate, plot.daysToOpenNetting);
-  
-  // Days remaining calculations
-  const daysToHarvest = Math.max(0, differenceInDays(calculatedHarvestDate, today));
-  const daysToOpenShade = Math.max(0, differenceInDays(calculatedNettingDate, today));
-  
-  // Progress calculations (handle negative values for future planting)
-  const harvestProgress = daysSincePlanting >= 0 
-    ? Math.min((daysSincePlanting / plot.daysToMaturity) * 100, 100)
-    : 0; // Future plantings show 0% progress
-  
-  // Status indicators
-  const isShadeOpeningSoon = daysToOpenShade <= 7 && daysToOpenShade > 0;
-  
-  // Status badge colors
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "plot_preparation": return "bg-orange-500";
-      case "planted": return "bg-green-500";
-      case "growing": return "bg-blue-500";
-      case "ready_for_harvest": return "bg-yellow-500";
-      case "harvested": return "bg-purple-500";
-      case "dormant": return "bg-gray-500";
-      default: return "bg-gray-400";
-    }
-  };
 
-  const getStatusLabel = (status: string) => {
-    switch (status) {
-      case "plot_preparation": return "Plot Preparation";
-      case "planted": return "Planted";
-      case "growing": return "Growing";
-      case "ready_for_harvest": return "Ready for Harvest";
-      case "harvested": return "Harvested";
-      case "dormant": return "Dormant";
-      default: return status;
-    }
-  };
-
-  // Check if netting should be opened
-  const shouldOpenNetting = nettingOpenDate && today >= nettingOpenDate && !actualHarvestDate;
 
   return (
     <Card className="relative overflow-hidden">
@@ -272,16 +250,16 @@ function PlotCard({ plot, onEdit, onDelete, onHarvest, onNextCycle }: {
         <div className="grid grid-cols-1 gap-3 text-sm">
           <div className="flex justify-between">
             <span className="text-gray-600 dark:text-gray-400">Planted:</span>
-            <span data-testid={`text-planted-date-${plot.id}`}>{format(plantingDate, "MMM dd, yyyy")}</span>
+            <span data-testid={`text-planted-date-${plot.id}`}>{formatPlotDate(plantingDate)}</span>
           </div>
           <div className="flex justify-between">
             <span className="text-gray-600 dark:text-gray-400">Expected Harvest:</span>
-            <span data-testid={`text-expected-harvest-${plot.id}`}>{format(expectedHarvestDate, "MMM dd, yyyy")}</span>
+            <span data-testid={`text-expected-harvest-${plot.id}`}>{formatPlotDate(expectedHarvestDate)}</span>
           </div>
           <div className="flex justify-between">
             <span className="text-gray-600 dark:text-gray-400">Actual Harvest:</span>
             <span className={actualHarvestDate ? "text-green-600 dark:text-green-400" : "text-gray-500 dark:text-gray-500"} data-testid={`text-actual-harvest-${plot.id}`}>
-              {actualHarvestDate ? format(actualHarvestDate, "MMM dd, yyyy") : "Not available"}
+              {actualHarvestDate ? formatPlotDate(actualHarvestDate) : "Not available"}
             </span>
           </div>
           {nettingOpenDate && (
@@ -290,7 +268,7 @@ function PlotCard({ plot, onEdit, onDelete, onHarvest, onNextCycle }: {
               <span className={cn(
                 shouldOpenNetting ? "text-orange-600 dark:text-orange-400 font-medium" : ""
               )} data-testid={`text-netting-date-${plot.id}`}>
-                {format(nettingOpenDate, "MMM dd, yyyy")}
+                {formatPlotDate(nettingOpenDate)}
                 {shouldOpenNetting && " (Due!)"}
               </span>
             </div>
@@ -316,7 +294,7 @@ function PlotCard({ plot, onEdit, onDelete, onHarvest, onNextCycle }: {
           </div>
         )}
 
-        {daysToHarvest === 0 && !actualHarvestDate && (
+        {isReadyForHarvest && (
           <div className="flex items-center gap-2 p-2 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
             <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
             <span className="text-sm text-green-700 dark:text-green-300">
@@ -360,18 +338,18 @@ function PlotCard({ plot, onEdit, onDelete, onHarvest, onNextCycle }: {
             )}
             
             {/* Harvest Amount if Available */}
-            {plot.status === "harvested" && plot.harvestAmountKg && parseFloat(plot.harvestAmountKg.toString()) > 0 && (
+            {plot.status === "harvested" && currentCycleHarvest > 0 && (
               <div className="flex justify-between items-center text-xs">
                 <span className="text-gray-600 dark:text-gray-400">This Cycle:</span>
-                <span className="font-medium text-green-600">{parseFloat(plot.harvestAmountKg.toString()).toFixed(1)} kg</span>
+                <span className="font-medium text-green-600">{formatHarvestAmount(currentCycleHarvest)} kg</span>
               </div>
             )}
             
             {/* Total Harvest if Available */}
-            {plot.totalHarvestedKg && parseFloat(plot.totalHarvestedKg.toString()) > 0 && (
+            {totalHarvest > 0 && (
               <div className="flex justify-between items-center text-xs">
                 <span className="text-gray-600 dark:text-gray-400">Total Harvested:</span>
-                <span className="font-semibold text-green-700">{parseFloat(plot.totalHarvestedKg.toString()).toFixed(1)} kg</span>
+                <span className="font-semibold text-green-700">{formatHarvestAmount(totalHarvest)} kg</span>
               </div>
             )}
           </div>
@@ -1531,6 +1509,11 @@ export default function Plots() {
             plantingDate: enrichedData.plantingDate.toISOString(),
             expectedHarvestDate: enrichedData.expectedHarvestDate.toISOString(),
             nettingOpenDate: enrichedData.nettingOpenDate.toISOString(),
+            actualHarvestDate: enrichedData.actualHarvestDate 
+              ? (typeof enrichedData.actualHarvestDate === 'object' 
+                  ? enrichedData.actualHarvestDate.toISOString() 
+                  : enrichedData.actualHarvestDate)
+              : undefined
           });
           setHarvestModalOpen(true);
         }, 500); // Small delay to allow form close animation
@@ -1566,19 +1549,8 @@ export default function Plots() {
     sum + parseFloat(plot.totalHarvestedKg?.toString() || "0"), 0
   );
   
-  // Calculate completed cycles using the same logic as main dashboard
-  const completedCycles = plots.reduce((sum: number, plot: Plot) => {
-    let cyclesForThisPlot = 0;
-    // For plots with "harvested" status, the currentCycle represents completed cycles
-    // For other statuses, we only count cycles that have been fully harvested (currentCycle - 1)
-    if (plot.status === 'harvested') {
-      cyclesForThisPlot = plot.currentCycle;
-    } else if (plot.currentCycle > 1) {
-      // For plots in other statuses, count previously completed cycles
-      cyclesForThisPlot = plot.currentCycle - 1;
-    }
-    return sum + cyclesForThisPlot;
-  }, 0);
+  // Calculate completed cycles using the centralized calculation logic
+  const completedCycles = calculateTotalCompletedCycles(plots);
   
   // Plots needing attention (netting open due or ready for harvest)
   const plotsNeedingAttention = plots.filter((plot: Plot) => {
