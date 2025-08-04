@@ -37,6 +37,12 @@ const plotFormSchema = z.object({
   nettingOpenDate: z.date().optional(),
   status: z.string().min(1, "Status is required"),
   notes: z.string().optional(),
+  // Cycle tracking fields
+  currentCycle: z.number().min(1, "Current cycle must be at least 1").default(1),
+  totalCycles: z.number().min(1, "Total cycles must be at least 1").default(1),
+  isMultiCycle: z.boolean().default(false),
+  restPeriodDays: z.number().min(0, "Rest period days must be at least 0").default(30),
+  nextPlantingDate: z.date().optional(),
 });
 
 type PlotFormData = z.infer<typeof plotFormSchema>;
@@ -56,6 +62,13 @@ interface Plot {
   nettingOpenDate?: string;
   status: string;
   notes?: string;
+  // Cycle tracking fields
+  currentCycle: number;
+  totalCycles: number;
+  cycleHistory?: string;
+  nextPlantingDate?: string;
+  restPeriodDays: number;
+  isMultiCycle: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -121,18 +134,31 @@ function PlotCard({ plot, onEdit, onDelete }: {
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between">
           <div>
-            <CardTitle className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-              {plot.name}
-            </CardTitle>
+            <div className="flex items-center gap-2">
+              <CardTitle className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                {plot.name}
+              </CardTitle>
+              {/* Cycle Indicator */}
+              {plot.isMultiCycle && (
+                <Badge variant="outline" className="text-xs">
+                  Cycle {plot.currentCycle}/{plot.totalCycles}
+                </Badge>
+              )}
+            </div>
             <CardDescription className="flex items-center gap-2 mt-1">
               <MapPin className="h-4 w-4" />
               {plot.location} • {plot.polybagCount} polybags • {plot.cropType}
             </CardDescription>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-col items-end gap-1">
             <Badge className={cn("text-white", getStatusColor(plot.status))}>
               {getStatusLabel(plot.status)}
             </Badge>
+            {plot.isMultiCycle && plot.currentCycle < plot.totalCycles && (
+              <div className="text-xs text-blue-600 dark:text-blue-400 font-medium">
+                Multi-Cycle
+              </div>
+            )}
             <div className="flex gap-1">
               <Button
                 variant="ghost"
@@ -286,6 +312,59 @@ function PlotCard({ plot, onEdit, onDelete }: {
           </div>
         )}
 
+        {/* Cycle Management */}
+        {plot.isMultiCycle && (
+          <div className="border-t pt-4 mt-4">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <BarChart3 className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                <span className="font-medium text-sm">Cycle Management</span>
+              </div>
+              <div className="text-xs text-gray-500">
+                {plot.nextPlantingDate && (
+                  `Next: ${format(parseISO(plot.nextPlantingDate), "MMM dd, yyyy")}`
+                )}
+              </div>
+            </div>
+
+            {/* Cycle Progress Bar */}
+            <div className="space-y-2">
+              <div className="flex justify-between text-xs">
+                <span>Cycle Progress</span>
+                <span>{plot.currentCycle} of {plot.totalCycles} cycles</span>
+              </div>
+              <Progress 
+                value={(plot.currentCycle / plot.totalCycles) * 100} 
+                className="w-full h-2" 
+              />
+            </div>
+
+            {/* Cycle Action Buttons */}
+            {plot.status === "harvested" && plot.currentCycle < plot.totalCycles && (
+              <div className="flex gap-2 mt-3">
+                <Button 
+                  size="sm" 
+                  variant="outline" 
+                  className="flex-1 text-xs"
+                  data-testid={`button-start-next-cycle-${plot.id}`}
+                >
+                  <Plus className="h-3 w-3 mr-1" />
+                  Start Cycle {plot.currentCycle + 1}
+                </Button>
+              </div>
+            )}
+
+            {plot.currentCycle === plot.totalCycles && plot.status === "harvested" && (
+              <div className="flex items-center gap-2 p-2 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800 mt-3">
+                <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
+                <span className="text-sm text-green-700 dark:text-green-300">
+                  All cycles completed successfully!
+                </span>
+              </div>
+            )}
+          </div>
+        )}
+
         {plot.notes && (
           <div className="text-sm text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-800 p-2 rounded">
             <strong>Notes:</strong> {plot.notes}
@@ -317,6 +396,11 @@ function PlotForm({
       plantingDate: parseISO(plot.plantingDate),
       expectedHarvestDate: plot.expectedHarvestDate ? parseISO(plot.expectedHarvestDate) : undefined,
       actualHarvestDate: plot.actualHarvestDate ? parseISO(plot.actualHarvestDate) : undefined,
+      currentCycle: plot.currentCycle || 1,
+      totalCycles: plot.totalCycles || 1,
+      isMultiCycle: plot.isMultiCycle || false,
+      restPeriodDays: plot.restPeriodDays || 30,
+      nextPlantingDate: plot.nextPlantingDate ? parseISO(plot.nextPlantingDate) : undefined,
       daysToMaturity: plot.daysToMaturity,
       daysToOpenNetting: plot.daysToOpenNetting,
       nettingOpenDate: plot.nettingOpenDate ? parseISO(plot.nettingOpenDate) : undefined,
@@ -332,6 +416,10 @@ function PlotForm({
       daysToOpenNetting: 75, // PROGENY standard for shade netting
       status: "planted",
       notes: "",
+      currentCycle: 1,
+      totalCycles: 1,
+      isMultiCycle: false,
+      restPeriodDays: 30,
     }
   });
 
@@ -344,6 +432,11 @@ function PlotForm({
         location: plot.location,
         cropType: plot.cropType,
         plantingDate: parseISO(plot.plantingDate),
+        currentCycle: plot.currentCycle || 1,
+        totalCycles: plot.totalCycles || 1,
+        isMultiCycle: plot.isMultiCycle || false,
+        restPeriodDays: plot.restPeriodDays || 30,
+        nextPlantingDate: plot.nextPlantingDate ? parseISO(plot.nextPlantingDate) : undefined,
         expectedHarvestDate: plot.expectedHarvestDate ? parseISO(plot.expectedHarvestDate) : undefined,
         actualHarvestDate: plot.actualHarvestDate ? parseISO(plot.actualHarvestDate) : undefined,
         daysToMaturity: plot.daysToMaturity,
@@ -687,6 +780,90 @@ function PlotForm({
               />
             )}
 
+            {/* Cycle Management Section */}
+            <div className="space-y-4 border-t pt-4">
+              <div className="flex items-center gap-2">
+                <BarChart3 className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                <Label className="text-sm font-medium">Cycle Management</Label>
+              </div>
+
+              <FormField
+                control={form.control}
+                name="isMultiCycle"
+                render={({ field }) => (
+                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
+                    <div className="space-y-0.5">
+                      <FormLabel className="text-base">Multi-Cycle Plot</FormLabel>
+                      <FormDescription>
+                        Enable to track multiple planting cycles for this plot
+                      </FormDescription>
+                    </div>
+                    <FormControl>
+                      <input
+                        type="checkbox"
+                        checked={field.value}
+                        onChange={field.onChange}
+                        className="h-4 w-4"
+                        data-testid="checkbox-multi-cycle"
+                      />
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
+
+              {form.watch("isMultiCycle") && (
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="totalCycles"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Total Cycles Planned</FormLabel>
+                        <FormControl>
+                          <Input 
+                            type="number" 
+                            placeholder="3" 
+                            {...field}
+                            value={field.value || ""}
+                            onChange={e => field.onChange(parseInt(e.target.value) || 1)}
+                            data-testid="input-total-cycles"
+                          />
+                        </FormControl>
+                        <FormDescription>
+                          Total number of planting cycles for this plot
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="restPeriodDays"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Rest Period (Days)</FormLabel>
+                        <FormControl>
+                          <Input 
+                            type="number" 
+                            placeholder="30" 
+                            {...field}
+                            value={field.value || ""}
+                            onChange={e => field.onChange(parseInt(e.target.value) || 30)}
+                            data-testid="input-rest-period"
+                          />
+                        </FormControl>
+                        <FormDescription>
+                          Days to rest between cycles
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              )}
+            </div>
+
             <FormField
               control={form.control}
               name="notes"
@@ -760,6 +937,12 @@ export default function Plots() {
         nettingOpenDate: data.nettingOpenDate?.toISOString() || null,
         status: data.status,
         notes: data.notes || null,
+        // Cycle tracking fields
+        currentCycle: data.currentCycle || 1,
+        totalCycles: data.totalCycles || 1,
+        isMultiCycle: data.isMultiCycle || false,
+        restPeriodDays: data.restPeriodDays || 30,
+        nextPlantingDate: data.nextPlantingDate?.toISOString() || null,
       };
       console.log("Payload being sent:", payload);
       
@@ -800,6 +983,12 @@ export default function Plots() {
         nettingOpenDate: data.nettingOpenDate?.toISOString() || null,
         status: data.status,
         notes: data.notes || null,
+        // Cycle tracking fields
+        currentCycle: data.currentCycle || 1,
+        totalCycles: data.totalCycles || 1,
+        isMultiCycle: data.isMultiCycle || false,
+        restPeriodDays: data.restPeriodDays || 30,
+        nextPlantingDate: data.nextPlantingDate?.toISOString() || null,
       };
       
       const response = await fetch(`/api/plots/${id}`, {

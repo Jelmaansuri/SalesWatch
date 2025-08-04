@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, decimal, integer, timestamp, index, jsonb } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, decimal, integer, timestamp, index, jsonb, boolean } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -81,6 +81,13 @@ export const plots = pgTable("plots", {
   nettingOpenDate: timestamp("netting_open_date"), // calculated: planting date + days to open netting
   status: text("status").notNull().default("planted"), // planted, growing, ready_for_harvest, harvested, dormant
   notes: text("notes"),
+  // Cycle tracking fields
+  currentCycle: integer("current_cycle").notNull().default(1), // Current cycle number (1, 2, 3, etc.)
+  totalCycles: integer("total_cycles").notNull().default(1), // Total planned cycles for this plot
+  cycleHistory: text("cycle_history").default("[]"), // JSON array of previous cycle data
+  nextPlantingDate: timestamp("next_planting_date"), // Calculated next planting date for multi-cycle
+  restPeriodDays: integer("rest_period_days").default(30), // Days to rest between cycles
+  isMultiCycle: boolean("is_multi_cycle").default(false), // Whether this plot supports multiple cycles
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -117,6 +124,8 @@ export const insertPlotSchema = createInsertSchema(plots).omit({
   expectedHarvestDate: z.string().nullable().transform((val) => val ? new Date(val) : null),
   actualHarvestDate: z.string().nullable().transform((val) => val ? new Date(val) : null).optional(),
   nettingOpenDate: z.string().nullable().transform((val) => val ? new Date(val) : null).optional(),
+  nextPlantingDate: z.string().nullable().transform((val) => val ? new Date(val) : null).optional(),
+  cycleHistory: z.string().optional(),
 });
 
 // Types
