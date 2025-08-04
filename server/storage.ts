@@ -66,6 +66,7 @@ export class MemStorage implements IStorage {
       phone: "+60123456789",
       company: "Ahmad Restaurant",
       address: "Kuala Lumpur, Malaysia",
+      userId: null,
       createdAt: new Date(),
     };
 
@@ -76,6 +77,7 @@ export class MemStorage implements IStorage {
       phone: "+60198765432",
       company: "Siti Trading Sdn Bhd",
       address: "Penang, Malaysia",
+      userId: null,
       createdAt: new Date(),
     };
 
@@ -93,6 +95,7 @@ export class MemStorage implements IStorage {
       stock: 100,
       status: "active",
       imageUrl: null,
+      userId: null,
       createdAt: new Date(),
     };
 
@@ -106,6 +109,7 @@ export class MemStorage implements IStorage {
       stock: 50,
       status: "active",
       imageUrl: null,
+      userId: null,
       createdAt: new Date(),
     };
 
@@ -158,7 +162,7 @@ export class MemStorage implements IStorage {
     return Array.from(this.customers.values()).find(customer => customer.email === email);
   }
 
-  async createCustomer(insertCustomer: InsertCustomer): Promise<Customer> {
+  async createCustomer(insertCustomer: InsertCustomer, userId: string): Promise<Customer> {
     const id = randomUUID();
     const customer: Customer = {
       id,
@@ -167,6 +171,7 @@ export class MemStorage implements IStorage {
       phone: insertCustomer.phone ?? null,
       company: insertCustomer.company ?? null,
       address: insertCustomer.address ?? null,
+      userId,
       createdAt: new Date(),
     };
     this.customers.set(id, customer);
@@ -199,7 +204,7 @@ export class MemStorage implements IStorage {
     return Array.from(this.products.values()).find(product => product.sku === sku);
   }
 
-  async createProduct(insertProduct: InsertProduct): Promise<Product> {
+  async createProduct(insertProduct: InsertProduct, userId: string): Promise<Product> {
     const id = randomUUID();
     const product: Product = {
       id,
@@ -211,6 +216,7 @@ export class MemStorage implements IStorage {
       stock: insertProduct.stock ?? 0,
       status: insertProduct.status ?? "active",
       imageUrl: insertProduct.imageUrl ?? null,
+      userId,
       createdAt: new Date(),
     };
     this.products.set(id, product);
@@ -275,7 +281,7 @@ export class MemStorage implements IStorage {
     };
   }
 
-  async createSale(insertSale: InsertSale): Promise<Sale> {
+  async createSale(insertSale: InsertSale, userId: string): Promise<Sale> {
     // Check stock availability
     const stockAvailable = await this.checkStockAvailability(insertSale.productId, insertSale.quantity);
     if (!stockAvailable) {
@@ -297,6 +303,7 @@ export class MemStorage implements IStorage {
       saleDate: insertSale.saleDate || now,
       platformSource: insertSale.platformSource || "others",
       notes: insertSale.notes ?? null,
+      userId,
       createdAt: now,
       updatedAt: now,
     };
