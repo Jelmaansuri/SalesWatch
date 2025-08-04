@@ -297,7 +297,7 @@ export class MemStorage implements IStorage {
     const now = new Date();
     const sale: Sale = {
       id,
-      userId: insertSale.userId,
+      userId: insertSale.userId || "",
       status: insertSale.status,
       customerId: insertSale.customerId,
       productId: insertSale.productId,
@@ -373,11 +373,22 @@ export class MemStorage implements IStorage {
   async getDashboardMetrics(): Promise<DashboardMetrics> {
     const sales = Array.from(this.sales.values());
     const customers = Array.from(this.customers.values());
+    const plots = Array.from(this.plots.values());
 
     const totalRevenue = sales.reduce((sum, sale) => sum + parseFloat(sale.totalAmount), 0);
     const totalProfit = sales.reduce((sum, sale) => sum + parseFloat(sale.profit), 0);
     const activeOrders = sales.filter(sale => sale.status !== 'completed').length;
     const totalCustomers = customers.length;
+
+    // Calculate completed cycles from plots (same logic as DatabaseStorage)
+    const completedCycles = plots.reduce((sum, plot) => {
+      if (plot.status === 'harvested') {
+        return sum + (plot.currentCycle || 1);
+      } else if ((plot.currentCycle || 1) > 1) {
+        return sum + ((plot.currentCycle || 1) - 1);
+      }
+      return sum;
+    }, 0);
 
     const orderStatusCounts = {
       unpaid: sales.filter(sale => sale.status === 'unpaid').length,
@@ -392,6 +403,7 @@ export class MemStorage implements IStorage {
       totalProfit,
       activeOrders,
       totalCustomers,
+      completedCycles,
       orderStatusCounts,
     };
   }
@@ -492,8 +504,8 @@ export class MemStorage implements IStorage {
       location: insertPlot.location,
       cropType: insertPlot.cropType,
       plantingDate: insertPlot.plantingDate,
-      expectedHarvestDate: insertPlot.expectedHarvestDate,
-      actualHarvestDate: insertPlot.actualHarvestDate || null,
+      expectedHarvestDate: insertPlot.expectedHarvestDate || null,
+      actualHarvestDate: insertPlot.actualHarvestDate ?? null,
       daysToMaturity: insertPlot.daysToMaturity,
       daysToOpenNetting: insertPlot.daysToOpenNetting,
       nettingOpenDate: nettingOpenDate,
@@ -799,7 +811,7 @@ export class DatabaseStorage implements IStorage {
       notes: sale.notes || null,
     };
 
-    const [newSale] = await db.insert(sales).values(saleRecord).returning();
+    const [newSale] = await db.insert(sales).values([saleRecord]).returning();
     return newSale;
   }
 
@@ -995,11 +1007,12 @@ export class DatabaseStorage implements IStorage {
     const nettingOpenDate = new Date(plantingDate);
     nettingOpenDate.setDate(plantingDate.getDate() + plot.daysToOpenNetting);
     
-    const [newPlot] = await db.insert(plots).values({
+    const [newPlot] = await db.insert(plots).values([{
       ...plot,
       id: randomUUID(),
       nettingOpenDate: nettingOpenDate,
-    }).returning();
+      actualHarvestDate: plot.actualHarvestDate || null,
+    }]).returning();
     return newPlot;
   }
 
