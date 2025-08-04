@@ -12,6 +12,7 @@ import type { DashboardMetrics, SaleWithDetails, Product } from "@shared/schema"
 export default function Dashboard() {
   const { data: metrics, isLoading: metricsLoading, refetch: refetchMetrics } = useQuery<DashboardMetrics>({
     queryKey: ["/api/analytics/dashboard"],
+    staleTime: 0, // Always fetch fresh data
   });
 
   const { data: revenueData = [], isLoading: revenueLoading } = useQuery<{ month: string; revenue: number }[]>({
