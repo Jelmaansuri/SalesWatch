@@ -40,7 +40,7 @@ const plotFormSchema = z.object({
   // Cycle tracking fields
   currentCycle: z.number().min(1, "Current cycle must be at least 1").default(1),
   totalCycles: z.number().min(1, "Total cycles must be at least 1").default(1),
-  isMultiCycle: z.boolean().default(false),
+  isMultiCycle: z.boolean().default(true),
 });
 
 type PlotFormData = z.infer<typeof plotFormSchema>;
@@ -468,8 +468,8 @@ function PlotForm({
       status: "planted",
       notes: "",
       currentCycle: 1,
-      totalCycles: 1,
-      isMultiCycle: false,
+      totalCycles: 9999, // Unlimited cycles by default
+      isMultiCycle: true, // Multi-cycle activated automatically
     }
   });
 
@@ -1501,8 +1501,8 @@ export default function Plots() {
       ...data,
       expectedHarvestDate: calculatedHarvestDate,
       nettingOpenDate: calculatedNettingDate,
-      totalCycles: data.currentCycle > 1 ? 9999 : 1, // Auto-set unlimited for multi-cycle
-      isMultiCycle: data.currentCycle > 1
+      totalCycles: 9999, // Always unlimited cycles for all new plots
+      isMultiCycle: true // All new plots are multi-cycle by default
     };
 
     console.log("Enriched data with calculated dates:", enrichedData);
