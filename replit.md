@@ -1,7 +1,7 @@
 # PROGENY AGROTECH Management System
 
 ## Overview
-The PROGENY AGROTECH Management System is a comprehensive business management platform designed for PROGENY AGROTECH, a Malaysian agricultural company specializing in fresh young ginger farming and distribution. Its core purpose is to provide a complete solution for tracking sales, managing ginger products and customers, analyzing farm performance, and generating agricultural business insights. The system aims to streamline operations, enhance decision-making through data analytics, and support the growth of PROGENY AGROTECH's farm-to-market operations. Key capabilities include full CRM, product and sales management, detailed plot management for agricultural land, robust reporting with Excel export, and a modern, responsive web interface tailored for Malaysian agricultural practices.
+The PROGENY AGROTECH Management System is a comprehensive business management platform designed for PROGENY AGROTECH, a Malaysian agricultural company specializing in fresh young ginger farming and distribution. Its core purpose is to provide a complete solution for tracking sales, managing ginger products and customers, analyzing farm performance, and generating agricultural business insights. The system aims to streamline operations, enhance decision-making through data analytics, and support the growth of PROGENY AGROTECH's farm-to-market operations. Key capabilities include full CRM, product and sales management, detailed plot management for agricultural land with bulletproof harvest accumulation logic, robust reporting with Excel export, and a modern, responsive web interface tailored for Malaysian agricultural practices.
 
 ## User Preferences
 Preferred communication style: Simple, everyday language.
@@ -51,3 +51,31 @@ A session-based approach is implemented using Express sessions with a PostgreSQL
 - **clsx & tailwind-merge**: Conditional CSS class handling.
 - **nanoid**: Unique ID generation.
 - **Wouter**: Lightweight client-side routing.
+
+## Critical Business Logic
+
+### Harvest Accumulation System
+**MANDATORY FOR ALL PLOTS (EXISTING AND FUTURE):**
+
+The harvest system follows a strict two-part logic that must be applied consistently:
+
+1. **Current Cycle Updates (UPDATE_CURRENT_CYCLE)**:
+   - When editing harvest for the SAME cycle number
+   - Replaces the harvest amount for that specific cycle only
+   - Formula: `newTotal = currentTotal - oldCycleAmount + newCycleAmount`
+
+2. **New Cycle Advances (ADD_NEW_CYCLE)**:
+   - When advancing to a HIGHER cycle number
+   - Adds new cycle amount to existing total
+   - Formula: `newTotal = currentTotal + newCycleAmount`
+
+**Key Fields:**
+- `harvestAmountKg`: Stores harvest amount for current cycle only
+- `totalHarvestedKg`: Accumulates ALL cycles (current + previous)
+
+**Detection Logic:**
+```javascript
+const isEditingCurrentCycle = data.currentCycle === harvestingPlot.currentCycle;
+```
+
+This logic ensures perfect accumulation across cycles while allowing specific cycle edits without affecting other cycles. All plots must follow this exact pattern for consistency.

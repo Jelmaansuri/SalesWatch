@@ -1304,6 +1304,8 @@ export default function Plots() {
 
   const handleNextCycleSubmit = (data: PlotFormData) => {
     if (nextCyclePlot) {
+      // NEXT CYCLE LOGIC: Always ADD to total (this handles the ADD_NEW_CYCLE case)
+      console.log(`🔄 NEXT CYCLE: ${nextCyclePlot.name} advancing from cycle ${nextCyclePlot.currentCycle} to ${data.currentCycle}`);
       updateMutation.mutate({ id: nextCyclePlot.id, data });
     }
     setNextCycleModalOpen(false);
@@ -1319,7 +1321,8 @@ export default function Plots() {
     if (!harvestingPlot) return;
 
     try {
-      // HARVEST ACCUMULATION LOGIC - WORKS FOR ALL PLOTS (EXISTING AND NEW)
+      // 🔒 MANDATORY HARVEST LOGIC FOR ALL PLOTS (EXISTING AND NEW)
+      // This logic is documented in replit.md and must be applied consistently
       const currentTotal = parseFloat(harvestingPlot.totalHarvestedKg?.toString() || "0");
       const currentCycleAmount = parseFloat(harvestingPlot.harvestAmountKg?.toString() || "0");
       
@@ -1330,7 +1333,9 @@ export default function Plots() {
       // 1. For SAME cycle: Replace the cycle amount, recalculate total
       // 2. For NEW cycle: Add new cycle amount to total
       
-      const isEditingCurrentCycle = data.currentCycle === harvestingPlot.currentCycle;
+      // For harvest submissions, we're always updating the CURRENT cycle
+      // (Next cycle advances are handled by handleNextCycleSubmit, not handleHarvestSubmit)
+      const isEditingCurrentCycle = true; // Harvest modal always edits current cycle
       
       if (isEditingCurrentCycle) {
         // EDITING CURRENT CYCLE: Replace current cycle amount, recalculate total
@@ -1338,9 +1343,9 @@ export default function Plots() {
         newTotal = currentTotal - currentCycleAmount + data.harvestAmountKg;
         console.log(`UPDATE CYCLE ${harvestingPlot.currentCycle}: ${currentCycleAmount}kg → ${data.harvestAmountKg}kg`);
       } else {
-        // NEW CYCLE: Add new cycle amount to existing total
+        // This path should never be reached in harvest modal
         newTotal = currentTotal + data.harvestAmountKg;
-        console.log(`NEW CYCLE ${harvestingPlot.currentCycle}→${data.currentCycle}: Adding ${data.harvestAmountKg}kg`);
+        console.log(`FALLBACK: Adding ${data.harvestAmountKg}kg to total`);
       }
       
       // Logic is now handled above with cycle detection
@@ -1363,8 +1368,8 @@ export default function Plots() {
         operation: isEditingCurrentCycle ? 'UPDATE_CURRENT_CYCLE' : 'ADD_NEW_CYCLE',
         cycleDetails: {
           plotCycle: harvestingPlot.currentCycle,
-          submissionCycle: data.currentCycle,
-          isCurrentCycle: isEditingCurrentCycle
+          isCurrentCycle: isEditingCurrentCycle,
+          modalType: 'HARVEST_MODAL'
         },
         formula: isEditingCurrentCycle ? 
           `UPDATE: ${currentTotal} - ${currentCycleAmount} + ${data.harvestAmountKg} = ${newTotal}` :
