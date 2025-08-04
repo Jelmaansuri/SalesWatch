@@ -596,6 +596,7 @@ export default function Orders() {
                     <TableHead>Quantity</TableHead>
                     <TableHead>Unit Price</TableHead>
                     <TableHead>Discount</TableHead>
+                    <TableHead>Price After Discount</TableHead>
                     <TableHead>Total Amount</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Date</TableHead>
@@ -624,6 +625,9 @@ export default function Orders() {
                       <TableCell>{formatCurrency(order.unitPrice)}</TableCell>
                       <TableCell className="text-orange-600">
                         {formatCurrency(order.discountAmount)}
+                      </TableCell>
+                      <TableCell className="font-medium text-blue-600">
+                        {formatCurrency((parseFloat(order.unitPrice) - parseFloat(order.discountAmount)).toString())}
                       </TableCell>
                       <TableCell className="font-medium">
                         {formatCurrency(order.totalAmount)}

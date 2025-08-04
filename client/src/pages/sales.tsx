@@ -478,8 +478,9 @@ export default function Sales() {
                       <TableHead className="min-w-[120px]">Customer</TableHead>
                       <TableHead className="min-w-[120px]">Product</TableHead>
                       <TableHead className="min-w-[70px]">Qty</TableHead>
-                      <TableHead className="min-w-[80px]">Price</TableHead>
+                      <TableHead className="min-w-[80px]">Unit Price</TableHead>
                       <TableHead className="min-w-[80px]">Discount</TableHead>
+                      <TableHead className="min-w-[90px]">Price After Discount</TableHead>
                       <TableHead className="min-w-[80px]">Total</TableHead>
                       <TableHead className="min-w-[70px]">Profit</TableHead>
                       <TableHead className="min-w-[80px]">Status</TableHead>
@@ -507,6 +508,9 @@ export default function Sales() {
                       <TableCell>{formatCurrency(sale.unitPrice)}</TableCell>
                       <TableCell className="text-orange-600">
                         {formatCurrency(sale.discountAmount)}
+                      </TableCell>
+                      <TableCell className="font-medium text-blue-600">
+                        {formatCurrency((parseFloat(sale.unitPrice) - parseFloat(sale.discountAmount)).toString())}
                       </TableCell>
                       <TableCell className="font-medium">
                         {formatCurrency(sale.totalAmount)}

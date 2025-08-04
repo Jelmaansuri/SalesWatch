@@ -683,7 +683,10 @@ export class DatabaseStorage implements IStorage {
   async createSale(sale: InsertSale): Promise<Sale> {
     const unitPriceNum = typeof sale.unitPrice === 'string' ? parseFloat(sale.unitPrice) : sale.unitPrice;
     const discountAmountNum = sale.discountAmount ? (typeof sale.discountAmount === 'string' ? parseFloat(sale.discountAmount) : sale.discountAmount) : 0;
-    const totalAmount = (unitPriceNum * sale.quantity) - discountAmountNum;
+    
+    // CORRECT CALCULATION: Total = (Unit Price - Discount per unit) × Quantity
+    const discountedUnitPrice = unitPriceNum - discountAmountNum;
+    const totalAmount = discountedUnitPrice * sale.quantity;
     
     // Get product cost to calculate profit
     const product = await this.getProduct(sale.productId);
@@ -692,7 +695,7 @@ export class DatabaseStorage implements IStorage {
     }
     
     const costPriceNum = typeof product.costPrice === 'string' ? parseFloat(product.costPrice) : product.costPrice;
-    const profit = totalAmount - (costPriceNum * sale.quantity);
+    const profit = (discountedUnitPrice - costPriceNum) * sale.quantity;
 
     const saleRecord = {
       id: randomUUID(),
@@ -730,9 +733,11 @@ export class DatabaseStorage implements IStorage {
         ? (updates.discountAmount ? (typeof updates.discountAmount === 'string' ? parseFloat(updates.discountAmount) : updates.discountAmount) : 0)
         : (existingSale.discountAmount ? (typeof existingSale.discountAmount === 'string' ? parseFloat(existingSale.discountAmount) : existingSale.discountAmount) : 0);
       
-      const totalAmount = (unitPriceNum * quantity) - discountAmountNum;
+      // CORRECT CALCULATION: Total = (Unit Price - Discount per unit) × Quantity
+      const discountedUnitPrice = unitPriceNum - discountAmountNum;
+      const totalAmount = discountedUnitPrice * quantity;
       const costPriceNum = typeof product.costPrice === 'string' ? parseFloat(product.costPrice) : product.costPrice;
-      const profit = totalAmount - (costPriceNum * quantity);
+      const profit = (discountedUnitPrice - costPriceNum) * quantity;
 
       updates = {
         ...updates,
