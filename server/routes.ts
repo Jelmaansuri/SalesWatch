@@ -4,11 +4,42 @@ import { storage } from "./storage";
 import { insertCustomerSchema, insertProductSchema, insertSaleSchema } from "@shared/schema";
 import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
+import { db } from "./db";
+import { sql } from "drizzle-orm";
 import { z } from "zod";
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  console.log("Registering routes...");
+  
   // Auth middleware
   await setupAuth(app);
+
+  // Health check endpoint
+  app.get('/api/health', async (req, res) => {
+    console.log("Health check endpoint called");
+    try {
+      // Test database connection
+      const testResult = await db.execute(sql`SELECT 1 as test`);
+      const response = { 
+        status: 'healthy', 
+        database: 'connected',
+        timestamp: new Date().toISOString(),
+        testResult: testResult.rows
+      };
+      console.log("Health check response:", response);
+      res.json(response);
+    } catch (error) {
+      console.error("Health check failed:", error);
+      const errorResponse = { 
+        status: 'unhealthy', 
+        database: 'disconnected',
+        error: error instanceof Error ? error.message : String(error),
+        timestamp: new Date().toISOString()
+      };
+      console.log("Health check error response:", errorResponse);
+      res.status(500).json(errorResponse);
+    }
+  });
 
   // Auth routes
   app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
@@ -23,18 +54,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Customers routes (protected)
-  app.get("/api/customers", isAuthenticated, async (req, res) => {
+  app.get("/api/customers", isAuthenticated, async (req: any, res) => {
     try {
-      const customers = await storage.getCustomers();
+      const userId = req.user.claims.sub;
+      const customers = await storage.getCustomers(userId);
       res.json(customers);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch customers" });
     }
   });
 
-  app.get("/api/customers/:id", isAuthenticated, async (req, res) => {
+  app.get("/api/customers/:id", isAuthenticated, async (req: any, res) => {
     try {
-      const customer = await storage.getCustomer(req.params.id);
+      const userId = req.user.claims.sub;
+      const customer = await storage.getCustomer(req.params.id, userId);
       if (!customer) {
         return res.status(404).json({ message: "Customer not found" });
       }
@@ -44,30 +77,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/customers", isAuthenticated, async (req, res) => {
+  app.post("/api/customers", isAuthenticated, async (req: any, res) => {
     try {
+      const userId = req.user.claims.sub;
+      console.log("Creating customer for userId:", userId);
+      console.log("Request body:", req.body);
+      
       const validatedData = insertCustomerSchema.parse(req.body);
+      console.log("Validated data:", validatedData);
       
       // Check if email already exists
-      const existingCustomer = await storage.getCustomerByEmail(validatedData.email);
+      const existingCustomer = await storage.getCustomerByEmail(validatedData.email, userId);
       if (existingCustomer) {
+        console.log("Customer with email already exists:", validatedData.email);
         return res.status(400).json({ message: "Customer with this email already exists" });
       }
 
-      const customer = await storage.createCustomer(validatedData);
+      console.log("Creating customer with data:", validatedData);
+      const customer = await storage.createCustomer(validatedData, userId);
+      console.log("Customer created successfully:", customer.id);
       res.status(201).json(customer);
     } catch (error) {
+      console.error("Error creating customer:", error);
+      console.error("Error stack:", error instanceof Error ? error.stack : String(error));
       if (error instanceof z.ZodError) {
+        console.error("Zod validation errors:", error.errors);
         return res.status(400).json({ message: "Invalid data", errors: error.errors });
       }
-      res.status(500).json({ message: "Failed to create customer" });
+      res.status(500).json({ message: "Failed to create customer", error: error instanceof Error ? error.message : String(error) });
     }
   });
 
-  app.put("/api/customers/:id", isAuthenticated, async (req, res) => {
+  app.put("/api/customers/:id", isAuthenticated, async (req: any, res) => {
     try {
+      const userId = req.user.claims.sub;
       const updateData = insertCustomerSchema.partial().parse(req.body);
-      const customer = await storage.updateCustomer(req.params.id, updateData);
+      const customer = await storage.updateCustomer(req.params.id, updateData, userId);
       if (!customer) {
         return res.status(404).json({ message: "Customer not found" });
       }
@@ -80,46 +125,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/customers/:id", isAuthenticated, async (req, res) => {
+  app.delete("/api/customers/:id", isAuthenticated, async (req: any, res) => {
     try {
-      // Check if customer has any sales records
-      const customerSales = await storage.getSalesByCustomerId(req.params.id);
-      if (customerSales.length > 0) {
-        return res.status(400).json({ 
-          message: `Cannot delete customer. Customer has ${customerSales.length} sales record(s). Please delete or reassign the sales records first.`,
-          salesCount: customerSales.length
-        });
-      }
-
-      const deleted = await storage.deleteCustomer(req.params.id);
+      const userId = req.user.claims.sub;
+      const deleted = await storage.deleteCustomer(req.params.id, userId);
       if (!deleted) {
         return res.status(404).json({ message: "Customer not found" });
       }
       res.status(204).send();
     } catch (error) {
-      console.error("Error deleting customer:", error);
-      if (error instanceof Error && error.message.includes("foreign key constraint")) {
-        return res.status(400).json({ 
-          message: "Cannot delete customer because they have associated sales records. Please delete the sales records first." 
-        });
-      }
       res.status(500).json({ message: "Failed to delete customer" });
     }
   });
 
   // Products routes (protected)
-  app.get("/api/products", isAuthenticated, async (req, res) => {
+  app.get("/api/products", isAuthenticated, async (req: any, res) => {
     try {
-      const products = await storage.getProducts();
+      const userId = req.user.claims.sub;
+      const products = await storage.getProducts(userId);
       res.json(products);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch products" });
     }
   });
 
-  app.get("/api/products/:id", isAuthenticated, async (req, res) => {
+  app.get("/api/products/:id", isAuthenticated, async (req: any, res) => {
     try {
-      const product = await storage.getProduct(req.params.id);
+      const userId = req.user.claims.sub;
+      const product = await storage.getProduct(req.params.id, userId);
       if (!product) {
         return res.status(404).json({ message: "Product not found" });
       }
@@ -129,17 +162,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/products", isAuthenticated, async (req, res) => {
+  app.post("/api/products", isAuthenticated, async (req: any, res) => {
     try {
+      const userId = req.user.claims.sub;
       const validatedData = insertProductSchema.parse(req.body);
       
       // Check if SKU already exists
-      const existingProduct = await storage.getProductBySku(validatedData.sku);
+      const existingProduct = await storage.getProductBySku(validatedData.sku, userId);
       if (existingProduct) {
         return res.status(400).json({ message: "Product with this SKU already exists" });
       }
 
-      const product = await storage.createProduct(validatedData);
+      const product = await storage.createProduct(validatedData, userId);
       res.status(201).json(product);
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -149,10 +183,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/products/:id", isAuthenticated, async (req, res) => {
+  app.put("/api/products/:id", isAuthenticated, async (req: any, res) => {
     try {
+      const userId = req.user.claims.sub;
       const updateData = insertProductSchema.partial().parse(req.body);
-      const product = await storage.updateProduct(req.params.id, updateData);
+      const product = await storage.updateProduct(req.params.id, updateData, userId);
       if (!product) {
         return res.status(404).json({ message: "Product not found" });
       }
@@ -165,46 +200,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/products/:id", isAuthenticated, async (req, res) => {
+  app.delete("/api/products/:id", isAuthenticated, async (req: any, res) => {
     try {
-      // Check if product has any sales records
-      const productSales = await storage.getSalesByProductId(req.params.id);
-      if (productSales.length > 0) {
-        return res.status(400).json({ 
-          message: `Cannot delete product. Product has ${productSales.length} sales record(s). Please delete or reassign the sales records first.`,
-          salesCount: productSales.length
-        });
-      }
-
-      const deleted = await storage.deleteProduct(req.params.id);
+      const userId = req.user.claims.sub;
+      const deleted = await storage.deleteProduct(req.params.id, userId);
       if (!deleted) {
         return res.status(404).json({ message: "Product not found" });
       }
       res.status(204).send();
     } catch (error) {
-      console.error("Error deleting product:", error);
-      if (error instanceof Error && error.message.includes("foreign key constraint")) {
-        return res.status(400).json({ 
-          message: "Cannot delete product because it has associated sales records. Please delete the sales records first." 
-        });
-      }
       res.status(500).json({ message: "Failed to delete product" });
     }
   });
 
   // Sales routes (protected)
-  app.get("/api/sales", isAuthenticated, async (req, res) => {
+  app.get("/api/sales", isAuthenticated, async (req: any, res) => {
     try {
-      const salesWithDetails = await storage.getSalesWithDetails();
+      const userId = req.user.claims.sub;
+      const salesWithDetails = await storage.getSalesWithDetails(userId);
       res.json(salesWithDetails);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch sales" });
     }
   });
 
-  app.get("/api/sales/:id", isAuthenticated, async (req, res) => {
+  app.get("/api/sales/:id", isAuthenticated, async (req: any, res) => {
     try {
-      const sale = await storage.getSaleWithDetails(req.params.id);
+      const userId = req.user.claims.sub;
+      const sale = await storage.getSaleWithDetails(req.params.id, userId);
       if (!sale) {
         return res.status(404).json({ message: "Sale not found" });
       }
@@ -223,9 +246,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const saleData = insertSaleSchema.parse(req.body);
       
+      const userId = req.user.claims.sub;
+      
       // Verify customer and product exist
-      const customer = await storage.getCustomer(saleData.customerId);
-      const product = await storage.getProduct(saleData.productId);
+      const customer = await storage.getCustomer(saleData.customerId, userId);
+      const product = await storage.getProduct(saleData.productId, userId);
       
       if (!customer) {
         return res.status(400).json({ message: "Customer not found" });
@@ -250,8 +275,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         profit: profit.toString(),
       };
 
-      const sale = await storage.createSale(finalSaleData);
-      const saleWithDetails = await storage.getSaleWithDetails(sale.id);
+      const sale = await storage.createSale(finalSaleData, userId);
+      const saleWithDetails = await storage.getSaleWithDetails(sale.id, userId);
       res.status(201).json(saleWithDetails);
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -266,8 +291,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/sales/:id", isAuthenticated, async (req, res) => {
+  app.put("/api/sales/:id", isAuthenticated, async (req: any, res) => {
     try {
+      const userId = req.user.claims.sub;
       console.log(`Updating sale ${req.params.id} with data:`, req.body);
       
       const updateData = insertSaleSchema.partial().parse(req.body);
@@ -275,13 +301,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // If unitPrice, discount, quantity, or product is being updated, recalculate totals and profit
       if (updateData.unitPrice || updateData.discountAmount !== undefined || updateData.quantity || updateData.productId) {
-        const existingSale = await storage.getSale(req.params.id);
+        const existingSale = await storage.getSale(req.params.id, userId);
         if (!existingSale) {
           return res.status(404).json({ message: "Sale not found" });
         }
         
         const productId = updateData.productId || existingSale.productId;
-        const product = await storage.getProduct(productId);
+        const product = await storage.getProduct(productId, userId);
         if (!product) {
           return res.status(400).json({ message: "Product not found" });
         }
@@ -298,14 +324,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         updateData.profit = profit.toString();
       }
       
-      const sale = await storage.updateSale(req.params.id, updateData);
+      const sale = await storage.updateSale(req.params.id, updateData, userId);
       if (!sale) {
         return res.status(404).json({ message: "Sale not found" });
       }
       
       console.log(`Updated sale:`, sale);
       
-      const saleWithDetails = await storage.getSaleWithDetails(sale.id);
+      const saleWithDetails = await storage.getSaleWithDetails(sale.id, userId);
       res.json(saleWithDetails);
     } catch (error) {
       console.error("Error updating sale:", error);
@@ -319,9 +345,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/sales/:id", isAuthenticated, async (req, res) => {
+  app.delete("/api/sales/:id", isAuthenticated, async (req: any, res) => {
     try {
-      const deleted = await storage.deleteSale(req.params.id);
+      const userId = req.user.claims.sub;
+      const deleted = await storage.deleteSale(req.params.id, userId);
       if (!deleted) {
         return res.status(404).json({ message: "Sale not found" });
       }
@@ -332,12 +359,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Excel Export Routes
-  app.get("/api/reports/export/excel", isAuthenticated, async (req, res) => {
+  app.get("/api/reports/export/excel", isAuthenticated, async (req: any, res) => {
     try {
+      const userId = req.user.claims.sub;
       const { startDate, endDate, reportType = 'comprehensive' } = req.query;
       
       // Get all sales with details
-      const allSales = await storage.getSalesWithDetails();
+      const allSales = await storage.getSalesWithDetails(userId);
       
       // Filter by date range if provided
       let filteredSales = allSales;
@@ -351,8 +379,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Get customers and products for comprehensive report
-      const customers = await storage.getCustomers();
-      const products = await storage.getProducts();
+      const customers = await storage.getCustomers(userId);
+      const products = await storage.getProducts(userId);
       
       // Calculate comprehensive analytics
       const analytics = {
@@ -468,15 +496,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         profit: parseFloat(sale.profit),
         profitMargin: parseFloat(sale.totalAmount) > 0 ? (parseFloat(sale.profit) / parseFloat(sale.totalAmount)) * 100 : 0,
         status: sale.status,
-        statusLabel: (() => {
-          const statusMap = {
-            'paid': 'Paid',
-            'pending_shipment': 'Pending Shipment',
-            'shipped': 'Shipped',
-            'completed': 'Completed'
-          };
-          return statusMap[sale.status as keyof typeof statusMap] || sale.status;
-        })(),
+        statusLabel: (['paid', 'pending_shipment', 'shipped', 'completed'].includes(sale.status) ? {
+          'paid': 'Paid',
+          'pending_shipment': 'Pending Shipment',
+          'shipped': 'Shipped',
+          'completed': 'Completed'
+        }[sale.status] : sale.status) as string,
         notes: sale.notes || 'N/A'
       })).sort((a: any, b: any) => new Date(b.orderDate + 'T' + b.orderTime).getTime() - new Date(a.orderDate + 'T' + a.orderTime).getTime());
 
@@ -582,27 +607,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Analytics routes (protected)
-  app.get("/api/analytics/dashboard", isAuthenticated, async (req, res) => {
+  app.get("/api/analytics/dashboard", isAuthenticated, async (req: any, res) => {
     try {
-      const metrics = await storage.getDashboardMetrics();
+      const userId = req.user.claims.sub;
+      const metrics = await storage.getDashboardMetrics(userId);
       res.json(metrics);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch dashboard metrics" });
     }
   });
 
-  app.get("/api/analytics/revenue-by-month", isAuthenticated, async (req, res) => {
+  app.get("/api/analytics/revenue-by-month", isAuthenticated, async (req: any, res) => {
     try {
-      const data = await storage.getRevenueByMonth();
+      const userId = req.user.claims.sub;
+      const data = await storage.getRevenueByMonth(userId);
       res.json(data);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch revenue data" });
     }
   });
 
-  app.get("/api/analytics/top-products", isAuthenticated, async (req, res) => {
+  app.get("/api/analytics/top-products", isAuthenticated, async (req: any, res) => {
     try {
-      const data = await storage.getTopProducts();
+      const userId = req.user.claims.sub;
+      const data = await storage.getTopProducts(userId);
       res.json(data);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch top products" });
