@@ -14,10 +14,18 @@ if (!process.env.REPLIT_DOMAINS) {
 
 const getOidcConfig = memoize(
   async () => {
-    return await client.discovery(
-      new URL(process.env.ISSUER_URL ?? "https://replit.com/oidc"),
-      process.env.REPL_ID!
-    );
+    try {
+      console.log("Attempting OIDC discovery...");
+      const config = await client.discovery(
+        new URL(process.env.ISSUER_URL ?? "https://replit.com/oidc"),
+        process.env.REPL_ID!
+      );
+      console.log("OIDC discovery successful");
+      return config;
+    } catch (error) {
+      console.error("OIDC discovery failed:", error);
+      throw new Error(`Authentication service unavailable: ${error}`);
+    }
   },
   { maxAge: 3600 * 1000 }
 );
@@ -114,7 +122,14 @@ export async function setupAuth(app: Express) {
   app.use(passport.initialize());
   app.use(passport.session());
 
-  const config = await getOidcConfig();
+  let config;
+  try {
+    config = await getOidcConfig();
+    console.log("✅ Authentication service ready");
+  } catch (error) {
+    console.error("❌ Authentication service initialization failed:", error);
+    throw error;
+  }
 
   const verify: VerifyFunction = async (
     tokens: client.TokenEndpointResponse & client.TokenEndpointResponseHelpers,
@@ -149,11 +164,65 @@ export async function setupAuth(app: Express) {
   passport.serializeUser((user: Express.User, cb) => cb(null, user));
   passport.deserializeUser((user: Express.User, cb) => cb(null, user));
 
-  app.get("/api/login", (req, res, next) => {
-    passport.authenticate(`replitauth:${req.hostname}`, {
-      prompt: "login consent",
-      scope: ["openid", "email", "profile", "offline_access"],
-    })(req, res, next);
+  app.get("/api/login", async (req, res, next) => {
+    try {
+      // Test OIDC config before attempting authentication
+      await getOidcConfig();
+      passport.authenticate(`replitauth:${req.hostname}`, {
+        prompt: "login consent",
+        scope: ["openid", "email", "profile", "offline_access"],
+      })(req, res, next);
+    } catch (error) {
+      console.error("Login failed - OIDC service unavailable:", error);
+      res.status(503).send(`
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <title>Service Unavailable - PROGENY AGROTECH</title>
+            <style>
+              body { 
+                font-family: Arial, sans-serif; 
+                max-width: 600px; 
+                margin: 100px auto; 
+                padding: 20px; 
+                text-align: center; 
+                background-color: #f5f5f5;
+              }
+              .container {
+                background: white;
+                padding: 40px;
+                border-radius: 8px;
+                box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+              }
+              .error { color: #e74c3c; font-size: 18px; margin-bottom: 20px; }
+              .message { color: #34495e; line-height: 1.6; }
+              .retry-btn {
+                display: inline-block;
+                padding: 12px 24px;
+                background: #3498db;
+                color: white;
+                text-decoration: none;
+                border-radius: 4px;
+                margin-top: 20px;
+              }
+            </style>
+          </head>
+          <body>
+            <div class="container">
+              <h1>🔧 Authentication Service Temporarily Unavailable</h1>
+              <div class="error">Unable to connect to Replit authentication service</div>
+              <div class="message">
+                <p>We're experiencing temporary connectivity issues with the authentication system.</p>
+                <p><strong>For PROGENY AGROTECH team members:</strong></p>
+                <p>Please try again in a few minutes. If the problem persists, contact technical support.</p>
+                <p><em>Your email ${req.query.email || 'progenyagrotech@gmail.com'} is authorized for access.</em></p>
+              </div>
+              <a href="/api/login" class="retry-btn">🔄 Try Again</a>
+            </div>
+          </body>
+        </html>
+      `);
+    }
   });
 
   app.get("/api/callback", (req, res, next) => {
