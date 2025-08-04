@@ -159,7 +159,7 @@ function PlotCard({ plot, onEdit, onDelete, onHarvest, onNextCycle }: {
             <Badge className={cn("text-white", getStatusColor(plot.status))}>
               {getStatusLabel(plot.status)}
             </Badge>
-            {plot.isMultiCycle && plot.currentCycle < plot.totalCycles && (
+            {plot.isMultiCycle && (
               <div className="text-xs text-blue-600 dark:text-blue-400 font-medium">
                 Multi-Cycle
               </div>
@@ -1034,7 +1034,7 @@ function HarvestModal({
               />
             </div>
 
-            {plot.isMultiCycle && plot.currentCycle < plot.totalCycles && (
+            {plot.isMultiCycle && (
               <FormField
                 control={harvestForm.control}
                 name="proceedToNextCycle"
@@ -1043,7 +1043,7 @@ function HarvestModal({
                     <div className="space-y-0.5">
                       <FormLabel className="text-base">Start Next Cycle</FormLabel>
                       <FormDescription>
-                        Automatically setup for Cycle {plot.currentCycle + 1} of {plot.totalCycles}
+                        Automatically setup for Cycle {plot.currentCycle + 1}
                       </FormDescription>
                     </div>
                     <FormControl>
