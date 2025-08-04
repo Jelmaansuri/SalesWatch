@@ -101,6 +101,7 @@ export const insertSaleSchema = createInsertSchema(sales).omit({
   createdAt: true,
   updatedAt: true,
 }).extend({
+  userId: z.string().optional(), // Allow userId to be set by server
   saleDate: z.string().transform((val) => new Date(val)),
 });
 

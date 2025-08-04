@@ -214,14 +214,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/sales", isAuthenticated, async (req, res) => {
+  app.post("/api/sales", isAuthenticated, async (req: any, res) => {
     try {
+      const userId = req.user.claims.sub;
+      const requestData = { ...req.body, userId };
+      
       // Convert saleDate string to Date object if provided
-      if (req.body.saleDate && typeof req.body.saleDate === 'string') {
-        req.body.saleDate = new Date(req.body.saleDate);
+      if (requestData.saleDate && typeof requestData.saleDate === 'string') {
+        requestData.saleDate = new Date(requestData.saleDate);
       }
       
-      const saleData = insertSaleSchema.parse(req.body);
+      console.log("Processing sale creation with data:", requestData);
+      const saleData = insertSaleSchema.parse(requestData);
       
       // Verify customer and product exist
       const customer = await storage.getCustomer(saleData.customerId);
@@ -657,8 +661,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.put("/api/plots/:id", isAuthenticated, async (req, res) => {
     try {
-      const validatedData = insertPlotSchema.partial().parse(req.body);
-      const plot = await storage.updatePlot(req.params.id, validatedData);
+      const updateData = insertPlotSchema.partial().parse(req.body);
+      
+      // Filter out null values for dates that might cause issues
+      const filteredUpdateData = Object.fromEntries(
+        Object.entries(updateData).filter(([key, value]) => 
+          value !== null && value !== undefined
+        )
+      );
+      
+      const plot = await storage.updatePlot(req.params.id, filteredUpdateData);
       if (!plot) {
         return res.status(404).json({ message: "Plot not found" });
       }

@@ -738,9 +738,12 @@ export default function PlotsPage() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: plots = [], isLoading } = useQuery<Plot[]>({
+  const { data: plotsData = [], isLoading } = useQuery<Plot[]>({
     queryKey: ["/api/plots"],
   });
+
+  // Sort plots alphabetically by name
+  const plots = plotsData.sort((a, b) => a.name.localeCompare(b.name));
 
   const createMutation = useMutation({
     mutationFn: async (data: PlotFormData) => {
