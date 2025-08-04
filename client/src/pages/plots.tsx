@@ -391,8 +391,8 @@ function PlotCard({ plot, onEdit, onDelete, onHarvest, onNextCycle }: {
               {plot.status === "harvested" ? "Update Harvest" : "Record Harvest"}
             </Button>
             
-            {/* Proceed to Next Cycle Button - Only for harvested multi-cycle plots */}
-            {plot.status === "harvested" && plot.isMultiCycle && (
+            {/* Proceed to Next Cycle Button - For all harvested plots (can convert to multi-cycle) */}
+            {plot.status === "harvested" && (
               <Button 
                 size="sm" 
                 variant="secondary"
@@ -1332,12 +1332,14 @@ export default function Plots() {
         totalHarvestedKg: newTotal.toString(),
       };
 
-      // If proceeding to next cycle, setup next cycle data
-      if (data.proceedToNextCycle && harvestingPlot.isMultiCycle) {
+      // If proceeding to next cycle, setup next cycle data (auto-convert to multi-cycle)
+      if (data.proceedToNextCycle) {
         const nextPlantingDate = addDays(data.actualHarvestDate, 30); // 30-day rest period
         payload = {
           ...payload,
           currentCycle: harvestingPlot.currentCycle + 1,
+          totalCycles: 9999, // Unlimited cycles
+          isMultiCycle: true, // Auto-convert to multi-cycle
           status: "plot_preparation", // Automatically set to preparation status
           plantingDate: nextPlantingDate.toISOString(),
           expectedHarvestDate: addDays(nextPlantingDate, harvestingPlot.daysToMaturity).toISOString(),
