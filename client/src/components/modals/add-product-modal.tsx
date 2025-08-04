@@ -8,13 +8,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ObjectUploader } from "@/components/ObjectUploader";
 import { insertProductSchema } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency, calculateProfitMargin } from "@/lib/currency";
-import { ImageIcon, Upload } from "lucide-react";
-import type { UploadResult } from "@uppy/core";
 import { z } from "zod";
 
 const formSchema = insertProductSchema.extend({
@@ -32,8 +29,6 @@ interface AddProductModalProps {
 
 export default function AddProductModal({ open, onOpenChange, onProductAdded }: AddProductModalProps) {
   const { toast } = useToast();
-  const [productImageUrl, setProductImageUrl] = useState<string>("");
-  const [isUploading, setIsUploading] = useState(false);
 
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
@@ -50,8 +45,7 @@ export default function AddProductModal({ open, onOpenChange, onProductAdded }: 
 
   const createProductMutation = useMutation({
     mutationFn: async (data: FormData) => {
-      const productData = { ...data, imageUrl: productImageUrl };
-      const response = await apiRequest("POST", "/api/products", productData);
+      const response = await apiRequest("POST", "/api/products", data);
       return response.json();
     },
     onSuccess: () => {
@@ -62,7 +56,6 @@ export default function AddProductModal({ open, onOpenChange, onProductAdded }: 
       });
       onProductAdded();
       form.reset();
-      setProductImageUrl("");
     },
     onError: (error: any) => {
       toast({
@@ -73,38 +66,7 @@ export default function AddProductModal({ open, onOpenChange, onProductAdded }: 
     },
   });
 
-  const handleGetUploadParameters = async () => {
-    const response = await apiRequest("POST", "/api/objects/upload", {});
-    const data = await response.json();
-    return {
-      method: "PUT" as const,
-      url: data.uploadURL,
-    };
-  };
 
-  const handleUploadComplete = async (result: UploadResult<Record<string, unknown>, Record<string, unknown>>) => {
-    if (result.successful && result.successful.length > 0) {
-      const uploadURL = result.successful[0].uploadURL;
-      
-      // Normalize the upload URL to the object path format
-      try {
-        const response = await apiRequest("POST", "/api/objects/normalize", { 
-          uploadURL: uploadURL 
-        });
-        const data = await response.json();
-        setProductImageUrl(data.objectPath);
-      } catch (error) {
-        // Fallback to the upload URL if normalization fails
-        setProductImageUrl(uploadURL || "");
-      }
-      
-      setIsUploading(false);
-      toast({
-        title: "Success",
-        description: "Image uploaded successfully.",
-      });
-    }
-  };
 
   const onSubmit = (data: FormData) => {
     createProductMutation.mutate(data);
@@ -222,48 +184,7 @@ export default function AddProductModal({ open, onOpenChange, onProductAdded }: 
             </div>
           </div>
 
-          {/* Product Image Upload */}
-          <div className="space-y-2">
-            <Label>Product Image</Label>
-            <div className="flex items-center space-x-4">
-              {productImageUrl ? (
-                <div className="relative">
-                  <img 
-                    src={productImageUrl} 
-                    alt="Product preview" 
-                    className="w-20 h-20 object-cover rounded-lg border"
-                  />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="absolute -top-2 -right-2 h-6 w-6 p-0 rounded-full"
-                    onClick={() => setProductImageUrl("")}
-                  >
-                    ×
-                  </Button>
-                </div>
-              ) : (
-                <div className="w-20 h-20 bg-gray-100 dark:bg-gray-800 border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center">
-                  <ImageIcon className="h-8 w-8 text-gray-400" />
-                </div>
-              )}
-              
-              <ObjectUploader
-                maxNumberOfFiles={1}
-                maxFileSize={5242880} // 5MB
-                onGetUploadParameters={handleGetUploadParameters}
-                onComplete={handleUploadComplete}
-                buttonClassName="bg-my-blue hover:bg-my-blue/90 text-white"
-              >
-                <Upload className="mr-2 h-4 w-4" />
-                {productImageUrl ? "Change Image" : "Upload Image"}
-              </ObjectUploader>
-            </div>
-            <p className="text-xs text-gray-500 dark:text-gray-400">
-              Upload a product image (JPG, PNG, max 5MB)
-            </p>
-          </div>
+
 
           {/* Profit Calculation */}
           {profitPerUnit > 0 && (

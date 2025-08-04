@@ -17,7 +17,7 @@ import { formatCurrency } from "@/lib/currency";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { isUnauthorizedError } from "@/lib/authUtils";
-import { Package, ImageIcon, Plus, Edit, Trash2 } from "lucide-react";
+import { Package, Plus, Edit, Trash2 } from "lucide-react";
 import type { Product } from "@shared/schema";
 import { z } from "zod";
 
@@ -206,21 +206,6 @@ export default function Products() {
                   </CardHeader>
                   
                   <CardContent className="pt-0">
-                    {/* Product Image */}
-                    <div className="mb-4">
-                      {product.imageUrl ? (
-                        <img
-                          src={product.imageUrl}
-                          alt={product.name}
-                          className="w-full h-32 object-cover rounded-lg border"
-                        />
-                      ) : (
-                        <div className="w-full h-32 bg-gray-100 dark:bg-gray-800 border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center">
-                          <ImageIcon className="h-8 w-8 text-gray-400" />
-                        </div>
-                      )}
-                    </div>
-
                     {/* Product Details */}
                     <div className="space-y-2">
                       {product.description && (

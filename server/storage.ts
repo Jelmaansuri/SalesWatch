@@ -1,7 +1,7 @@
-import { type Customer, type InsertCustomer, type Product, type InsertProduct, type Sale, type InsertSale, type SaleWithDetails, type DashboardMetrics, type User, type UpsertUser } from "@shared/schema";
+import { type Customer, type InsertCustomer, type Product, type InsertProduct, type Sale, type InsertSale, type SaleWithDetails, type DashboardMetrics, type User, type UpsertUser, type Plot, type InsertPlot } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { db } from "./db";
-import { customers, products, sales, users } from "@shared/schema";
+import { customers, products, sales, users, plots } from "@shared/schema";
 import { eq, desc, sql, and } from "drizzle-orm";
 
 export interface IStorage {
@@ -41,6 +41,13 @@ export interface IStorage {
   getDashboardMetrics(userId: string): Promise<DashboardMetrics>;
   getRevenueByMonth(userId: string): Promise<{ month: string; revenue: number }[]>;
   getTopProducts(userId: string): Promise<Array<{ product: Product; totalRevenue: number; totalProfit: number; unitsSold: number }>>;
+
+  // Plots (user-specific)
+  getPlots(userId: string): Promise<Plot[]>;
+  getPlot(id: string, userId: string): Promise<Plot | undefined>;
+  createPlot(plot: InsertPlot, userId: string): Promise<Plot>;
+  updatePlot(id: string, updates: Partial<Plot>, userId: string): Promise<Plot | undefined>;
+  deletePlot(id: string, userId: string): Promise<boolean>;
 }
 
 export class MemStorage implements IStorage {
@@ -48,12 +55,14 @@ export class MemStorage implements IStorage {
   private customers: Map<string, Customer>;
   private products: Map<string, Product>;
   private sales: Map<string, Sale>;
+  private plots: Map<string, Plot>;
 
   constructor() {
     this.users = new Map();
     this.customers = new Map();
     this.products = new Map();
     this.sales = new Map();
+    this.plots = new Map();
     this.initializeSampleData();
   }
 
@@ -94,7 +103,6 @@ export class MemStorage implements IStorage {
       sellingPrice: "15.00",
       stock: 100,
       status: "active",
-      imageUrl: null,
       userId: null,
       createdAt: new Date(),
     };
@@ -108,7 +116,6 @@ export class MemStorage implements IStorage {
       sellingPrice: "22.00",
       stock: 50,
       status: "active",
-      imageUrl: null,
       userId: null,
       createdAt: new Date(),
     };
@@ -448,6 +455,52 @@ export class MemStorage implements IStorage {
     
     return product.stock >= requiredQuantity;
   }
+
+  // Plot Management Methods
+  async getPlots(userId: string): Promise<Plot[]> {
+    return Array.from(this.plots.values()).filter(plot => plot.userId === userId);
+  }
+
+  async getPlot(id: string, userId: string): Promise<Plot | undefined> {
+    const plot = this.plots.get(id);
+    return plot && plot.userId === userId ? plot : undefined;
+  }
+
+  async createPlot(plotData: InsertPlot, userId: string): Promise<Plot> {
+    const newPlot: Plot = {
+      id: randomUUID(),
+      userId,
+      plotName: plotData.plotName,
+      plantingDate: plotData.plantingDate,
+      expectedHarvestDate: plotData.expectedHarvestDate,
+      actualHarvestDate: plotData.actualHarvestDate || null,
+      daysToMaturity: plotData.daysToMaturity,
+      nettingOpenDays: plotData.nettingOpenDays,
+      status: plotData.status || "planted",
+      notes: plotData.notes || null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    
+    this.plots.set(newPlot.id, newPlot);
+    return newPlot;
+  }
+
+  async updatePlot(id: string, updates: Partial<Plot>, userId: string): Promise<Plot | undefined> {
+    const plot = this.plots.get(id);
+    if (!plot || plot.userId !== userId) return undefined;
+    
+    const updatedPlot = { ...plot, ...updates, updatedAt: new Date() };
+    this.plots.set(id, updatedPlot);
+    return updatedPlot;
+  }
+
+  async deletePlot(id: string, userId: string): Promise<boolean> {
+    const plot = this.plots.get(id);
+    if (!plot || plot.userId !== userId) return false;
+    
+    return this.plots.delete(id);
+  }
 }
 
 export class DatabaseStorage implements IStorage {
@@ -615,7 +668,7 @@ export class DatabaseStorage implements IStorage {
           sellingPrice: products.sellingPrice,
           stock: products.stock,
           status: products.status,
-          imageUrl: products.imageUrl,
+          
           createdAt: products.createdAt,
         },
       })
@@ -690,7 +743,7 @@ export class DatabaseStorage implements IStorage {
           sellingPrice: products.sellingPrice,
           stock: products.stock,
           status: products.status,
-          imageUrl: products.imageUrl,
+          
           createdAt: products.createdAt,
         },
       })
@@ -895,7 +948,7 @@ export class DatabaseStorage implements IStorage {
           sellingPrice: products.sellingPrice,
           stock: products.stock,
           status: products.status,
-          imageUrl: products.imageUrl,
+          
           createdAt: products.createdAt,
         },
         totalRevenue: sql<number>`SUM(CAST(${sales.totalAmount} AS DECIMAL))`,
@@ -905,7 +958,7 @@ export class DatabaseStorage implements IStorage {
       .from(sales)
       .leftJoin(products, eq(sales.productId, products.id))
       .where(eq(sales.userId, userId))
-      .groupBy(products.id, products.userId, products.name, products.sku, products.description, products.costPrice, products.sellingPrice, products.stock, products.status, products.imageUrl, products.createdAt)
+      .groupBy(products.id, products.userId, products.name, products.sku, products.description, products.costPrice, products.sellingPrice, products.stock, products.status, products.createdAt)
       .orderBy(sql`SUM(CAST(${sales.totalAmount} AS DECIMAL)) DESC`)
       .limit(10);
 
@@ -915,6 +968,54 @@ export class DatabaseStorage implements IStorage {
       totalProfit: Number(row.totalProfit),
       unitsSold: Number(row.unitsSold),
     }));
+  }
+
+  // Plot Management Methods (user-specific)
+  async getPlots(userId: string): Promise<Plot[]> {
+    return await db.select().from(plots).where(eq(plots.userId, userId)).orderBy(desc(plots.createdAt));
+  }
+
+  async getPlot(id: string, userId: string): Promise<Plot | undefined> {
+    const [plot] = await db.select().from(plots).where(and(eq(plots.id, id), eq(plots.userId, userId)));
+    return plot || undefined;
+  }
+
+  async createPlot(plot: InsertPlot, userId: string): Promise<Plot> {
+    const plotRecord = {
+      id: randomUUID(),
+      userId,
+      plotName: plot.plotName,
+      plantingDate: plot.plantingDate,
+      expectedHarvestDate: plot.expectedHarvestDate,
+      actualHarvestDate: plot.actualHarvestDate || null,
+      daysToMaturity: plot.daysToMaturity,
+      nettingOpenDays: plot.nettingOpenDays,
+      status: plot.status || "planted",
+      notes: plot.notes || null,
+    };
+
+    const [newPlot] = await db.insert(plots).values(plotRecord).returning();
+    return newPlot;
+  }
+
+  async updatePlot(id: string, updates: Partial<Plot>, userId: string): Promise<Plot | undefined> {
+    const updatesWithTimestamp = {
+      ...updates,
+      updatedAt: new Date(),
+    };
+
+    const [updatedPlot] = await db
+      .update(plots)
+      .set(updatesWithTimestamp)
+      .where(and(eq(plots.id, id), eq(plots.userId, userId)))
+      .returning();
+    return updatedPlot || undefined;
+  }
+
+  async deletePlot(id: string, userId: string): Promise<boolean> {
+    const result = await db.delete(plots)
+      .where(and(eq(plots.id, id), eq(plots.userId, userId)));
+    return result.rowCount! > 0;
   }
 }
 

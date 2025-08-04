@@ -246,7 +246,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const saleData = insertSaleSchema.parse(req.body);
       
-      const userId = req.user.claims.sub;
+      const userId = (req.user as any)?.claims?.sub;
       
       // Verify customer and product exist
       const customer = await storage.getCustomer(saleData.customerId, userId);
@@ -496,12 +496,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         profit: parseFloat(sale.profit),
         profitMargin: parseFloat(sale.totalAmount) > 0 ? (parseFloat(sale.profit) / parseFloat(sale.totalAmount)) * 100 : 0,
         status: sale.status,
-        statusLabel: (['paid', 'pending_shipment', 'shipped', 'completed'].includes(sale.status) ? {
+        statusLabel: (['paid', 'pending_shipment', 'shipped', 'completed'].includes(sale.status) ? ({
           'paid': 'Paid',
           'pending_shipment': 'Pending Shipment',
           'shipped': 'Shipped',
           'completed': 'Completed'
-        }[sale.status] : sale.status) as string,
+        } as Record<string, string>)[sale.status] : sale.status) as string,
         notes: sale.notes || 'N/A'
       })).sort((a: any, b: any) => new Date(b.orderDate + 'T' + b.orderTime).getTime() - new Date(a.orderDate + 'T' + a.orderTime).getTime());
 
@@ -588,9 +588,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       );
 
       // Update product with image URL
+      const userId = (req.user as any)?.claims?.sub;
       const product = await storage.updateProduct(req.params.id, {
         imageUrl: objectPath,
-      });
+      }, userId);
 
       if (!product) {
         return res.status(404).json({ error: "Product not found" });
