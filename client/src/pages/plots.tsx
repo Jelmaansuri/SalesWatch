@@ -193,13 +193,17 @@ function PlotCard({ plot, onEdit, onDelete, onHarvest, onNextCycle }: {
             <div className="text-2xl font-bold text-green-700 dark:text-green-400" data-testid={`text-dap-${plot.id}`}>
               {dapDays}
             </div>
-            <div className="text-sm text-green-600 dark:text-green-500">DAP (Days After Planting)</div>
+            <div className="text-sm text-green-600 dark:text-green-500">
+              {dapDays < 0 ? "Days Until Planting" : "DAP (Days After Planting)"}
+            </div>
           </div>
           <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg">
             <div className="text-2xl font-bold text-blue-700 dark:text-blue-400" data-testid={`text-wap-${plot.id}`}>
               {wapWeeks}
             </div>
-            <div className="text-sm text-blue-600 dark:text-blue-500">WAP (Weeks After Planting)</div>
+            <div className="text-sm text-blue-600 dark:text-blue-500">
+              {wapWeeks < 0 ? "Weeks Until Planting" : "WAP (Weeks After Planting)"}
+            </div>
           </div>
         </div>
         
@@ -225,7 +229,9 @@ function PlotCard({ plot, onEdit, onDelete, onHarvest, onNextCycle }: {
             <div className="text-xl font-bold text-orange-700 dark:text-orange-400" data-testid={`text-days-harvest-${plot.id}`}>
               {daysToHarvest}
             </div>
-            <div className="text-sm text-orange-600 dark:text-orange-500">Days Remaining to Harvest</div>
+            <div className="text-sm text-orange-600 dark:text-orange-500">
+              {dapDays < 0 ? "Days Until Harvest (from planting)" : "Days Remaining to Harvest"}
+            </div>
           </div>
           <div className={cn("p-3 rounded-lg", 
             isShadeOpeningSoon ? "bg-red-50 dark:bg-red-900/20" : "bg-purple-50 dark:bg-purple-900/20"
@@ -238,7 +244,7 @@ function PlotCard({ plot, onEdit, onDelete, onHarvest, onNextCycle }: {
             <div className={cn("text-sm", 
               isShadeOpeningSoon ? "text-red-600 dark:text-red-500" : "text-purple-600 dark:text-purple-500"
             )}>
-              Days to Open Shade
+              {dapDays < 0 ? "Days Until Shade Opening (from planting)" : "Days to Open Shade"}
             </div>
           </div>
         </div>
