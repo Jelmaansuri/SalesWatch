@@ -478,19 +478,26 @@ export class MemStorage implements IStorage {
   async createPlot(insertPlot: InsertPlot): Promise<Plot> {
     const id = randomUUID();
     const now = new Date();
+    
+    // Calculate netting open date from planting date + days to open netting
+    const plantingDate = new Date(insertPlot.plantingDate);
+    const nettingOpenDate = new Date(plantingDate);
+    nettingOpenDate.setDate(plantingDate.getDate() + insertPlot.daysToOpenNetting);
+    
     const plot: Plot = {
       id,
       userId: insertPlot.userId,
       name: insertPlot.name,
-      size: insertPlot.size,
+      polybagCount: insertPlot.polybagCount,
       location: insertPlot.location,
       cropType: insertPlot.cropType,
       plantingDate: insertPlot.plantingDate,
       expectedHarvestDate: insertPlot.expectedHarvestDate,
-      actualHarvestDate: insertPlot.actualHarvestDate,
+      actualHarvestDate: insertPlot.actualHarvestDate || null,
       daysToMaturity: insertPlot.daysToMaturity,
-      nettingOpenDate: insertPlot.nettingOpenDate,
-      status: insertPlot.status,
+      daysToOpenNetting: insertPlot.daysToOpenNetting,
+      nettingOpenDate: nettingOpenDate,
+      status: insertPlot.status || "planted",
       notes: insertPlot.notes || null,
       createdAt: now,
       updatedAt: now,
@@ -968,9 +975,15 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createPlot(plot: InsertPlot): Promise<Plot> {
+    // Calculate netting open date from planting date + days to open netting
+    const plantingDate = new Date(plot.plantingDate);
+    const nettingOpenDate = new Date(plantingDate);
+    nettingOpenDate.setDate(plantingDate.getDate() + plot.daysToOpenNetting);
+    
     const [newPlot] = await db.insert(plots).values({
       ...plot,
       id: randomUUID(),
+      nettingOpenDate: nettingOpenDate,
     }).returning();
     return newPlot;
   }

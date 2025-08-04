@@ -28,7 +28,6 @@ const plotFormSchema = insertPlotSchema.extend({
   plantingDate: z.date(),
   expectedHarvestDate: z.date(),
   actualHarvestDate: z.date().optional(),
-  nettingOpenDate: z.date().optional(),
 });
 
 type PlotFormData = z.infer<typeof plotFormSchema>;
@@ -37,13 +36,14 @@ interface Plot {
   id: string;
   userId: string;
   name: string;
-  size: string;
+  polybagCount: number;
   location: string;
   cropType: string;
   plantingDate: string;
   expectedHarvestDate: string;
   actualHarvestDate?: string;
   daysToMaturity: number;
+  daysToOpenNetting: number;
   nettingOpenDate?: string;
   status: string;
   notes?: string;
@@ -106,7 +106,7 @@ function PlotCard({ plot, onEdit, onDelete }: {
             </CardTitle>
             <CardDescription className="flex items-center gap-2 mt-1">
               <MapPin className="h-4 w-4" />
-              {plot.location} • {plot.size} hectares • {plot.cropType}
+              {plot.location} • {plot.polybagCount} polybags • {plot.cropType}
             </CardDescription>
           </div>
           <div className="flex items-center gap-2">
@@ -242,24 +242,25 @@ function PlotForm({
     resolver: zodResolver(plotFormSchema),
     defaultValues: plot ? {
       name: plot.name,
-      size: plot.size,
+      polybagCount: plot.polybagCount,
       location: plot.location,
       cropType: plot.cropType,
       plantingDate: parseISO(plot.plantingDate),
       expectedHarvestDate: parseISO(plot.expectedHarvestDate),
       actualHarvestDate: plot.actualHarvestDate ? parseISO(plot.actualHarvestDate) : undefined,
       daysToMaturity: plot.daysToMaturity,
-      nettingOpenDate: plot.nettingOpenDate ? parseISO(plot.nettingOpenDate) : undefined,
+      daysToOpenNetting: plot.daysToOpenNetting,
       status: plot.status,
       notes: plot.notes || "",
     } : {
       name: "",
-      size: "",
+      polybagCount: 100,
       location: "",
       cropType: "ginger",
       plantingDate: new Date(),
       expectedHarvestDate: addDays(new Date(), 240), // Default 8 months for ginger
       daysToMaturity: 240,
+      daysToOpenNetting: 30,
       status: "planted",
       notes: "",
     }
@@ -311,12 +312,12 @@ function PlotForm({
 
               <FormField
                 control={form.control}
-                name="size"
+                name="polybagCount"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Size (hectares)</FormLabel>
+                    <FormLabel>Number of Polybags</FormLabel>
                     <FormControl>
-                      <Input type="number" step="0.01" placeholder="2.5" {...field} data-testid="input-plot-size" />
+                      <Input type="number" placeholder="100" {...field} value={field.value || ""} onChange={e => field.onChange(parseInt(e.target.value) || 0)} data-testid="input-polybag-count" />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -435,17 +436,18 @@ function PlotForm({
 
               <FormField
                 control={form.control}
-                name="daysToMaturity"
+                name="daysToOpenNetting"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Days to Maturity</FormLabel>
+                    <FormLabel>Days to Open Netting</FormLabel>
                     <FormControl>
                       <Input 
                         type="number" 
-                        placeholder="240" 
+                        placeholder="30" 
                         {...field}
-                        onChange={(e) => handleDaysToMaturityChange(e.target.value)}
-                        data-testid="input-days-maturity"
+                        value={field.value || ""}
+                        onChange={e => field.onChange(parseInt(e.target.value) || 0)}
+                        data-testid="input-days-netting"
                       />
                     </FormControl>
                     <FormMessage />
@@ -500,36 +502,15 @@ function PlotForm({
                 name="nettingOpenDate"
                 render={({ field }) => (
                   <FormItem className="flex flex-col">
-                    <FormLabel>Netting Open Date (Optional)</FormLabel>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <FormControl>
-                          <Button
-                            variant="outline"
-                            className={cn(
-                              "w-full pl-3 text-left font-normal",
-                              !field.value && "text-muted-foreground"
-                            )}
-                            data-testid="button-netting-date"
-                          >
-                            {field.value ? (
-                              format(field.value, "PPP")
-                            ) : (
-                              <span>Pick a date</span>
-                            )}
-                            <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                          </Button>
-                        </FormControl>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="start">
-                        <Calendar
-                          mode="single"
-                          selected={field.value}
-                          onSelect={field.onChange}
-                          initialFocus
-                        />
-                      </PopoverContent>
-                    </Popover>
+                    <FormLabel>Netting Open Date (Auto-calculated)</FormLabel>
+                    <FormControl>
+                      <Input 
+                        placeholder="Calculated automatically" 
+                        value={field.value ? format(field.value, "PPP") : "Auto-calculated from planting date + days to open netting"}
+                        disabled
+                        data-testid="input-netting-date-readonly"
+                      />
+                    </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -717,7 +698,7 @@ export default function PlotsPage() {
     plot.status !== "harvested" && plot.status !== "dormant"
   );
   const harvestedPlots = plots.filter((plot: Plot) => plot.status === "harvested");
-  const totalSize = plots.reduce((sum: number, plot: Plot) => sum + parseFloat(plot.size), 0);
+  const totalPolybags = plots.reduce((sum: number, plot: Plot) => sum + plot.polybagCount, 0);
   
   // Plots needing attention (netting open due or ready for harvest)
   const plotsNeedingAttention = plots.filter((plot: Plot) => {
@@ -766,7 +747,7 @@ export default function PlotsPage() {
                 <CardContent>
                   <div className="text-2xl font-bold" data-testid="text-total-plots">{plots.length}</div>
                   <p className="text-xs text-muted-foreground">
-                    {totalSize.toFixed(2)} hectares total
+                    {totalPolybags} polybags total
                   </p>
                 </CardContent>
               </Card>
