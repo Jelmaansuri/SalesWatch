@@ -732,7 +732,7 @@ function PlotForm({
   );
 }
 
-export default function PlotsPage() {
+export default function Plots() {
   const [showForm, setShowForm] = useState(false);
   const [editingPlot, setEditingPlot] = useState<Plot | undefined>();
   const { toast } = useToast();
