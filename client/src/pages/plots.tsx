@@ -336,16 +336,28 @@ function PlotCard({ plot, onEdit, onDelete, onHarvest }: {
               </div>
             </div>
 
-            {/* Cycle Progress Bar */}
+            {/* Cycle Information */}
             <div className="space-y-2">
-              <div className="flex justify-between text-xs">
-                <span>Cycle Progress</span>
-                <span>{plot.currentCycle} of {plot.totalCycles} cycles</span>
+              <div className="flex justify-between items-center">
+                <div className="flex items-center gap-2">
+                  <BarChart3 className="h-3 w-3 text-blue-500" />
+                  <span className="text-xs font-medium">Cycle {plot.currentCycle}</span>
+                  {plot.isMultiCycle && (
+                    <span className="text-xs text-gray-500">of {plot.totalCycles}</span>
+                  )}
+                </div>
+                {plot.status === "harvested" && (
+                  <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-200">
+                    Harvested
+                  </Badge>
+                )}
               </div>
-              <Progress 
-                value={(plot.currentCycle / plot.totalCycles) * 100} 
-                className="w-full h-2" 
-              />
+              {plot.isMultiCycle && (
+                <Progress 
+                  value={(plot.currentCycle / plot.totalCycles) * 100} 
+                  className="w-full h-2" 
+                />
+              )}
             </div>
 
             {/* Harvest Summary */}
@@ -366,17 +378,17 @@ function PlotCard({ plot, onEdit, onDelete, onHarvest }: {
             )}
 
             {/* Harvest Action Button */}
-            {plot.status === "ready_for_harvest" && (
+            {(plot.status === "ready_for_harvest" || plot.status === "harvested") && (
               <div className="flex gap-2 mt-3">
                 <Button 
                   size="sm" 
-                  variant="default" 
-                  className="flex-1 text-xs bg-green-600 hover:bg-green-700"
+                  variant={plot.status === "harvested" ? "outline" : "default"}
+                  className={`flex-1 text-xs ${plot.status === "harvested" ? "border-green-600 text-green-600 hover:bg-green-50" : "bg-green-600 hover:bg-green-700"}`}
                   onClick={() => onHarvest?.(plot)}
                   data-testid={`button-harvest-${plot.id}`}
                 >
                   <Package className="h-3 w-3 mr-1" />
-                  Record Harvest
+                  {plot.status === "harvested" ? "Update Harvest" : "Record Harvest"}
                 </Button>
               </div>
             )}
@@ -871,8 +883,8 @@ function HarvestModal({
   const harvestForm = useForm<HarvestFormData>({
     resolver: zodResolver(harvestSchema),
     defaultValues: {
-      harvestAmountKg: 0,
-      actualHarvestDate: new Date(),
+      harvestAmountKg: plot?.harvestAmountKg || 0,
+      actualHarvestDate: plot?.actualHarvestDate ? new Date(plot.actualHarvestDate) : new Date(),
       proceedToNextCycle: false,
     },
   });
@@ -890,10 +902,13 @@ function HarvestModal({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Package className="h-5 w-5 text-green-600" />
-            Record Harvest - {plot.name}
+            {plot.status === "harvested" ? "Update" : "Record"} Harvest - {plot.name}
           </DialogTitle>
           <DialogDescription>
-            Capture harvest data for this plot and optionally proceed to the next cycle.
+            {plot.status === "harvested" 
+              ? `Update harvest data for Cycle ${plot.currentCycle} and optionally proceed to next cycle.`
+              : `Capture harvest data for Cycle ${plot.currentCycle} and optionally proceed to the next cycle.`
+            }
           </DialogDescription>
         </DialogHeader>
 
@@ -995,7 +1010,7 @@ function HarvestModal({
                 Cancel
               </Button>
               <Button type="submit" className="bg-green-600 hover:bg-green-700">
-                Record Harvest
+                {plot.status === "harvested" ? "Update Harvest" : "Record Harvest"}
               </Button>
             </DialogFooter>
           </form>
@@ -1206,8 +1221,20 @@ export default function Plots() {
 
     console.log("Enriched data with calculated dates:", enrichedData);
 
+    // Check if status is being changed to "harvested" to trigger harvest modal
+    const isStatusChangingToHarvested = enrichedData.status === "harvested" && 
+      (!editingPlot || editingPlot.status !== "harvested");
+
     if (editingPlot) {
       updateMutation.mutate({ id: editingPlot.id, data: enrichedData });
+      
+      // Trigger harvest modal if status changed to harvested
+      if (isStatusChangingToHarvested) {
+        setTimeout(() => {
+          setHarvestingPlot({ ...editingPlot, ...enrichedData });
+          setHarvestModalOpen(true);
+        }, 500); // Small delay to allow form close animation
+      }
     } else {
       createMutation.mutate(enrichedData);
     }
