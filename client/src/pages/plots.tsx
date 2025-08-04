@@ -1323,10 +1323,10 @@ export default function Plots() {
       const currentTotal = parseFloat(harvestingPlot.totalHarvestedKg?.toString() || "0");
       const currentCycleAmount = parseFloat(harvestingPlot.harvestAmountKg?.toString() || "0");
       
-      // Accumulation logic: Always preserve previous cycles' totals
+      // Accumulation logic: Always preserve previous cycles' totals and add current cycle
       let newTotal;
       if (currentCycleAmount > 0) {
-        // Replace existing harvest for this cycle: keep previous cycles + new amount for current cycle
+        // Replace existing harvest for this cycle: remove old current cycle amount, add new current cycle amount
         // Formula: (total from all cycles) - (current cycle's old amount) + (current cycle's new amount)
         newTotal = currentTotal - currentCycleAmount + data.harvestAmountKg;
       } else {
@@ -1334,9 +1334,9 @@ export default function Plots() {
         newTotal = currentTotal + data.harvestAmountKg;
       }
       
-      // Ensure newTotal is never less than the new harvest amount (safety check)
-      if (newTotal < data.harvestAmountKg) {
-        console.warn(`Warning: Calculated total (${newTotal}) less than new harvest (${data.harvestAmountKg}). Using new harvest as minimum.`);
+      // Ensure newTotal is never less than the new harvest amount (safety check for single cycle plots)
+      if (newTotal < data.harvestAmountKg && harvestingPlot.currentCycle === 1) {
+        console.warn(`Warning: Single cycle plot total (${newTotal}) less than harvest (${data.harvestAmountKg}). Using harvest amount.`);
         newTotal = data.harvestAmountKg;
       }
       
