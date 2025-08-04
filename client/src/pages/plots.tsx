@@ -660,6 +660,7 @@ function PlotForm({
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
+                        <SelectItem value="plot_preparation">Plot Preparation</SelectItem>
                         <SelectItem value="planted">Planted</SelectItem>
                         <SelectItem value="growing">Growing</SelectItem>
                         <SelectItem value="ready_for_harvest">Ready for Harvest</SelectItem>
