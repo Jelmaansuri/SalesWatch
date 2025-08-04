@@ -1566,6 +1566,20 @@ export default function Plots() {
     sum + parseFloat(plot.totalHarvestedKg?.toString() || "0"), 0
   );
   
+  // Calculate completed cycles using the same logic as main dashboard
+  const completedCycles = plots.reduce((sum: number, plot: Plot) => {
+    let cyclesForThisPlot = 0;
+    // For plots with "harvested" status, the currentCycle represents completed cycles
+    // For other statuses, we only count cycles that have been fully harvested (currentCycle - 1)
+    if (plot.status === 'harvested') {
+      cyclesForThisPlot = plot.currentCycle;
+    } else if (plot.currentCycle > 1) {
+      // For plots in other statuses, count previously completed cycles
+      cyclesForThisPlot = plot.currentCycle - 1;
+    }
+    return sum + cyclesForThisPlot;
+  }, 0);
+  
   // Plots needing attention (netting open due or ready for harvest)
   const plotsNeedingAttention = plots.filter((plot: Plot) => {
     const today = new Date();
@@ -1650,8 +1664,8 @@ export default function Plots() {
               <CheckCircle className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-purple-600" data-testid="text-harvested-plots">
-                {harvestedPlots.length}
+              <div className="text-2xl font-bold text-purple-600" data-testid="text-completed-cycles">
+                {completedCycles}
               </div>
               <p className="text-xs text-muted-foreground">
                 Completed cycles
