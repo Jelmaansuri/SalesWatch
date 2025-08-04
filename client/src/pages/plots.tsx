@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -316,10 +316,11 @@ function PlotForm({
       location: plot.location,
       cropType: plot.cropType,
       plantingDate: parseISO(plot.plantingDate),
-      expectedHarvestDate: parseISO(plot.expectedHarvestDate),
+      expectedHarvestDate: plot.expectedHarvestDate ? parseISO(plot.expectedHarvestDate) : undefined,
       actualHarvestDate: plot.actualHarvestDate ? parseISO(plot.actualHarvestDate) : undefined,
       daysToMaturity: plot.daysToMaturity,
       daysToOpenNetting: plot.daysToOpenNetting,
+      nettingOpenDate: plot.nettingOpenDate ? parseISO(plot.nettingOpenDate) : undefined,
       status: plot.status,
       notes: plot.notes || "",
     } : {
@@ -334,6 +335,38 @@ function PlotForm({
       notes: "",
     }
   });
+
+  // Reset form when plot changes (for editing)
+  React.useEffect(() => {
+    if (plot) {
+      form.reset({
+        name: plot.name,
+        polybagCount: plot.polybagCount,
+        location: plot.location,
+        cropType: plot.cropType,
+        plantingDate: parseISO(plot.plantingDate),
+        expectedHarvestDate: plot.expectedHarvestDate ? parseISO(plot.expectedHarvestDate) : undefined,
+        actualHarvestDate: plot.actualHarvestDate ? parseISO(plot.actualHarvestDate) : undefined,
+        daysToMaturity: plot.daysToMaturity,
+        daysToOpenNetting: plot.daysToOpenNetting,
+        nettingOpenDate: plot.nettingOpenDate ? parseISO(plot.nettingOpenDate) : undefined,
+        status: plot.status,
+        notes: plot.notes || "",
+      });
+    } else {
+      form.reset({
+        name: "",
+        polybagCount: 100,
+        location: "",
+        cropType: "ginger",
+        plantingDate: new Date(),
+        daysToMaturity: 135,
+        daysToOpenNetting: 75,
+        status: "planted",
+        notes: "",
+      });
+    }
+  }, [plot, form]);
 
   // Watch for changes to auto-calculate dates
   const watchedValues = form.watch(["plantingDate", "daysToMaturity", "daysToOpenNetting"]);
