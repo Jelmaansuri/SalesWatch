@@ -1323,28 +1323,29 @@ export default function Plots() {
       const currentTotal = parseFloat(harvestingPlot.totalHarvestedKg?.toString() || "0");
       const currentCycleAmount = parseFloat(harvestingPlot.harvestAmountKg?.toString() || "0");
       
-      // ULTIMATE FIX: Check if we're advancing to a NEW cycle vs editing current cycle
+      // CORRECTED LOGIC: Check if we're advancing to a NEW cycle vs editing current cycle
       let newTotal;
       
       // Detect if this form submission is advancing to a new cycle
-      const isAdvancingToNewCycle = data.currentCycle !== harvestingPlot.currentCycle;
+      // IMPORTANT: Only count as new cycle if currentCycle is GREATER than harvestingPlot.currentCycle
+      const isAdvancingToNewCycle = data.currentCycle > harvestingPlot.currentCycle;
       
-      // If advancing to new cycle, ALWAYS accumulate regardless of any other conditions
       if (isAdvancingToNewCycle) {
+        // NEW CYCLE: Always accumulate to total
         newTotal = currentTotal + data.harvestAmountKg;
         console.log(`NEW CYCLE ${harvestingPlot.currentCycle}→${data.currentCycle}: Adding ${data.harvestAmountKg}kg to total ${currentTotal}kg`);
       } else {
-        // Same cycle: check if this is editing existing harvest or first harvest
+        // SAME CYCLE: Check if editing existing harvest or first harvest
         const hasExistingHarvest = currentCycleAmount > 0 && 
           harvestingPlot.status === "harvested" && 
           harvestingPlot.actualHarvestDate;
           
         if (hasExistingHarvest) {
-          // Editing existing harvest for same cycle
+          // EDITING current cycle's harvest: Replace old amount with new amount
           newTotal = currentTotal - currentCycleAmount + data.harvestAmountKg;
-          console.log(`EDIT CYCLE ${harvestingPlot.currentCycle}: Updating ${currentCycleAmount}kg → ${data.harvestAmountKg}kg`);
+          console.log(`EDIT CURRENT CYCLE ${harvestingPlot.currentCycle}: Replacing ${currentCycleAmount}kg → ${data.harvestAmountKg}kg`);
         } else {
-          // First harvest for this cycle
+          // FIRST harvest for this cycle: Add to total
           newTotal = currentTotal + data.harvestAmountKg;
           console.log(`FIRST HARVEST CYCLE ${harvestingPlot.currentCycle}: Adding ${data.harvestAmountKg}kg to total ${currentTotal}kg`);
         }
@@ -1368,7 +1369,7 @@ export default function Plots() {
         newHarvestAmount: data.harvestAmountKg,
         calculatedNewTotal: newTotal,
         operation: isAdvancingToNewCycle ? 'ADVANCE_NEW_CYCLE' : 
-          (currentCycleAmount > 0 ? 'EDIT_SAME_CYCLE' : 'FIRST_HARVEST'),
+          (currentCycleAmount > 0 && harvestingPlot.status === "harvested" ? 'EDIT_CURRENT_CYCLE' : 'FIRST_HARVEST'),
         cycleChange: {
           fromCycle: harvestingPlot.currentCycle,
           toCycle: data.currentCycle,
