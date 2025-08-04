@@ -122,6 +122,7 @@ export const insertPlotSchema = createInsertSchema(plots).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
+  totalCycles: true, // Auto-calculated based on currentCycle
 }).extend({
   plantingDate: z.string().transform((val) => new Date(val)),
   expectedHarvestDate: z.string().nullable().transform((val) => val ? new Date(val) : null),

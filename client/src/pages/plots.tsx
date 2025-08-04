@@ -714,7 +714,7 @@ function PlotForm({
                           selected={field.value}
                           onSelect={field.onChange}
                           disabled={(date) =>
-                            date > new Date() || date < new Date("1900-01-01")
+                            date < new Date("1900-01-01")
                           }
                           initialFocus
                         />
@@ -864,30 +864,7 @@ function PlotForm({
             {/* Multi-Cycle Planning Section */}
             <div className="border-t pt-4">
               <h4 className="text-sm font-medium mb-3 text-gray-900 dark:text-gray-100">Multi-Cycle Planning</h4>
-              <div className="grid grid-cols-2 gap-4">
-                <FormField
-                  control={form.control}
-                  name="totalCycles"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Total Planned Cycles</FormLabel>
-                      <FormControl>
-                        <Input 
-                          type="number" 
-                          placeholder="1" 
-                          min="1"
-                          {...field} 
-                          value={field.value || ""} 
-                          onChange={e => field.onChange(parseInt(e.target.value) || 1)} 
-                          data-testid="input-total-cycles" 
-                        />
-                      </FormControl>
-                      <FormDescription>Set to 1 for single harvest, {">"}1 for unlimited multiple cycles</FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
+              <div className="grid grid-cols-1 gap-4">
                 <FormField
                   control={form.control}
                   name="currentCycle"
@@ -905,7 +882,7 @@ function PlotForm({
                           data-testid="input-current-cycle" 
                         />
                       </FormControl>
-                      <FormDescription>Current cycle number (usually 1 for new plots)</FormDescription>
+                      <FormDescription>Current cycle number - unlimited cycles supported</FormDescription>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -1529,6 +1506,8 @@ export default function Plots() {
       ...data,
       expectedHarvestDate: calculatedHarvestDate,
       nettingOpenDate: calculatedNettingDate,
+      totalCycles: data.currentCycle > 1 ? 9999 : 1, // Auto-set unlimited for multi-cycle
+      isMultiCycle: data.currentCycle > 1
     };
 
     console.log("Enriched data with calculated dates:", enrichedData);
