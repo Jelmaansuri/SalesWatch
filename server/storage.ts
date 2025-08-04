@@ -660,6 +660,7 @@ export class DatabaseStorage implements IStorage {
         updatedAt: sales.updatedAt,
         customer: {
           id: customers.id,
+          userId: customers.userId,
           name: customers.name,
           email: customers.email,
           phone: customers.phone,
@@ -669,6 +670,7 @@ export class DatabaseStorage implements IStorage {
         },
         product: {
           id: products.id,
+          userId: products.userId,
           name: products.name,
           sku: products.sku,
           description: products.description,
