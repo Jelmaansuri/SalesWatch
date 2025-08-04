@@ -57,9 +57,9 @@ export default function Sidebar({ className }: SidebarProps) {
           
           return (
             <Link key={item.name} href={item.href}>
-              <a
+              <div
                 className={cn(
-                  "flex items-center px-2 py-2 text-sm font-medium rounded-md group transition-colors",
+                  "flex items-center px-2 py-2 text-sm font-medium rounded-md group transition-colors cursor-pointer",
                   isActive
                     ? "text-white bg-my-blue"
                     : "text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
@@ -67,7 +67,7 @@ export default function Sidebar({ className }: SidebarProps) {
               >
                 <Icon className="mr-3 h-5 w-5" />
                 {item.name}
-              </a>
+              </div>
             </Link>
           );
         })}
