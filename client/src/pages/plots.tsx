@@ -331,7 +331,6 @@ function PlotCard({ plot, onEdit, onDelete, onHarvest, onNextCycle }: {
                 <BarChart3 className="h-4 w-4 text-blue-600" />
                 <span className="text-sm font-semibold text-blue-800 dark:text-blue-200">
                   Cycle {plot.currentCycle}
-                  {plot.isMultiCycle && plot.totalCycles > 1 ? ` of ${plot.totalCycles}` : ''}
                 </span>
               </div>
               <div className="flex gap-1">
@@ -340,7 +339,7 @@ function PlotCard({ plot, onEdit, onDelete, onHarvest, onNextCycle }: {
                     Harvested
                   </Badge>
                 )}
-                {plot.isMultiCycle && plot.totalCycles > 1 && (
+                {plot.isMultiCycle && (
                   <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-300">
                     Multi-Cycle
                   </Badge>
@@ -348,19 +347,7 @@ function PlotCard({ plot, onEdit, onDelete, onHarvest, onNextCycle }: {
               </div>
             </div>
             
-            {/* Progress Bar for Multi-cycle plots */}
-            {plot.isMultiCycle && plot.totalCycles > 1 && (
-              <div className="space-y-1">
-                <div className="flex justify-between text-xs text-blue-600 dark:text-blue-300">
-                  <span>Progress</span>
-                  <span>{Math.round((plot.currentCycle / plot.totalCycles) * 100)}%</span>
-                </div>
-                <Progress 
-                  value={(plot.currentCycle / plot.totalCycles) * 100} 
-                  className="w-full h-2" 
-                />
-              </div>
-            )}
+
             
             {/* Next Planting Date for Multi-cycle */}
             {plot.isMultiCycle && plot.status === "harvested" && (
@@ -403,7 +390,7 @@ function PlotCard({ plot, onEdit, onDelete, onHarvest, onNextCycle }: {
             </Button>
             
             {/* Proceed to Next Cycle Button - Only for harvested multi-cycle plots */}
-            {plot.status === "harvested" && plot.isMultiCycle && plot.currentCycle < plot.totalCycles && (
+            {plot.status === "harvested" && plot.isMultiCycle && (
               <Button 
                 size="sm" 
                 variant="secondary"
@@ -1329,9 +1316,8 @@ export default function Plots() {
     if (!harvestingPlot) return;
 
     try {
-      // Update total harvested amount
-      const currentTotal = parseFloat(harvestingPlot.totalHarvestedKg?.toString() || "0");
-      const newTotal = currentTotal + data.harvestAmountKg;
+      // Update current cycle harvest amount (replace, don't add to total)
+      const newTotal = data.harvestAmountKg;
 
       let payload: any = {
         status: "harvested",
