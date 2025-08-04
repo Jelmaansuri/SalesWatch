@@ -1319,15 +1319,27 @@ export default function Plots() {
     if (!harvestingPlot) return;
 
     try {
-      // Calculate total harvested amount (accumulate across cycles)
+      // Calculate total harvested amount (properly accumulate across cycles)
       const currentTotal = parseFloat(harvestingPlot.totalHarvestedKg?.toString() || "0");
       const currentCycleAmount = parseFloat(harvestingPlot.harvestAmountKg?.toString() || "0");
       
-      // If this is updating an existing harvest for the current cycle, replace the current cycle amount
-      // If this is a new harvest (harvestAmountKg is null/0), add to the total
-      const newTotal = currentCycleAmount > 0 ? 
-        currentTotal - currentCycleAmount + data.harvestAmountKg : // Replace existing harvest for this cycle
-        currentTotal + data.harvestAmountKg; // Add new harvest to total
+      // Always add the new harvest amount to the accumulated total
+      // If there's already a harvest for this cycle, subtract it first to avoid double counting
+      let newTotal;
+      if (currentCycleAmount > 0) {
+        // Replace existing harvest for this cycle: remove old amount, add new amount
+        newTotal = currentTotal - currentCycleAmount + data.harvestAmountKg;
+      } else {
+        // First harvest for this cycle: add to the accumulated total
+        newTotal = currentTotal + data.harvestAmountKg;
+      }
+      
+      console.log(`Harvest calculation for ${harvestingPlot.name}:`, {
+        currentTotal,
+        currentCycleAmount,
+        newHarvestAmount: data.harvestAmountKg,
+        newTotal
+      });
 
       let payload: any = {
         status: "harvested",
@@ -1531,6 +1543,8 @@ export default function Plots() {
             plantingDate: enrichedData.plantingDate.toISOString(),
             expectedHarvestDate: enrichedData.expectedHarvestDate.toISOString(),
             nettingOpenDate: enrichedData.nettingOpenDate.toISOString(),
+            actualHarvestDate: enrichedData.actualHarvestDate instanceof Date ? 
+              enrichedData.actualHarvestDate.toISOString() : enrichedData.actualHarvestDate,
           });
           setHarvestModalOpen(true);
         }, 500); // Small delay to allow form close animation
