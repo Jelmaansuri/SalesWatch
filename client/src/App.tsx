@@ -21,11 +21,20 @@ function Router() {
 
   return (
     <Switch>
-      {isLoading || !isAuthenticated ? (
-        <Route path="/" component={Landing} />
+      {isLoading ? (
+        <Route path="*">
+          <div className="min-h-screen flex items-center justify-center">
+            <div>Loading...</div>
+          </div>
+        </Route>
+      ) : !isAuthenticated ? (
+        <>
+          <Route path="/" component={Landing} />
+          <Route path="*" component={Landing} />
+        </>
       ) : (
         <>
-          <Route path="/" component={Home} />
+          <Route path="/" component={Dashboard} />
           <Route path="/dashboard" component={Dashboard} />
           <Route path="/sales" component={Sales} />
           <Route path="/products" component={Products} />
@@ -33,9 +42,9 @@ function Router() {
           <Route path="/orders" component={Orders} />
           <Route path="/reports" component={Reports} />
           <Route path="/plots" component={Plots} />
+          <Route component={NotFound} />
         </>
       )}
-      <Route component={NotFound} />
     </Switch>
   );
 }

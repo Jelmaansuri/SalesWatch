@@ -100,6 +100,8 @@ export const insertSaleSchema = createInsertSchema(sales).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
+}).extend({
+  saleDate: z.string().transform((val) => new Date(val)),
 });
 
 export const insertPlotSchema = createInsertSchema(plots).omit({
