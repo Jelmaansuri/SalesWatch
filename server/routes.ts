@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertCustomerSchema, insertProductSchema, insertSaleSchema } from "@shared/schema";
+import { insertCustomerSchema, insertProductSchema, insertSaleSchema, insertPlotSchema } from "@shared/schema";
 import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
 import { z } from "zod";
@@ -606,6 +606,72 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(data);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch top products" });
+    }
+  });
+
+  // Plot Management Routes (protected)
+  app.get("/api/plots", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const plots = await storage.getPlots(userId);
+      res.json(plots);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch plots" });
+    }
+  });
+
+  app.get("/api/plots/:id", isAuthenticated, async (req, res) => {
+    try {
+      const plot = await storage.getPlot(req.params.id);
+      if (!plot) {
+        return res.status(404).json({ message: "Plot not found" });
+      }
+      res.json(plot);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch plot" });
+    }
+  });
+
+  app.post("/api/plots", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const plotData = { ...req.body, userId };
+      const validatedData = insertPlotSchema.parse(plotData);
+      const plot = await storage.createPlot(validatedData);
+      res.status(201).json(plot);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Validation error", errors: error.errors });
+      }
+      res.status(500).json({ message: "Failed to create plot" });
+    }
+  });
+
+  app.put("/api/plots/:id", isAuthenticated, async (req, res) => {
+    try {
+      const validatedData = insertPlotSchema.partial().parse(req.body);
+      const plot = await storage.updatePlot(req.params.id, validatedData);
+      if (!plot) {
+        return res.status(404).json({ message: "Plot not found" });
+      }
+      res.json(plot);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Validation error", errors: error.errors });
+      }
+      res.status(500).json({ message: "Failed to update plot" });
+    }
+  });
+
+  app.delete("/api/plots/:id", isAuthenticated, async (req, res) => {
+    try {
+      const deleted = await storage.deletePlot(req.params.id);
+      if (!deleted) {
+        return res.status(404).json({ message: "Plot not found" });
+      }
+      res.status(204).send();
+    } catch (error) {
+      res.status(500).json({ message: "Failed to delete plot" });
     }
   });
 

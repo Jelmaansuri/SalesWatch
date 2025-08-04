@@ -11,6 +11,7 @@ import Products from "@/pages/products";
 import Customers from "@/pages/customers";
 import Orders from "@/pages/orders";
 import Reports from "@/pages/reports";
+import Plots from "@/pages/plots";
 import Home from "@/pages/home";
 import Landing from "@/pages/landing";
 import NotFound from "@/pages/not-found";
@@ -31,6 +32,7 @@ function Router() {
           <Route path="/customers" component={Customers} />
           <Route path="/orders" component={Orders} />
           <Route path="/reports" component={Reports} />
+          <Route path="/plots" component={Plots} />
         </>
       )}
       <Route component={NotFound} />

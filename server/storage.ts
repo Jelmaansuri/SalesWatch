@@ -463,6 +463,59 @@ export class MemStorage implements IStorage {
     
     return product.stock >= requiredQuantity;
   }
+
+  // Plot Management Methods
+  async getPlots(userId: string): Promise<Plot[]> {
+    return Array.from(this.plots.values())
+      .filter(plot => plot.userId === userId)
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  }
+
+  async getPlot(id: string): Promise<Plot | undefined> {
+    return this.plots.get(id);
+  }
+
+  async createPlot(insertPlot: InsertPlot): Promise<Plot> {
+    const id = randomUUID();
+    const now = new Date();
+    const plot: Plot = {
+      id,
+      userId: insertPlot.userId,
+      name: insertPlot.name,
+      size: insertPlot.size,
+      location: insertPlot.location,
+      cropType: insertPlot.cropType,
+      plantingDate: insertPlot.plantingDate,
+      expectedHarvestDate: insertPlot.expectedHarvestDate,
+      actualHarvestDate: insertPlot.actualHarvestDate,
+      daysToMaturity: insertPlot.daysToMaturity,
+      nettingOpenDate: insertPlot.nettingOpenDate,
+      status: insertPlot.status,
+      notes: insertPlot.notes || null,
+      createdAt: now,
+      updatedAt: now,
+    };
+    
+    this.plots.set(id, plot);
+    return plot;
+  }
+
+  async updatePlot(id: string, updates: Partial<Plot>): Promise<Plot | undefined> {
+    const plot = this.plots.get(id);
+    if (!plot) return undefined;
+    
+    const updatedPlot = { 
+      ...plot, 
+      ...updates, 
+      updatedAt: new Date() 
+    };
+    this.plots.set(id, updatedPlot);
+    return updatedPlot;
+  }
+
+  async deletePlot(id: string): Promise<boolean> {
+    return this.plots.delete(id);
+  }
 }
 
 export class DatabaseStorage implements IStorage {
@@ -641,6 +694,7 @@ export class DatabaseStorage implements IStorage {
     const result = await db
       .select({
         id: sales.id,
+        userId: sales.userId,
         customerId: sales.customerId,
         productId: sales.productId,
         quantity: sales.quantity,

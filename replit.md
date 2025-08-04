@@ -18,6 +18,15 @@ PROGENY AGROTECH Management System is a comprehensive business management platfo
   - Order status distribution analysis
   - Interactive data visualization with Recharts
   - **NEW: Detailed Excel Export System** - Professional 5-sheet Excel reports with PROGENY AGROTECH branding
+- **Plot Management System**: Comprehensive agricultural land plot tracking module for farming operations:
+  - Land plot creation and management with detailed crop information
+  - HST (Hours Since Transplant) tracking and weeks-after-planting calculations
+  - Automated harvest progress monitoring with visual indicators
+  - Netting schedule management with automated alerts
+  - Multi-status tracking (Planted → Growing → Ready for Harvest → Harvested → Dormant)
+  - Agricultural dashboard with plot performance metrics
+  - Commercial-grade UI designed for agricultural professionals
+  - Separate module independent from CRM operations
 - **Authentication System**: Replit Auth with protected routes and secure session management
 - **User Interface**: Professional UI with modal dialogs, confirmation alerts, advanced filtering, and comprehensive error handling
 - **Data Architecture**: Production-ready with complete analytics backend and real-time metrics
