@@ -1302,26 +1302,43 @@ export default function Plots() {
       const currentCycleAmount = parseFloat(harvestingPlot.harvestAmountKg?.toString() || "0");
       
       // PROGENY AGROTECH HARVEST ACCUMULATION LOGIC
-      // Critical: Proper cycle-based accumulation like Plot A
+      // FIXED: Proper per-cycle harvest tracking and accumulation
       let newTotal: number;
       
-      if (currentCycleAmount > 0) {
-        // If there's already a harvest amount for this cycle, replace ONLY the current cycle amount
-        // Calculate what the total should be: (total from previous cycles) + (new current cycle amount)
-        const totalFromPreviousCycles = currentTotal - currentCycleAmount;
-        newTotal = totalFromPreviousCycles + data.harvestAmountKg;
-        console.log(`Plot ${harvestingPlot.name}: Replacing current cycle harvest - Total from previous cycles: ${totalFromPreviousCycles}, New cycle harvest: ${data.harvestAmountKg}, New total: ${newTotal}`);
-      } else {
-        // If this is a new harvest for this cycle, add to the total
-        newTotal = currentTotal + data.harvestAmountKg;
-        console.log(`Plot ${harvestingPlot.name}: Adding new cycle harvest - Previous total: ${currentTotal}, New harvest: ${data.harvestAmountKg}, New total: ${newTotal}`);
+      // Parse cycle history to get previous cycle harvests
+      let cycleHistory: Array<{cycle: number, harvest: number}> = [];
+      try {
+        cycleHistory = JSON.parse(harvestingPlot.cycleHistory || "[]");
+      } catch (e) {
+        cycleHistory = [];
       }
+      
+      // Calculate total from completed previous cycles
+      const totalFromPreviousCycles = cycleHistory.reduce((sum, entry) => {
+        if (entry.cycle < harvestingPlot.currentCycle) {
+          return sum + entry.harvest;
+        }
+        return sum;
+      }, 0);
+      
+      // For current cycle: replace existing or add new
+      newTotal = totalFromPreviousCycles + data.harvestAmountKg;
+      
+      console.log(`Plot ${harvestingPlot.name}: Cycle ${harvestingPlot.currentCycle} - Previous cycles total: ${totalFromPreviousCycles}kg, Current cycle: ${data.harvestAmountKg}kg, New total: ${newTotal}kg`);
+      
+      // Update cycle history with current cycle harvest
+      const updatedHistory = cycleHistory.filter(entry => entry.cycle !== harvestingPlot.currentCycle);
+      updatedHistory.push({
+        cycle: harvestingPlot.currentCycle,
+        harvest: data.harvestAmountKg
+      });
 
       let payload: any = {
         status: "harvested",
         actualHarvestDate: data.actualHarvestDate.toISOString(),
         harvestAmountKg: data.harvestAmountKg,
         totalHarvestedKg: newTotal.toString(),
+        cycleHistory: JSON.stringify(updatedHistory), // Store per-cycle harvest data
       };
 
       // If proceeding to next cycle, setup next cycle data (auto-convert to multi-cycle)
