@@ -1316,7 +1316,7 @@ export default function Plots() {
       const nextCyclePayload = {
         ...data,
         // Fix validation errors based on schema requirements
-        harvestAmountKg: null,                       // Reset to null for new cycle
+        harvestAmountKg: 0,                          // Reset to 0 for new cycle (not null to avoid validation issues)
         totalHarvestedKg: currentTotal.toString(),   // Convert to string as required by schema
         actualHarvestDate: null,                     // Reset harvest date for new cycle
         status: data.status,                         // Use the status from form
@@ -1368,7 +1368,7 @@ export default function Plots() {
       // 🔒 MANDATORY HARVEST LOGIC FOR ALL PLOTS (EXISTING AND NEW)
       // This logic is documented in replit.md and must be applied consistently
       const currentTotal = parseFloat(harvestingPlot.totalHarvestedKg?.toString() || "0");
-      const currentCycleAmount = parseFloat(harvestingPlot.harvestAmountKg?.toString() || "0");
+      const currentCycleAmount = harvestingPlot.harvestAmountKg ? parseFloat(harvestingPlot.harvestAmountKg.toString()) : 0;
       
       // CORRECT HARVEST LOGIC: Update cycle amount + recalculate total from all cycles
       let newTotal;
@@ -1378,7 +1378,15 @@ export default function Plots() {
       // 2. For NEW cycle: Add new cycle amount to total
       
       // CRITICAL FIX: Detect if this is first harvest for current cycle  
-      const isFirstHarvestForCycle = currentCycleAmount === 0 || currentCycleAmount === null;
+      const isFirstHarvestForCycle = currentCycleAmount === 0;
+      
+      console.log(`🔍 DETECTION for ${harvestingPlot.name}:`, {
+        currentCycleAmount,
+        typeOfCurrentCycle: typeof currentCycleAmount,
+        isFirstHarvest: isFirstHarvestForCycle,
+        rawHarvestAmount: harvestingPlot.harvestAmountKg,
+        rawHarvestType: typeof harvestingPlot.harvestAmountKg
+      });
       
       if (isFirstHarvestForCycle) {
         // FIRST HARVEST for this cycle: ADD to total
@@ -1405,13 +1413,19 @@ export default function Plots() {
         hasActualHarvestDate: !!harvestingPlot.actualHarvestDate,
         previousTotal: currentTotal,
         currentCycleOldAmount: currentCycleAmount,
+        currentCycleAmountType: typeof currentCycleAmount,
         newHarvestAmount: data.harvestAmountKg,
         calculatedNewTotal: newTotal,
         operation: isFirstHarvestForCycle ? 'FIRST_HARVEST_FOR_CYCLE' : 'UPDATE_EXISTING_HARVEST',
         cycleDetails: {
           plotCycle: harvestingPlot.currentCycle,
           isFirstHarvest: isFirstHarvestForCycle,
-          modalType: 'HARVEST_MODAL'
+          modalType: 'HARVEST_MODAL',
+          detectionConditions: {
+            isZero: currentCycleAmount === 0,
+            isNull: currentCycleAmount === null,
+            parsedZero: parseFloat(currentCycleAmount?.toString() || "0") === 0
+          }
         },
         formula: isFirstHarvestForCycle ? 
           `FIRST: ${currentTotal} + ${data.harvestAmountKg} = ${newTotal}` :
