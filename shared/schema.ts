@@ -27,6 +27,7 @@ export const users = pgTable("users", {
 
 export const customers = pgTable("customers", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id), // Links customer to user (nullable initially for migration)
   name: text("name").notNull(),
   email: text("email").notNull().unique(),
   phone: text("phone"),
@@ -37,6 +38,7 @@ export const customers = pgTable("customers", {
 
 export const products = pgTable("products", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id), // Links product to user (nullable initially for migration)
   name: text("name").notNull(),
   sku: text("sku").notNull().unique(),
   description: text("description"),
@@ -44,12 +46,13 @@ export const products = pgTable("products", {
   sellingPrice: decimal("selling_price", { precision: 10, scale: 2 }).notNull(),
   stock: integer("stock").default(0).notNull(),
   status: text("status").default("active").notNull(), // active, inactive
-
+  imageUrl: text("image_url"), // URL for product image
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
 export const sales = pgTable("sales", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id), // Links sale to user (nullable initially for migration)
   customerId: varchar("customer_id").notNull().references(() => customers.id),
   productId: varchar("product_id").notNull().references(() => products.id),
   quantity: integer("quantity").notNull(),
