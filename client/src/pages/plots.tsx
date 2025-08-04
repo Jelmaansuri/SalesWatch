@@ -1319,15 +1319,68 @@ export default function Plots() {
     if (!harvestingPlot) return;
 
     try {
-      // Calculate total harvested amount (accumulate across cycles)
+      // HARVEST ACCUMULATION LOGIC - WORKS FOR ALL PLOTS (EXISTING AND NEW)
       const currentTotal = parseFloat(harvestingPlot.totalHarvestedKg?.toString() || "0");
       const currentCycleAmount = parseFloat(harvestingPlot.harvestAmountKg?.toString() || "0");
       
-      // If this is updating an existing harvest for the current cycle, replace the current cycle amount
-      // If this is a new harvest (harvestAmountKg is null/0), add to the total
-      const newTotal = currentCycleAmount > 0 ? 
-        currentTotal - currentCycleAmount + data.harvestAmountKg : // Replace existing harvest for this cycle
-        currentTotal + data.harvestAmountKg; // Add new harvest to total
+      // CORRECTED LOGIC: Check if we're advancing to a NEW cycle vs editing current cycle
+      let newTotal;
+      
+      // Detect if this form submission is advancing to a new cycle
+      // IMPORTANT: Only count as new cycle if currentCycle is GREATER than harvestingPlot.currentCycle
+      const isAdvancingToNewCycle = data.currentCycle > harvestingPlot.currentCycle;
+      
+      if (isAdvancingToNewCycle) {
+        // NEW CYCLE: Always accumulate to total
+        newTotal = currentTotal + data.harvestAmountKg;
+        console.log(`NEW CYCLE ${harvestingPlot.currentCycle}→${data.currentCycle}: Adding ${data.harvestAmountKg}kg to total ${currentTotal}kg`);
+      } else {
+        // SAME CYCLE: Check if editing existing harvest or first harvest
+        const hasExistingHarvest = currentCycleAmount > 0 && 
+          harvestingPlot.status === "harvested" && 
+          harvestingPlot.actualHarvestDate;
+          
+        if (hasExistingHarvest) {
+          // EDITING current cycle's harvest: Replace old amount with new amount
+          newTotal = currentTotal - currentCycleAmount + data.harvestAmountKg;
+          console.log(`EDIT CURRENT CYCLE ${harvestingPlot.currentCycle}: Replacing ${currentCycleAmount}kg → ${data.harvestAmountKg}kg`);
+        } else {
+          // FIRST harvest for this cycle: Add to total
+          newTotal = currentTotal + data.harvestAmountKg;
+          console.log(`FIRST HARVEST CYCLE ${harvestingPlot.currentCycle}: Adding ${data.harvestAmountKg}kg to total ${currentTotal}kg`);
+        }
+      }
+      
+      // Logic is now handled above with cycle detection
+      
+      // Critical safety check - newTotal should never be negative or less than new harvest
+      if (newTotal < 0) {
+        console.error(`ERROR: Negative total calculated (${newTotal}). Resetting to new harvest amount.`);
+        newTotal = data.harvestAmountKg;
+      }
+      
+      console.log(`✓ HARVEST ACCUMULATION for ${harvestingPlot.name}:`, {
+        plotName: harvestingPlot.name,
+        currentCycle: harvestingPlot.currentCycle,
+        plotStatus: harvestingPlot.status,
+        hasActualHarvestDate: !!harvestingPlot.actualHarvestDate,
+        previousTotal: currentTotal,
+        currentCycleOldAmount: currentCycleAmount,
+        newHarvestAmount: data.harvestAmountKg,
+        calculatedNewTotal: newTotal,
+        operation: isAdvancingToNewCycle ? 'ADVANCE_NEW_CYCLE' : 
+          (currentCycleAmount > 0 && harvestingPlot.status === "harvested" ? 'EDIT_CURRENT_CYCLE' : 'FIRST_HARVEST'),
+        cycleChange: {
+          fromCycle: harvestingPlot.currentCycle,
+          toCycle: data.currentCycle,
+          isAdvancing: isAdvancingToNewCycle
+        },
+        formula: isAdvancingToNewCycle ? 
+          `NEW CYCLE: ${currentTotal} + ${data.harvestAmountKg} = ${newTotal}` :
+          (currentCycleAmount > 0 ? 
+            `EDIT: ${currentTotal} - ${currentCycleAmount} + ${data.harvestAmountKg} = ${newTotal}` :
+            `FIRST: ${currentTotal} + ${data.harvestAmountKg} = ${newTotal}`)
+      });
 
       let payload: any = {
         status: "harvested",
@@ -1531,6 +1584,8 @@ export default function Plots() {
             plantingDate: enrichedData.plantingDate.toISOString(),
             expectedHarvestDate: enrichedData.expectedHarvestDate.toISOString(),
             nettingOpenDate: enrichedData.nettingOpenDate.toISOString(),
+            actualHarvestDate: enrichedData.actualHarvestDate instanceof Date ? 
+              enrichedData.actualHarvestDate.toISOString() : enrichedData.actualHarvestDate,
           });
           setHarvestModalOpen(true);
         }, 500); // Small delay to allow form close animation
