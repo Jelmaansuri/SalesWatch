@@ -1302,17 +1302,19 @@ export default function Plots() {
       const currentCycleAmount = parseFloat(harvestingPlot.harvestAmountKg?.toString() || "0");
       
       // PROGENY AGROTECH HARVEST ACCUMULATION LOGIC
-      // Critical: Ensure harvest amounts accumulate across cycles for ALL plots
+      // Critical: Proper cycle-based accumulation like Plot A
       let newTotal: number;
       
       if (currentCycleAmount > 0) {
-        // If there's already a harvest amount for this cycle, replace it (not add to avoid double counting)
-        newTotal = currentTotal - currentCycleAmount + data.harvestAmountKg;
-        console.log(`Plot ${harvestingPlot.name}: Replacing existing harvest - Previous total: ${currentTotal}, Current cycle: ${currentCycleAmount}, New harvest: ${data.harvestAmountKg}, New total: ${newTotal}`);
+        // If there's already a harvest amount for this cycle, replace ONLY the current cycle amount
+        // Calculate what the total should be: (total from previous cycles) + (new current cycle amount)
+        const totalFromPreviousCycles = currentTotal - currentCycleAmount;
+        newTotal = totalFromPreviousCycles + data.harvestAmountKg;
+        console.log(`Plot ${harvestingPlot.name}: Replacing current cycle harvest - Total from previous cycles: ${totalFromPreviousCycles}, New cycle harvest: ${data.harvestAmountKg}, New total: ${newTotal}`);
       } else {
         // If this is a new harvest for this cycle, add to the total
         newTotal = currentTotal + data.harvestAmountKg;
-        console.log(`Plot ${harvestingPlot.name}: Adding new harvest - Previous total: ${currentTotal}, New harvest: ${data.harvestAmountKg}, New total: ${newTotal}`);
+        console.log(`Plot ${harvestingPlot.name}: Adding new cycle harvest - Previous total: ${currentTotal}, New harvest: ${data.harvestAmountKg}, New total: ${newTotal}`);
       }
 
       let payload: any = {
