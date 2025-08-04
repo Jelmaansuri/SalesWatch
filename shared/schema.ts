@@ -27,7 +27,6 @@ export const users = pgTable("users", {
 
 export const customers = pgTable("customers", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id), // Links customer to user (nullable initially for migration)
   name: text("name").notNull(),
   email: text("email").notNull().unique(),
   phone: text("phone"),
@@ -38,7 +37,6 @@ export const customers = pgTable("customers", {
 
 export const products = pgTable("products", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id), // Links product to user (nullable initially for migration)
   name: text("name").notNull(),
   sku: text("sku").notNull().unique(),
   description: text("description"),
@@ -46,13 +44,12 @@ export const products = pgTable("products", {
   sellingPrice: decimal("selling_price", { precision: 10, scale: 2 }).notNull(),
   stock: integer("stock").default(0).notNull(),
   status: text("status").default("active").notNull(), // active, inactive
-
+  imageUrl: text("image_url"), // URL for product image
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
 export const sales = pgTable("sales", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id), // Links sale to user (nullable initially for migration)
   customerId: varchar("customer_id").notNull().references(() => customers.id),
   productId: varchar("product_id").notNull().references(() => products.id),
   quantity: integer("quantity").notNull(),
@@ -63,21 +60,6 @@ export const sales = pgTable("sales", {
   status: text("status").notNull(), // unpaid, paid, pending_shipment, shipped, completed
   saleDate: timestamp("sale_date").defaultNow().notNull(),
   platformSource: text("platform_source").notNull(), // tiktok, facebook, whatsapp, others
-  notes: text("notes"),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
-
-export const plots = pgTable("plots", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id).notNull(),
-  plotName: text("plot_name").notNull(),
-  plantingDate: timestamp("planting_date").notNull(),
-  expectedHarvestDate: timestamp("expected_harvest_date").notNull(),
-  actualHarvestDate: timestamp("actual_harvest_date"),
-  daysToMaturity: integer("days_to_maturity").notNull(), // User-defined days for expected harvest
-  nettingOpenDays: integer("netting_open_days").notNull(), // When to open netting (user-defined)
-  status: text("status").default("planted").notNull(), // planted, growing, ready_for_harvest, harvested
   notes: text("notes"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
@@ -100,12 +82,6 @@ export const insertSaleSchema = createInsertSchema(sales).omit({
   updatedAt: true,
 });
 
-export const insertPlotSchema = createInsertSchema(plots).omit({
-  id: true,
-  createdAt: true,
-  updatedAt: true,
-});
-
 // Types
 export type Customer = typeof customers.$inferSelect;
 export type InsertCustomer = z.infer<typeof insertCustomerSchema>;
@@ -115,9 +91,6 @@ export type InsertProduct = z.infer<typeof insertProductSchema>;
 
 export type Sale = typeof sales.$inferSelect;
 export type InsertSale = z.infer<typeof insertSaleSchema>;
-
-export type Plot = typeof plots.$inferSelect;
-export type InsertPlot = z.infer<typeof insertPlotSchema>;
 
 // Derived types for API responses
 export type SaleWithDetails = Sale & {

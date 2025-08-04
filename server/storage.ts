@@ -1,53 +1,48 @@
-import { type Customer, type InsertCustomer, type Product, type InsertProduct, type Sale, type InsertSale, type SaleWithDetails, type DashboardMetrics, type User, type UpsertUser, type Plot, type InsertPlot } from "@shared/schema";
+import { type Customer, type InsertCustomer, type Product, type InsertProduct, type Sale, type InsertSale, type SaleWithDetails, type DashboardMetrics, type User, type UpsertUser } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { db } from "./db";
-import { customers, products, sales, users, plots } from "@shared/schema";
+import { customers, products, sales, users } from "@shared/schema";
 import { eq, desc, sql, and } from "drizzle-orm";
 
 export interface IStorage {
   // User operations (required for Replit Auth)
   getUser(id: string): Promise<User | undefined>;
   upsertUser(user: UpsertUser): Promise<User>;
-  // Customers (user-specific)
-  getCustomers(userId: string): Promise<Customer[]>;
-  getCustomer(id: string, userId: string): Promise<Customer | undefined>;
-  getCustomerByEmail(email: string, userId: string): Promise<Customer | undefined>;
-  createCustomer(customer: InsertCustomer, userId: string): Promise<Customer>;
-  updateCustomer(id: string, updates: Partial<Customer>, userId: string): Promise<Customer | undefined>;
-  deleteCustomer(id: string, userId: string): Promise<boolean>;
+  // Customers
+  getCustomers(): Promise<Customer[]>;
+  getCustomer(id: string): Promise<Customer | undefined>;
+  getCustomerByEmail(email: string): Promise<Customer | undefined>;
+  createCustomer(customer: InsertCustomer): Promise<Customer>;
+  updateCustomer(id: string, updates: Partial<Customer>): Promise<Customer | undefined>;
+  deleteCustomer(id: string): Promise<boolean>;
 
-  // Products (user-specific)
-  getProducts(userId: string): Promise<Product[]>;
-  getProduct(id: string, userId: string): Promise<Product | undefined>;
-  getProductBySku(sku: string, userId: string): Promise<Product | undefined>;
-  createProduct(product: InsertProduct, userId: string): Promise<Product>;
-  updateProduct(id: string, updates: Partial<Product>, userId: string): Promise<Product | undefined>;
-  deleteProduct(id: string, userId: string): Promise<boolean>;
+  // Products
+  getProducts(): Promise<Product[]>;
+  getProduct(id: string): Promise<Product | undefined>;
+  getProductBySku(sku: string): Promise<Product | undefined>;
+  createProduct(product: InsertProduct): Promise<Product>;
+  updateProduct(id: string, updates: Partial<Product>): Promise<Product | undefined>;
+  deleteProduct(id: string): Promise<boolean>;
 
-  // Sales (user-specific)
-  getSales(userId: string): Promise<Sale[]>;
-  getSalesWithDetails(userId: string): Promise<SaleWithDetails[]>;
-  getSale(id: string, userId: string): Promise<Sale | undefined>;
-  getSaleWithDetails(id: string, userId: string): Promise<SaleWithDetails | undefined>;
-  createSale(sale: InsertSale, userId: string): Promise<Sale>;
-  updateSale(id: string, updates: Partial<Sale>, userId: string): Promise<Sale | undefined>;
-  deleteSale(id: string, userId: string): Promise<boolean>;
+  // Sales
+  getSales(): Promise<Sale[]>;
+  getSalesWithDetails(): Promise<SaleWithDetails[]>;
+  getSale(id: string): Promise<Sale | undefined>;
+  getSaleWithDetails(id: string): Promise<SaleWithDetails | undefined>;
+  getSalesByCustomerId(customerId: string): Promise<Sale[]>;
+  getSalesByProductId(productId: string): Promise<Sale[]>;
+  createSale(sale: InsertSale): Promise<Sale>;
+  updateSale(id: string, updates: Partial<Sale>): Promise<Sale | undefined>;
+  deleteSale(id: string): Promise<boolean>;
 
-  // Stock Management (user-specific)
-  updateProductStock(productId: string, quantityChange: number, userId: string): Promise<Product | undefined>;
-  checkStockAvailability(productId: string, requiredQuantity: number, userId: string): Promise<boolean>;
+  // Stock Management
+  updateProductStock(productId: string, quantityChange: number): Promise<Product | undefined>;
+  checkStockAvailability(productId: string, requiredQuantity: number): Promise<boolean>;
 
-  // Analytics (user-specific)
-  getDashboardMetrics(userId: string): Promise<DashboardMetrics>;
-  getRevenueByMonth(userId: string): Promise<{ month: string; revenue: number }[]>;
-  getTopProducts(userId: string): Promise<Array<{ product: Product; totalRevenue: number; totalProfit: number; unitsSold: number }>>;
-
-  // Plots (user-specific)
-  getPlots(userId: string): Promise<Plot[]>;
-  getPlot(id: string, userId: string): Promise<Plot | undefined>;
-  createPlot(plot: InsertPlot, userId: string): Promise<Plot>;
-  updatePlot(id: string, updates: Partial<Plot>, userId: string): Promise<Plot | undefined>;
-  deletePlot(id: string, userId: string): Promise<boolean>;
+  // Analytics
+  getDashboardMetrics(): Promise<DashboardMetrics>;
+  getRevenueByMonth(): Promise<{ month: string; revenue: number }[]>;
+  getTopProducts(): Promise<Array<{ product: Product; totalRevenue: number; totalProfit: number; unitsSold: number }>>;
 }
 
 export class MemStorage implements IStorage {
@@ -55,14 +50,12 @@ export class MemStorage implements IStorage {
   private customers: Map<string, Customer>;
   private products: Map<string, Product>;
   private sales: Map<string, Sale>;
-  private plots: Map<string, Plot>;
 
   constructor() {
     this.users = new Map();
     this.customers = new Map();
     this.products = new Map();
     this.sales = new Map();
-    this.plots = new Map();
     this.initializeSampleData();
   }
 
@@ -75,7 +68,6 @@ export class MemStorage implements IStorage {
       phone: "+60123456789",
       company: "Ahmad Restaurant",
       address: "Kuala Lumpur, Malaysia",
-      userId: null,
       createdAt: new Date(),
     };
 
@@ -86,7 +78,6 @@ export class MemStorage implements IStorage {
       phone: "+60198765432",
       company: "Siti Trading Sdn Bhd",
       address: "Penang, Malaysia",
-      userId: null,
       createdAt: new Date(),
     };
 
@@ -103,7 +94,7 @@ export class MemStorage implements IStorage {
       sellingPrice: "15.00",
       stock: 100,
       status: "active",
-      userId: null,
+      imageUrl: null,
       createdAt: new Date(),
     };
 
@@ -116,7 +107,7 @@ export class MemStorage implements IStorage {
       sellingPrice: "22.00",
       stock: 50,
       status: "active",
-      userId: null,
+      imageUrl: null,
       createdAt: new Date(),
     };
 
@@ -169,7 +160,7 @@ export class MemStorage implements IStorage {
     return Array.from(this.customers.values()).find(customer => customer.email === email);
   }
 
-  async createCustomer(insertCustomer: InsertCustomer, userId: string): Promise<Customer> {
+  async createCustomer(insertCustomer: InsertCustomer): Promise<Customer> {
     const id = randomUUID();
     const customer: Customer = {
       id,
@@ -178,7 +169,6 @@ export class MemStorage implements IStorage {
       phone: insertCustomer.phone ?? null,
       company: insertCustomer.company ?? null,
       address: insertCustomer.address ?? null,
-      userId,
       createdAt: new Date(),
     };
     this.customers.set(id, customer);
@@ -211,7 +201,7 @@ export class MemStorage implements IStorage {
     return Array.from(this.products.values()).find(product => product.sku === sku);
   }
 
-  async createProduct(insertProduct: InsertProduct, userId: string): Promise<Product> {
+  async createProduct(insertProduct: InsertProduct): Promise<Product> {
     const id = randomUUID();
     const product: Product = {
       id,
@@ -223,7 +213,6 @@ export class MemStorage implements IStorage {
       stock: insertProduct.stock ?? 0,
       status: insertProduct.status ?? "active",
       imageUrl: insertProduct.imageUrl ?? null,
-      userId,
       createdAt: new Date(),
     };
     this.products.set(id, product);
@@ -288,7 +277,7 @@ export class MemStorage implements IStorage {
     };
   }
 
-  async createSale(insertSale: InsertSale, userId: string): Promise<Sale> {
+  async createSale(insertSale: InsertSale): Promise<Sale> {
     // Check stock availability
     const stockAvailable = await this.checkStockAvailability(insertSale.productId, insertSale.quantity);
     if (!stockAvailable) {
@@ -310,7 +299,6 @@ export class MemStorage implements IStorage {
       saleDate: insertSale.saleDate || now,
       platformSource: insertSale.platformSource || "others",
       notes: insertSale.notes ?? null,
-      userId,
       createdAt: now,
       updatedAt: now,
     };
@@ -359,6 +347,16 @@ export class MemStorage implements IStorage {
     await this.updateProductStock(sale.productId, sale.quantity);
     
     return this.sales.delete(id);
+  }
+
+  async getSalesByCustomerId(customerId: string): Promise<Sale[]> {
+    const sales = Array.from(this.sales.values());
+    return sales.filter(sale => sale.customerId === customerId);
+  }
+
+  async getSalesByProductId(productId: string): Promise<Sale[]> {
+    const sales = Array.from(this.sales.values());
+    return sales.filter(sale => sale.productId === productId);
   }
 
   // Analytics
@@ -455,52 +453,6 @@ export class MemStorage implements IStorage {
     
     return product.stock >= requiredQuantity;
   }
-
-  // Plot Management Methods
-  async getPlots(userId: string): Promise<Plot[]> {
-    return Array.from(this.plots.values()).filter(plot => plot.userId === userId);
-  }
-
-  async getPlot(id: string, userId: string): Promise<Plot | undefined> {
-    const plot = this.plots.get(id);
-    return plot && plot.userId === userId ? plot : undefined;
-  }
-
-  async createPlot(plotData: InsertPlot, userId: string): Promise<Plot> {
-    const newPlot: Plot = {
-      id: randomUUID(),
-      userId,
-      plotName: plotData.plotName,
-      plantingDate: plotData.plantingDate,
-      expectedHarvestDate: plotData.expectedHarvestDate,
-      actualHarvestDate: plotData.actualHarvestDate || null,
-      daysToMaturity: plotData.daysToMaturity,
-      nettingOpenDays: plotData.nettingOpenDays,
-      status: plotData.status || "planted",
-      notes: plotData.notes || null,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
-    
-    this.plots.set(newPlot.id, newPlot);
-    return newPlot;
-  }
-
-  async updatePlot(id: string, updates: Partial<Plot>, userId: string): Promise<Plot | undefined> {
-    const plot = this.plots.get(id);
-    if (!plot || plot.userId !== userId) return undefined;
-    
-    const updatedPlot = { ...plot, ...updates, updatedAt: new Date() };
-    this.plots.set(id, updatedPlot);
-    return updatedPlot;
-  }
-
-  async deletePlot(id: string, userId: string): Promise<boolean> {
-    const plot = this.plots.get(id);
-    if (!plot || plot.userId !== userId) return false;
-    
-    return this.plots.delete(id);
-  }
 }
 
 export class DatabaseStorage implements IStorage {
@@ -525,116 +477,89 @@ export class DatabaseStorage implements IStorage {
     return user;
   }
 
-  // Customer operations (user-specific)
-  async getCustomers(userId: string): Promise<Customer[]> {
-    return await db.select().from(customers)
-      .where(eq(customers.userId, userId))
-      .orderBy(desc(customers.createdAt));
+  // Customer operations
+  async getCustomers(): Promise<Customer[]> {
+    return await db.select().from(customers).orderBy(desc(customers.createdAt));
   }
 
-  async getCustomer(id: string, userId: string): Promise<Customer | undefined> {
-    const [customer] = await db.select().from(customers)
-      .where(and(eq(customers.id, id), eq(customers.userId, userId)));
+  async getCustomer(id: string): Promise<Customer | undefined> {
+    const [customer] = await db.select().from(customers).where(eq(customers.id, id));
     return customer || undefined;
   }
 
-  async getCustomerByEmail(email: string, userId: string): Promise<Customer | undefined> {
-    const [customer] = await db.select().from(customers)
-      .where(and(eq(customers.email, email), eq(customers.userId, userId)));
+  async getCustomerByEmail(email: string): Promise<Customer | undefined> {
+    const [customer] = await db.select().from(customers).where(eq(customers.email, email));
     return customer || undefined;
   }
 
-  async createCustomer(customer: InsertCustomer, userId: string): Promise<Customer> {
-    try {
-      console.log("DatabaseStorage: Creating customer with data:", customer, "for user:", userId);
-      
-      const customerRecord = {
-        id: randomUUID(),
-        userId,
-        ...customer,
-      };
-      
-      console.log("DatabaseStorage: Inserting customer record:", customerRecord);
-      const [newCustomer] = await db.insert(customers).values(customerRecord).returning();
-      console.log("DatabaseStorage: Customer created successfully:", newCustomer);
-      return newCustomer;
-    } catch (error) {
-      console.error("DatabaseStorage: Error creating customer:", error);
-      console.error("DatabaseStorage: Error stack:", error instanceof Error ? error.stack : String(error));
-      throw error;
-    }
+  async createCustomer(customer: InsertCustomer): Promise<Customer> {
+    const [newCustomer] = await db.insert(customers).values({
+      id: randomUUID(),
+      ...customer,
+    }).returning();
+    return newCustomer;
   }
 
-  async updateCustomer(id: string, updates: Partial<Customer>, userId: string): Promise<Customer | undefined> {
+  async updateCustomer(id: string, updates: Partial<Customer>): Promise<Customer | undefined> {
     const [updatedCustomer] = await db
       .update(customers)
       .set(updates)
-      .where(and(eq(customers.id, id), eq(customers.userId, userId)))
+      .where(eq(customers.id, id))
       .returning();
     return updatedCustomer || undefined;
   }
 
-  async deleteCustomer(id: string, userId: string): Promise<boolean> {
-    const result = await db.delete(customers)
-      .where(and(eq(customers.id, id), eq(customers.userId, userId)));
+  async deleteCustomer(id: string): Promise<boolean> {
+    const result = await db.delete(customers).where(eq(customers.id, id));
     return result.rowCount! > 0;
   }
 
-  // Product operations (user-specific)
-  async getProducts(userId: string): Promise<Product[]> {
-    return await db.select().from(products)
-      .where(eq(products.userId, userId))
-      .orderBy(desc(products.createdAt));
+  // Product operations
+  async getProducts(): Promise<Product[]> {
+    return await db.select().from(products).orderBy(desc(products.createdAt));
   }
 
-  async getProduct(id: string, userId: string): Promise<Product | undefined> {
-    const [product] = await db.select().from(products)
-      .where(and(eq(products.id, id), eq(products.userId, userId)));
+  async getProduct(id: string): Promise<Product | undefined> {
+    const [product] = await db.select().from(products).where(eq(products.id, id));
     return product || undefined;
   }
 
-  async getProductBySku(sku: string, userId: string): Promise<Product | undefined> {
-    const [product] = await db.select().from(products)
-      .where(and(eq(products.sku, sku), eq(products.userId, userId)));
+  async getProductBySku(sku: string): Promise<Product | undefined> {
+    const [product] = await db.select().from(products).where(eq(products.sku, sku));
     return product || undefined;
   }
 
-  async createProduct(product: InsertProduct, userId: string): Promise<Product> {
+  async createProduct(product: InsertProduct): Promise<Product> {
     const [newProduct] = await db.insert(products).values({
       id: randomUUID(),
-      userId,
       ...product,
     }).returning();
     return newProduct;
   }
 
-  async updateProduct(id: string, updates: Partial<Product>, userId: string): Promise<Product | undefined> {
+  async updateProduct(id: string, updates: Partial<Product>): Promise<Product | undefined> {
     const [updatedProduct] = await db
       .update(products)
       .set(updates)
-      .where(and(eq(products.id, id), eq(products.userId, userId)))
+      .where(eq(products.id, id))
       .returning();
     return updatedProduct || undefined;
   }
 
-  async deleteProduct(id: string, userId: string): Promise<boolean> {
-    const result = await db.delete(products)
-      .where(and(eq(products.id, id), eq(products.userId, userId)));
+  async deleteProduct(id: string): Promise<boolean> {
+    const result = await db.delete(products).where(eq(products.id, id));
     return result.rowCount! > 0;
   }
 
-  // Sales operations (user-specific)
-  async getSales(userId: string): Promise<Sale[]> {
-    return await db.select().from(sales)
-      .where(eq(sales.userId, userId))
-      .orderBy(desc(sales.createdAt));
+  // Sales operations
+  async getSales(): Promise<Sale[]> {
+    return await db.select().from(sales).orderBy(desc(sales.createdAt));
   }
 
-  async getSalesWithDetails(userId: string): Promise<SaleWithDetails[]> {
+  async getSalesWithDetails(): Promise<SaleWithDetails[]> {
     const result = await db
       .select({
         id: sales.id,
-        userId: sales.userId,
         customerId: sales.customerId,
         productId: sales.productId,
         quantity: sales.quantity,
@@ -650,7 +575,6 @@ export class DatabaseStorage implements IStorage {
         updatedAt: sales.updatedAt,
         customer: {
           id: customers.id,
-          userId: customers.userId,
           name: customers.name,
           email: customers.email,
           phone: customers.phone,
@@ -660,7 +584,6 @@ export class DatabaseStorage implements IStorage {
         },
         product: {
           id: products.id,
-          userId: products.userId,
           name: products.name,
           sku: products.sku,
           description: products.description,
@@ -668,19 +591,17 @@ export class DatabaseStorage implements IStorage {
           sellingPrice: products.sellingPrice,
           stock: products.stock,
           status: products.status,
-          
+          imageUrl: products.imageUrl,
           createdAt: products.createdAt,
         },
       })
       .from(sales)
       .leftJoin(customers, eq(sales.customerId, customers.id))
       .leftJoin(products, eq(sales.productId, products.id))
-      .where(eq(sales.userId, userId))
       .orderBy(desc(sales.createdAt));
     
     return result.map(row => ({
       id: row.id,
-      userId: row.userId!,
       customerId: row.customerId,
       productId: row.productId,
       quantity: row.quantity,
@@ -699,17 +620,15 @@ export class DatabaseStorage implements IStorage {
     }));
   }
 
-  async getSale(id: string, userId: string): Promise<Sale | undefined> {
-    const [sale] = await db.select().from(sales)
-      .where(and(eq(sales.id, id), eq(sales.userId, userId)));
+  async getSale(id: string): Promise<Sale | undefined> {
+    const [sale] = await db.select().from(sales).where(eq(sales.id, id));
     return sale || undefined;
   }
 
-  async getSaleWithDetails(id: string, userId: string): Promise<SaleWithDetails | undefined> {
+  async getSaleWithDetails(id: string): Promise<SaleWithDetails | undefined> {
     const result = await db
       .select({
         id: sales.id,
-        userId: sales.userId,
         customerId: sales.customerId,
         productId: sales.productId,
         quantity: sales.quantity,
@@ -725,7 +644,6 @@ export class DatabaseStorage implements IStorage {
         updatedAt: sales.updatedAt,
         customer: {
           id: customers.id,
-          userId: customers.userId,
           name: customers.name,
           email: customers.email,
           phone: customers.phone,
@@ -735,7 +653,6 @@ export class DatabaseStorage implements IStorage {
         },
         product: {
           id: products.id,
-          userId: products.userId,
           name: products.name,
           sku: products.sku,
           description: products.description,
@@ -743,21 +660,20 @@ export class DatabaseStorage implements IStorage {
           sellingPrice: products.sellingPrice,
           stock: products.stock,
           status: products.status,
-          
+          imageUrl: products.imageUrl,
           createdAt: products.createdAt,
         },
       })
       .from(sales)
       .leftJoin(customers, eq(sales.customerId, customers.id))
       .leftJoin(products, eq(sales.productId, products.id))
-      .where(and(eq(sales.id, id), eq(sales.userId, userId)));
+      .where(eq(sales.id, id));
 
     if (result.length === 0) return undefined;
 
     const row = result[0];
     return {
       id: row.id,
-      userId: row.userId!,
       customerId: row.customerId,
       productId: row.productId,
       quantity: row.quantity,
@@ -776,7 +692,7 @@ export class DatabaseStorage implements IStorage {
     };
   }
 
-  async createSale(sale: InsertSale, userId: string): Promise<Sale> {
+  async createSale(sale: InsertSale): Promise<Sale> {
     const unitPriceNum = typeof sale.unitPrice === 'string' ? parseFloat(sale.unitPrice) : sale.unitPrice;
     const discountAmountNum = sale.discountAmount ? (typeof sale.discountAmount === 'string' ? parseFloat(sale.discountAmount) : sale.discountAmount) : 0;
     
@@ -785,7 +701,7 @@ export class DatabaseStorage implements IStorage {
     const totalAmount = discountedUnitPrice * sale.quantity;
     
     // Get product cost to calculate profit
-    const product = await this.getProduct(sale.productId, userId);
+    const product = await this.getProduct(sale.productId);
     if (!product) {
       throw new Error("Product not found");
     }
@@ -795,7 +711,6 @@ export class DatabaseStorage implements IStorage {
 
     const saleRecord = {
       id: randomUUID(),
-      userId,
       customerId: sale.customerId,
       productId: sale.productId,
       quantity: sale.quantity,
@@ -813,13 +728,13 @@ export class DatabaseStorage implements IStorage {
     return newSale;
   }
 
-  async updateSale(id: string, updates: Partial<Sale>, userId: string): Promise<Sale | undefined> {
+  async updateSale(id: string, updates: Partial<Sale>): Promise<Sale | undefined> {
     // If quantity, unitPrice, or discountAmount is being updated, recalculate totals
     if (updates.quantity !== undefined || updates.unitPrice !== undefined || updates.discountAmount !== undefined) {
-      const existingSale = await this.getSale(id, userId);
+      const existingSale = await this.getSale(id);
       if (!existingSale) return undefined;
 
-      const product = await this.getProduct(existingSale.productId, userId);
+      const product = await this.getProduct(existingSale.productId);
       if (!product) return undefined;
 
       const quantity = updates.quantity !== undefined ? updates.quantity : existingSale.quantity;
@@ -852,37 +767,44 @@ export class DatabaseStorage implements IStorage {
     const [updatedSale] = await db
       .update(sales)
       .set(updates)
-      .where(and(eq(sales.id, id), eq(sales.userId, userId)))
+      .where(eq(sales.id, id))
       .returning();
     return updatedSale || undefined;
   }
 
-  async deleteSale(id: string, userId: string): Promise<boolean> {
-    const result = await db.delete(sales)
-      .where(and(eq(sales.id, id), eq(sales.userId, userId)));
+  async deleteSale(id: string): Promise<boolean> {
+    const result = await db.delete(sales).where(eq(sales.id, id));
     return result.rowCount! > 0;
   }
 
-  // Stock Management (user-specific)
-  async updateProductStock(productId: string, quantityChange: number, userId: string): Promise<Product | undefined> {
+  async getSalesByCustomerId(customerId: string): Promise<Sale[]> {
+    return await db.select().from(sales).where(eq(sales.customerId, customerId));
+  }
+
+  async getSalesByProductId(productId: string): Promise<Sale[]> {
+    return await db.select().from(sales).where(eq(sales.productId, productId));
+  }
+
+  // Stock Management
+  async updateProductStock(productId: string, quantityChange: number): Promise<Product | undefined> {
     const [updatedProduct] = await db
       .update(products)
       .set({
         stock: sql`${products.stock} + ${quantityChange}`,
       })
-      .where(and(eq(products.id, productId), eq(products.userId, userId)))
+      .where(eq(products.id, productId))
       .returning();
     return updatedProduct || undefined;
   }
 
-  async checkStockAvailability(productId: string, requiredQuantity: number, userId: string): Promise<boolean> {
-    const product = await this.getProduct(productId, userId);
+  async checkStockAvailability(productId: string, requiredQuantity: number): Promise<boolean> {
+    const product = await this.getProduct(productId);
     return product ? product.stock >= requiredQuantity : false;
   }
 
-  // Analytics (user-specific)
-  async getDashboardMetrics(userId: string): Promise<DashboardMetrics> {
-    const allSales = await this.getSales(userId);
+  // Analytics
+  async getDashboardMetrics(): Promise<DashboardMetrics> {
+    const allSales = await this.getSales();
     
     const totalRevenue = allSales.reduce((sum, sale) => {
       const amount = typeof sale.totalAmount === 'string' ? parseFloat(sale.totalAmount) : sale.totalAmount;
@@ -898,7 +820,7 @@ export class DatabaseStorage implements IStorage {
       ['paid', 'pending_shipment', 'shipped'].includes(sale.status)
     ).length;
     
-    const allCustomers = await this.getCustomers(userId);
+    const allCustomers = await this.getCustomers();
     const totalCustomers = allCustomers.length;
     
     const orderStatusCounts = {
@@ -918,14 +840,13 @@ export class DatabaseStorage implements IStorage {
     };
   }
 
-  async getRevenueByMonth(userId: string): Promise<{ month: string; revenue: number }[]> {
+  async getRevenueByMonth(): Promise<{ month: string; revenue: number }[]> {
     const result = await db
       .select({
         month: sql<string>`TO_CHAR(${sales.saleDate}, 'YYYY-MM')`,
         revenue: sql<number>`SUM(CAST(${sales.totalAmount} AS DECIMAL))`,
       })
       .from(sales)
-      .where(eq(sales.userId, userId))
       .groupBy(sql`TO_CHAR(${sales.saleDate}, 'YYYY-MM')`)
       .orderBy(sql`TO_CHAR(${sales.saleDate}, 'YYYY-MM')`);
 
@@ -935,12 +856,11 @@ export class DatabaseStorage implements IStorage {
     }));
   }
 
-  async getTopProducts(userId: string): Promise<Array<{ product: Product; totalRevenue: number; totalProfit: number; unitsSold: number }>> {
+  async getTopProducts(): Promise<Array<{ product: Product; totalRevenue: number; totalProfit: number; unitsSold: number }>> {
     const result = await db
       .select({
         product: {
           id: products.id,
-          userId: products.userId,
           name: products.name,
           sku: products.sku,
           description: products.description,
@@ -948,7 +868,7 @@ export class DatabaseStorage implements IStorage {
           sellingPrice: products.sellingPrice,
           stock: products.stock,
           status: products.status,
-          
+          imageUrl: products.imageUrl,
           createdAt: products.createdAt,
         },
         totalRevenue: sql<number>`SUM(CAST(${sales.totalAmount} AS DECIMAL))`,
@@ -957,8 +877,7 @@ export class DatabaseStorage implements IStorage {
       })
       .from(sales)
       .leftJoin(products, eq(sales.productId, products.id))
-      .where(eq(sales.userId, userId))
-      .groupBy(products.id, products.userId, products.name, products.sku, products.description, products.costPrice, products.sellingPrice, products.stock, products.status, products.createdAt)
+      .groupBy(products.id, products.name, products.sku, products.description, products.costPrice, products.sellingPrice, products.stock, products.status, products.imageUrl, products.createdAt)
       .orderBy(sql`SUM(CAST(${sales.totalAmount} AS DECIMAL)) DESC`)
       .limit(10);
 
@@ -968,54 +887,6 @@ export class DatabaseStorage implements IStorage {
       totalProfit: Number(row.totalProfit),
       unitsSold: Number(row.unitsSold),
     }));
-  }
-
-  // Plot Management Methods (user-specific)
-  async getPlots(userId: string): Promise<Plot[]> {
-    return await db.select().from(plots).where(eq(plots.userId, userId)).orderBy(desc(plots.createdAt));
-  }
-
-  async getPlot(id: string, userId: string): Promise<Plot | undefined> {
-    const [plot] = await db.select().from(plots).where(and(eq(plots.id, id), eq(plots.userId, userId)));
-    return plot || undefined;
-  }
-
-  async createPlot(plot: InsertPlot, userId: string): Promise<Plot> {
-    const plotRecord = {
-      id: randomUUID(),
-      userId,
-      plotName: plot.plotName,
-      plantingDate: plot.plantingDate,
-      expectedHarvestDate: plot.expectedHarvestDate,
-      actualHarvestDate: plot.actualHarvestDate || null,
-      daysToMaturity: plot.daysToMaturity,
-      nettingOpenDays: plot.nettingOpenDays,
-      status: plot.status || "planted",
-      notes: plot.notes || null,
-    };
-
-    const [newPlot] = await db.insert(plots).values(plotRecord).returning();
-    return newPlot;
-  }
-
-  async updatePlot(id: string, updates: Partial<Plot>, userId: string): Promise<Plot | undefined> {
-    const updatesWithTimestamp = {
-      ...updates,
-      updatedAt: new Date(),
-    };
-
-    const [updatedPlot] = await db
-      .update(plots)
-      .set(updatesWithTimestamp)
-      .where(and(eq(plots.id, id), eq(plots.userId, userId)))
-      .returning();
-    return updatedPlot || undefined;
-  }
-
-  async deletePlot(id: string, userId: string): Promise<boolean> {
-    const result = await db.delete(plots)
-      .where(and(eq(plots.id, id), eq(plots.userId, userId)));
-    return result.rowCount! > 0;
   }
 }
 
