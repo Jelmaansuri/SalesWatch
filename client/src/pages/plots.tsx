@@ -94,10 +94,10 @@ function PlotCard({ plot, onEdit, onDelete, onHarvest, onNextCycle }: {
   const nettingOpenDate = plot.nettingOpenDate ? parseISO(plot.nettingOpenDate) : null;
   const today = new Date();
   
-  // PROGENY AGROTECH Calculation Standards
-  const daysSincePlanting = Math.max(0, differenceInDays(today, plantingDate));
-  const dapDays = daysSincePlanting; // DAP (Days After Planting)
-  const wapWeeks = Math.floor(daysSincePlanting / 7); // WAP (Weeks After Planting)
+  // PROGENY AGROTECH Calculation Standards (supports negative values for future dates)
+  const daysSincePlanting = differenceInDays(today, plantingDate); // Can be negative for future dates
+  const dapDays = daysSincePlanting; // DAP (Days After Planting) - negative means days until planting
+  const wapWeeks = Math.floor(daysSincePlanting / 7); // WAP (Weeks After Planting) - negative means weeks until planting
   
   // Calculate Expected Harvest Date and Netting Open Date from planting date
   const calculatedHarvestDate = addDays(plantingDate, plot.daysToMaturity);
@@ -107,8 +107,10 @@ function PlotCard({ plot, onEdit, onDelete, onHarvest, onNextCycle }: {
   const daysToHarvest = Math.max(0, differenceInDays(calculatedHarvestDate, today));
   const daysToOpenShade = Math.max(0, differenceInDays(calculatedNettingDate, today));
   
-  // Progress calculations
-  const harvestProgress = Math.min((daysSincePlanting / plot.daysToMaturity) * 100, 100);
+  // Progress calculations (handle negative values for future planting)
+  const harvestProgress = daysSincePlanting >= 0 
+    ? Math.min((daysSincePlanting / plot.daysToMaturity) * 100, 100)
+    : 0; // Future plantings show 0% progress
   
   // Status indicators
   const isShadeOpeningSoon = daysToOpenShade <= 7 && daysToOpenShade > 0;
