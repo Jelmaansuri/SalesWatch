@@ -35,9 +35,11 @@ import { z } from "zod";
 const formSchema = insertSaleSchema.extend({
   unitPrice: z.string().min(1, "Unit price is required"),
   discountAmount: z.string().optional(),
+  saleDate: z.date().optional(), // Make saleDate optional for edits
 }).partial({
   totalAmount: true,
   profit: true,
+  saleDate: true, // saleDate is optional during edits
 });
 
 type FormData = z.infer<typeof formSchema>;
@@ -71,6 +73,7 @@ export default function Sales() {
       unitPrice: "",
       status: "paid",
       notes: "",
+      saleDate: undefined,
       totalAmount: undefined,
       profit: undefined,
     },
@@ -148,11 +151,12 @@ export default function Sales() {
       customerId: sale.customerId,
       productId: sale.productId,
       quantity: sale.quantity,
-      unitPrice: typeof sale.unitPrice === 'string' ? sale.unitPrice : sale.unitPrice.toString(),
-      discountAmount: typeof sale.discountAmount === 'string' ? sale.discountAmount : (sale.discountAmount || 0).toString(),
+      unitPrice: typeof sale.unitPrice === 'string' ? sale.unitPrice : String(sale.unitPrice),
+      discountAmount: typeof sale.discountAmount === 'string' ? sale.discountAmount : String(sale.discountAmount || 0),
       status: sale.status,
       platformSource: sale.platformSource,
       notes: sale.notes || "",
+      saleDate: new Date(sale.saleDate), // Include saleDate from existing sale
     });
     setIsEditDialogOpen(true);
   };
@@ -172,10 +176,13 @@ export default function Sales() {
       return;
     }
     
-    // Remove undefined/null fields and prepare clean data
-    const cleanData = Object.fromEntries(
-      Object.entries(data).filter(([_, value]) => value !== undefined && value !== null && value !== "")
-    );
+    // Remove undefined/null fields and prepare clean data, preserve saleDate
+    const cleanData: Record<string, any> = {};
+    Object.entries(data).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && value !== "") {
+        cleanData[key] = value;
+      }
+    });
     
     console.log("Clean data for API:", cleanData);
     updateSaleMutation.mutate({ id: editingSale.id, data: cleanData });
@@ -414,6 +421,7 @@ export default function Sales() {
                       <FormControl>
                         <Input
                           {...field}
+                          value={field.value || ""}
                           placeholder="Additional notes..."
                         />
                       </FormControl>
