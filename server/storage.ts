@@ -526,12 +526,12 @@ export class MemStorage implements IStorage {
       updatedAt: now,
       // Add missing fields
       currentCycle: insertPlot.currentCycle || 1,
-      totalCycles: insertPlot.totalCycles?.toString() || "1",
+      totalCycles: insertPlot.totalCycles || 1,
       isMultiCycle: insertPlot.isMultiCycle || false,
       cycleHistory: insertPlot.cycleHistory || null,
       nextPlantingDate: insertPlot.nextPlantingDate || null,
       harvestAmountKg: insertPlot.harvestAmountKg || null,
-      totalHarvestedKg: insertPlot.totalHarvestedKg?.toString() || null,
+      totalHarvestedKg: insertPlot.totalHarvestedKg || null,
       restPeriodDays: insertPlot.restPeriodDays || null,
     };
     
