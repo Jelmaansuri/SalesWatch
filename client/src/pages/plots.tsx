@@ -1302,18 +1302,52 @@ export default function Plots() {
     setNextCycleModalOpen(true);
   };
 
-  const handleNextCycleSubmit = (data: PlotFormData) => {
-    if (nextCyclePlot) {
-      // NEXT CYCLE LOGIC: Always ADD to total (this handles the ADD_NEW_CYCLE case)
+  const handleNextCycleSubmit = async (data: PlotFormData) => {
+    if (!nextCyclePlot) return;
+
+    try {
+      // NEXT CYCLE LOGIC: Keep existing total, reset current cycle harvest to null
+      const currentTotal = parseFloat(nextCyclePlot.totalHarvestedKg?.toString() || "0");
+      
       console.log(`🔄 NEXT CYCLE: ${nextCyclePlot.name} advancing from cycle ${nextCyclePlot.currentCycle} to ${data.currentCycle}`);
-      updateMutation.mutate({ id: nextCyclePlot.id, data });
+      console.log(`Preserving total harvested: ${currentTotal}kg from previous cycles`);
+      
+      // Prepare payload for next cycle with preserved total
+      const nextCyclePayload = {
+        ...data,
+        harvestAmountKg: null,           // Reset current cycle harvest
+        totalHarvestedKg: currentTotal.toString(),  // Keep accumulated total
+        actualHarvestDate: null,         // Reset harvest date for new cycle
+        status: data.status,             // Use the status from form
+      };
+
+      const response = await fetch(`/api/plots/${nextCyclePlot.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(nextCyclePayload),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to start next cycle");
+      }
+
+      // Invalidate cache to refresh data
+      queryClient.invalidateQueries({ queryKey: ["/api/plots"] });
+      
+      setNextCycleModalOpen(false);
+      setNextCyclePlot(null);
+      toast({
+        title: "Next cycle started!",
+        description: `${data.name} has been set up for Cycle ${data.currentCycle}`,
+      });
+    } catch (error) {
+      console.error("Error starting next cycle:", error);
+      toast({
+        title: "Error",
+        description: "Failed to start next cycle",
+        variant: "destructive",
+      });
     }
-    setNextCycleModalOpen(false);
-    setNextCyclePlot(null);
-    toast({
-      title: "Next cycle started!",
-      description: `${data.name} has been set up for Cycle ${data.currentCycle}`,
-    });
   };
 
   // Handle harvest submission
@@ -1333,19 +1367,17 @@ export default function Plots() {
       // 1. For SAME cycle: Replace the cycle amount, recalculate total
       // 2. For NEW cycle: Add new cycle amount to total
       
-      // For harvest submissions, we're always updating the CURRENT cycle
-      // (Next cycle advances are handled by handleNextCycleSubmit, not handleHarvestSubmit)
-      const isEditingCurrentCycle = true; // Harvest modal always edits current cycle
+      // CRITICAL FIX: Detect if this is first harvest for current cycle
+      const isFirstHarvestForCycle = currentCycleAmount === 0;
       
-      if (isEditingCurrentCycle) {
-        // EDITING CURRENT CYCLE: Replace current cycle amount, recalculate total
-        // Total = Previous Total - Old Current Cycle Amount + New Current Cycle Amount
-        newTotal = currentTotal - currentCycleAmount + data.harvestAmountKg;
-        console.log(`UPDATE CYCLE ${harvestingPlot.currentCycle}: ${currentCycleAmount}kg → ${data.harvestAmountKg}kg`);
-      } else {
-        // This path should never be reached in harvest modal
+      if (isFirstHarvestForCycle) {
+        // FIRST HARVEST for this cycle: ADD to total
         newTotal = currentTotal + data.harvestAmountKg;
-        console.log(`FALLBACK: Adding ${data.harvestAmountKg}kg to total`);
+        console.log(`FIRST HARVEST CYCLE ${harvestingPlot.currentCycle}: Adding ${data.harvestAmountKg}kg to existing total ${currentTotal}kg`);
+      } else {
+        // EDITING EXISTING HARVEST: Replace current cycle amount in total
+        newTotal = currentTotal - currentCycleAmount + data.harvestAmountKg;
+        console.log(`UPDATE CYCLE ${harvestingPlot.currentCycle}: Replacing ${currentCycleAmount}kg → ${data.harvestAmountKg}kg`);
       }
       
       // Logic is now handled above with cycle detection
@@ -1365,15 +1397,15 @@ export default function Plots() {
         currentCycleOldAmount: currentCycleAmount,
         newHarvestAmount: data.harvestAmountKg,
         calculatedNewTotal: newTotal,
-        operation: isEditingCurrentCycle ? 'UPDATE_CURRENT_CYCLE' : 'ADD_NEW_CYCLE',
+        operation: isFirstHarvestForCycle ? 'FIRST_HARVEST_FOR_CYCLE' : 'UPDATE_EXISTING_HARVEST',
         cycleDetails: {
           plotCycle: harvestingPlot.currentCycle,
-          isCurrentCycle: isEditingCurrentCycle,
+          isFirstHarvest: isFirstHarvestForCycle,
           modalType: 'HARVEST_MODAL'
         },
-        formula: isEditingCurrentCycle ? 
-          `UPDATE: ${currentTotal} - ${currentCycleAmount} + ${data.harvestAmountKg} = ${newTotal}` :
-          `ADD: ${currentTotal} + ${data.harvestAmountKg} = ${newTotal}`
+        formula: isFirstHarvestForCycle ? 
+          `FIRST: ${currentTotal} + ${data.harvestAmountKg} = ${newTotal}` :
+          `UPDATE: ${currentTotal} - ${currentCycleAmount} + ${data.harvestAmountKg} = ${newTotal}`
       });
 
       let payload: any = {
