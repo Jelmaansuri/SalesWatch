@@ -1319,8 +1319,11 @@ export default function Plots() {
     if (!harvestingPlot) return;
 
     try {
-      // Update current cycle harvest amount (replace, don't add to total)
-      const newTotal = data.harvestAmountKg;
+      // Calculate total harvested amount (accumulate across cycles)
+      const currentTotal = parseFloat(harvestingPlot.totalHarvestedKg?.toString() || "0");
+      const currentCycleAmount = parseFloat(harvestingPlot.harvestAmountKg?.toString() || "0");
+      // Add new harvest, subtract current cycle's previous amount (if any)
+      const newTotal = currentTotal - currentCycleAmount + data.harvestAmountKg;
 
       let payload: any = {
         status: "harvested",
