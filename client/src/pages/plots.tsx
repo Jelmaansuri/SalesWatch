@@ -1315,12 +1315,19 @@ export default function Plots() {
       // Prepare payload for next cycle with preserved total
       const nextCyclePayload = {
         ...data,
-        harvestAmountKg: null,           // Reset current cycle harvest
-        totalHarvestedKg: currentTotal.toString(),  // Keep accumulated total
+        harvestAmountKg: null,           // Reset current cycle harvest  
+        totalHarvestedKg: currentTotal,  // Keep accumulated total as number
         actualHarvestDate: null,         // Reset harvest date for new cycle
         status: data.status,             // Use the status from form
+        userId: nextCyclePlot.userId,    // Ensure userId is included
+        // Make sure dates are properly formatted
+        plantingDate: data.plantingDate instanceof Date ? data.plantingDate.toISOString() : data.plantingDate,
+        expectedHarvestDate: data.expectedHarvestDate instanceof Date ? data.expectedHarvestDate.toISOString() : data.expectedHarvestDate,
+        nettingOpenDate: data.nettingOpenDate instanceof Date ? data.nettingOpenDate.toISOString() : data.nettingOpenDate,
       };
 
+      console.log("Next cycle payload:", nextCyclePayload);
+      
       const response = await fetch(`/api/plots/${nextCyclePlot.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -1328,7 +1335,9 @@ export default function Plots() {
       });
 
       if (!response.ok) {
-        throw new Error("Failed to start next cycle");
+        const errorData = await response.text();
+        console.error("Next cycle API error:", errorData);
+        throw new Error(`Failed to start next cycle: ${errorData}`);
       }
 
       // Invalidate cache to refresh data
