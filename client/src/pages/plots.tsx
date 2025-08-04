@@ -1332,7 +1332,7 @@ export default function Plots() {
       // If advancing to new cycle, ALWAYS accumulate regardless of any other conditions
       if (isAdvancingToNewCycle) {
         newTotal = currentTotal + data.harvestAmountKg;
-        console.log(`NEW CYCLE ${data.currentCycle}: Adding ${data.harvestAmountKg}kg to total ${currentTotal}kg`);
+        console.log(`NEW CYCLE ${harvestingPlot.currentCycle}→${data.currentCycle}: Adding ${data.harvestAmountKg}kg to total ${currentTotal}kg`);
       } else {
         // Same cycle: check if this is editing existing harvest or first harvest
         const hasExistingHarvest = currentCycleAmount > 0 && 
