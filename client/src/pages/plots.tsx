@@ -1327,7 +1327,7 @@ export default function Plots() {
       };
 
       // If proceeding to next cycle, setup next cycle data
-      if (data.proceedToNextCycle && harvestingPlot.currentCycle < harvestingPlot.totalCycles) {
+      if (data.proceedToNextCycle && harvestingPlot.isMultiCycle) {
         const nextPlantingDate = addDays(data.actualHarvestDate, 30); // 30-day rest period
         payload = {
           ...payload,

@@ -40,6 +40,9 @@ PROGENY AGROTECH Management System is a comprehensive business management platfo
   - Clean UI without cycle counters on plot cards (since cycles are unlimited)
   - Auto-sets totalCycles to 9999 for multi-cycle plots (currentCycle > 1)
   - "Proceed to Next Cycle" button simplified without cycle limits display
+  - **COMPLETELY REMOVED ALL CYCLE COUNT DISPLAYS**: Eliminated all "X of Y" indicators from interface
+  - **FIXED HARVEST WORKFLOW**: Properly updates current cycle data instead of accumulating totals
+  - **CLEAN UNLIMITED INTERFACE**: Shows only current cycle number without any visible constraints
 - **PROGENY AGROTECH CALCULATION STANDARDS IMPLEMENTED**: Enhanced plot management with authentic agricultural calculations:
   - Integrated calculation formulas from PROGENY's Excel template for ginger farming
   - HST (Hours Since Transplant) tracking displayed as days since planting
