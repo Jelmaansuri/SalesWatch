@@ -504,7 +504,7 @@ export class MemStorage implements IStorage {
       location: insertPlot.location,
       cropType: insertPlot.cropType,
       plantingDate: insertPlot.plantingDate,
-      expectedHarvestDate: insertPlot.expectedHarvestDate || null,
+      expectedHarvestDate: insertPlot.expectedHarvestDate ?? new Date(),
       actualHarvestDate: insertPlot.actualHarvestDate ?? null,
       daysToMaturity: insertPlot.daysToMaturity,
       daysToOpenNetting: insertPlot.daysToOpenNetting,
@@ -811,7 +811,10 @@ export class DatabaseStorage implements IStorage {
       notes: sale.notes || null,
     };
 
-    const [newSale] = await db.insert(sales).values([saleRecord]).returning();
+    const [newSale] = await db.insert(sales).values([{
+      ...saleRecord,
+      userId: saleRecord.userId || "",
+    }]).returning();
     return newSale;
   }
 
@@ -1011,7 +1014,8 @@ export class DatabaseStorage implements IStorage {
       ...plot,
       id: randomUUID(),
       nettingOpenDate: nettingOpenDate,
-      actualHarvestDate: plot.actualHarvestDate || null,
+      actualHarvestDate: plot.actualHarvestDate ?? null,
+      expectedHarvestDate: plot.expectedHarvestDate ?? new Date(),
     }]).returning();
     return newPlot;
   }
