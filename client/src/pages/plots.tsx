@@ -148,12 +148,7 @@ function PlotCard({ plot, onEdit, onDelete, onHarvest, onNextCycle }: {
               <CardTitle className="text-lg font-semibold text-gray-900 dark:text-gray-100">
                 {plot.name}
               </CardTitle>
-              {/* Cycle Indicator */}
-              {plot.isMultiCycle && (
-                <Badge variant="outline" className="text-xs">
-                  Cycle {plot.currentCycle}/{plot.totalCycles > 999 ? "∞" : plot.totalCycles}
-                </Badge>
-              )}
+
             </div>
             <CardDescription className="flex items-center gap-2 mt-1">
               <MapPin className="h-4 w-4" />
@@ -411,7 +406,7 @@ function PlotCard({ plot, onEdit, onDelete, onHarvest, onNextCycle }: {
                 data-testid={`button-next-cycle-${plot.id}`}
               >
                 <RefreshCw className="h-3 w-3 mr-1" />
-                Proceed to Next Cycle ({plot.currentCycle + 1} {plot.totalCycles > 999 ? "of ∞" : `of ${plot.totalCycles}`})
+                Proceed to Next Cycle ({plot.currentCycle + 1})
               </Button>
             )}
           </div>
@@ -1132,7 +1127,7 @@ function NextCycleModal({
             Start Next Cycle - {plot.name}
           </DialogTitle>
           <DialogDescription>
-            Proceeding to Cycle {plot.currentCycle + 1} {plot.totalCycles > 999 ? "of unlimited cycles" : `of ${plot.totalCycles}`}. Update the planting date and any other details for the new cycle.
+            Proceeding to Cycle {plot.currentCycle + 1}. Update the planting date and any other details for the new cycle.
           </DialogDescription>
         </DialogHeader>
 
