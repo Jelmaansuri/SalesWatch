@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -334,6 +334,20 @@ function PlotForm({
       notes: "",
     }
   });
+
+  // Watch for changes to auto-calculate dates
+  const watchedValues = form.watch(["plantingDate", "daysToMaturity", "daysToOpenNetting"]);
+  
+  useEffect(() => {
+    const [plantingDate, daysToMaturity, daysToOpenNetting] = watchedValues;
+    if (plantingDate && daysToMaturity && daysToOpenNetting) {
+      const calculatedHarvestDate = addDays(plantingDate, daysToMaturity);
+      const calculatedNettingDate = addDays(plantingDate, daysToOpenNetting);
+      
+      form.setValue("expectedHarvestDate", calculatedHarvestDate);
+      form.setValue("nettingOpenDate", calculatedNettingDate);
+    }
+  }, [watchedValues, form]);
 
   const handleSubmit = (data: PlotFormData) => {
     console.log("Form data being submitted:", data);
@@ -704,11 +718,11 @@ export default function PlotsPage() {
         location: data.location,
         cropType: data.cropType,
         plantingDate: data.plantingDate.toISOString(),
-        expectedHarvestDate: data.expectedHarvestDate?.toISOString(),
-        actualHarvestDate: data.actualHarvestDate?.toISOString(),
+        expectedHarvestDate: data.expectedHarvestDate?.toISOString() || null,
+        actualHarvestDate: data.actualHarvestDate?.toISOString() || null,
         daysToMaturity: data.daysToMaturity,
         daysToOpenNetting: data.daysToOpenNetting,
-        nettingOpenDate: data.nettingOpenDate?.toISOString(),
+        nettingOpenDate: data.nettingOpenDate?.toISOString() || null,
         status: data.status,
         notes: data.notes || null,
       };
@@ -744,11 +758,11 @@ export default function PlotsPage() {
         location: data.location,
         cropType: data.cropType,
         plantingDate: data.plantingDate.toISOString(),
-        expectedHarvestDate: data.expectedHarvestDate?.toISOString(),
-        actualHarvestDate: data.actualHarvestDate?.toISOString(),
+        expectedHarvestDate: data.expectedHarvestDate?.toISOString() || null,
+        actualHarvestDate: data.actualHarvestDate?.toISOString() || null,
         daysToMaturity: data.daysToMaturity,
         daysToOpenNetting: data.daysToOpenNetting,
-        nettingOpenDate: data.nettingOpenDate?.toISOString(),
+        nettingOpenDate: data.nettingOpenDate?.toISOString() || null,
         status: data.status,
         notes: data.notes || null,
       };
@@ -800,6 +814,8 @@ export default function PlotsPage() {
       expectedHarvestDate: calculatedHarvestDate,
       nettingOpenDate: calculatedNettingDate,
     };
+
+    console.log("Enriched data with calculated dates:", enrichedData);
 
     if (editingPlot) {
       updateMutation.mutate({ id: editingPlot.id, data: enrichedData });

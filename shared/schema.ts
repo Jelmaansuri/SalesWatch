@@ -106,6 +106,11 @@ export const insertPlotSchema = createInsertSchema(plots).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
+}).extend({
+  plantingDate: z.string().transform((val) => new Date(val)),
+  expectedHarvestDate: z.string().nullable().transform((val) => val ? new Date(val) : null),
+  actualHarvestDate: z.string().nullable().transform((val) => val ? new Date(val) : null).optional(),
+  nettingOpenDate: z.string().nullable().transform((val) => val ? new Date(val) : null).optional(),
 });
 
 // Types
