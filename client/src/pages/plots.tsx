@@ -12,7 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { CalendarIcon, Plus, Sprout, Clock, Target, AlertTriangle, CheckCircle, MapPin, BarChart3, Eye, Edit, Trash2 } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
@@ -62,18 +62,21 @@ function PlotCard({ plot, onEdit, onDelete }: {
   const nettingOpenDate = plot.nettingOpenDate ? parseISO(plot.nettingOpenDate) : null;
   const today = new Date();
   
-  // PROGENY AGROTECH Calculation Standards (from Excel template)
+  // PROGENY AGROTECH Calculation Standards
   const daysSincePlanting = Math.max(0, differenceInDays(today, plantingDate));
-  const hstDays = daysSincePlanting; // HST (Hours Since Transplant) shown as days
-  const mstWeeks = Math.floor(daysSincePlanting / 7); // MST (Months Since Transplant) shown as weeks
+  const dapDays = daysSincePlanting; // DAP (Days After Planting)
+  const wapWeeks = Math.floor(daysSincePlanting / 7); // WAP (Weeks After Planting)
+  
+  // Calculate Expected Harvest Date and Netting Open Date from planting date
+  const calculatedHarvestDate = addDays(plantingDate, plot.daysToMaturity);
+  const calculatedNettingDate = addDays(plantingDate, plot.daysToOpenNetting);
   
   // Days remaining calculations
-  const daysToHarvest = Math.max(0, differenceInDays(expectedHarvestDate, today));
-  const daysToOpenShade = nettingOpenDate ? Math.max(0, differenceInDays(nettingOpenDate, today)) : 0;
+  const daysToHarvest = Math.max(0, differenceInDays(calculatedHarvestDate, today));
+  const daysToOpenShade = Math.max(0, differenceInDays(calculatedNettingDate, today));
   
   // Progress calculations
-  const totalDaysToMaturity = plot.daysToMaturity;
-  const harvestProgress = Math.min((daysSincePlanting / totalDaysToMaturity) * 100, 100);
+  const harvestProgress = Math.min((daysSincePlanting / plot.daysToMaturity) * 100, 100);
   
   // Status indicators
   const isShadeOpeningSoon = daysToOpenShade <= 7 && daysToOpenShade > 0;
@@ -144,19 +147,35 @@ function PlotCard({ plot, onEdit, onDelete }: {
       </CardHeader>
       
       <CardContent className="space-y-4">
-        {/* PROGENY Standard Metrics: HST and MST Display */}
+        {/* PROGENY Standard Metrics: DAP and WAP Display */}
         <div className="grid grid-cols-2 gap-4">
           <div className="bg-green-50 dark:bg-green-900/20 p-3 rounded-lg">
-            <div className="text-2xl font-bold text-green-700 dark:text-green-400" data-testid={`text-hst-${plot.id}`}>
-              {hstDays}
+            <div className="text-2xl font-bold text-green-700 dark:text-green-400" data-testid={`text-dap-${plot.id}`}>
+              {dapDays}
             </div>
-            <div className="text-sm text-green-600 dark:text-green-500">HST (Days Since Transplant)</div>
+            <div className="text-sm text-green-600 dark:text-green-500">DAP (Days After Planting)</div>
           </div>
           <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg">
-            <div className="text-2xl font-bold text-blue-700 dark:text-blue-400" data-testid={`text-mst-${plot.id}`}>
-              {mstWeeks}
+            <div className="text-2xl font-bold text-blue-700 dark:text-blue-400" data-testid={`text-wap-${plot.id}`}>
+              {wapWeeks}
             </div>
-            <div className="text-sm text-blue-600 dark:text-blue-500">MST (Weeks Since Transplant)</div>
+            <div className="text-sm text-blue-600 dark:text-blue-500">WAP (Weeks After Planting)</div>
+          </div>
+        </div>
+        
+        {/* Calculated Dates Display */}
+        <div className="grid grid-cols-2 gap-4">
+          <div className="bg-amber-50 dark:bg-amber-900/20 p-3 rounded-lg">
+            <div className="text-sm font-medium text-amber-700 dark:text-amber-400" data-testid={`text-harvest-date-${plot.id}`}>
+              {format(calculatedHarvestDate, "MMM dd, yyyy")}
+            </div>
+            <div className="text-xs text-amber-600 dark:text-amber-500">Expected Harvest Date</div>
+          </div>
+          <div className="bg-purple-50 dark:bg-purple-900/20 p-3 rounded-lg">
+            <div className="text-sm font-medium text-purple-700 dark:text-purple-400" data-testid={`text-netting-date-${plot.id}`}>
+              {format(calculatedNettingDate, "MMM dd, yyyy")}
+            </div>
+            <div className="text-xs text-purple-600 dark:text-purple-500">Netting Open Date</div>
           </div>
         </div>
         
@@ -168,22 +187,20 @@ function PlotCard({ plot, onEdit, onDelete }: {
             </div>
             <div className="text-sm text-orange-600 dark:text-orange-500">Days Remaining to Harvest</div>
           </div>
-          {nettingOpenDate && (
-            <div className={cn("p-3 rounded-lg", 
-              isShadeOpeningSoon ? "bg-red-50 dark:bg-red-900/20" : "bg-purple-50 dark:bg-purple-900/20"
-            )}>
-              <div className={cn("text-xl font-bold", 
-                isShadeOpeningSoon ? "text-red-700 dark:text-red-400" : "text-purple-700 dark:text-purple-400"
-              )} data-testid={`text-days-shade-${plot.id}`}>
-                {daysToOpenShade}
-              </div>
-              <div className={cn("text-sm", 
-                isShadeOpeningSoon ? "text-red-600 dark:text-red-500" : "text-purple-600 dark:text-purple-500"
-              )}>
-                Days to Open Shade
-              </div>
+          <div className={cn("p-3 rounded-lg", 
+            isShadeOpeningSoon ? "bg-red-50 dark:bg-red-900/20" : "bg-purple-50 dark:bg-purple-900/20"
+          )}>
+            <div className={cn("text-xl font-bold", 
+              isShadeOpeningSoon ? "text-red-700 dark:text-red-400" : "text-purple-700 dark:text-purple-400"
+            )} data-testid={`text-days-shade-${plot.id}`}>
+              {daysToOpenShade}
             </div>
-          )}
+            <div className={cn("text-sm", 
+              isShadeOpeningSoon ? "text-red-600 dark:text-red-500" : "text-purple-600 dark:text-purple-500"
+            )}>
+              Days to Open Shade
+            </div>
+          </div>
         </div>
 
         {/* Harvest Progress (PROGENY Standard) */}
@@ -477,6 +494,34 @@ function PlotForm({
                 )}
               />
 
+
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="daysToMaturity"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Days to Harvest</FormLabel>
+                    <FormControl>
+                      <Input 
+                        type="number" 
+                        placeholder="135" 
+                        {...field}
+                        value={field.value || ""}
+                        onChange={e => field.onChange(parseInt(e.target.value) || 0)}
+                        data-testid="input-days-harvest"
+                      />
+                    </FormControl>
+                    <FormDescription>
+                      Days from planting to harvest (e.g., 135 for ginger)
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
               <FormField
                 control={form.control}
                 name="daysToOpenNetting"
@@ -486,55 +531,38 @@ function PlotForm({
                     <FormControl>
                       <Input 
                         type="number" 
-                        placeholder="30" 
+                        placeholder="75" 
                         {...field}
                         value={field.value || ""}
                         onChange={e => field.onChange(parseInt(e.target.value) || 0)}
                         data-testid="input-days-netting"
                       />
                     </FormControl>
+                    <FormDescription>
+                      Days from planting to open shade netting (e.g., 75 for ginger)
+                    </FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
               />
             </div>
 
+            {/* Auto-calculated Display Fields */}
             <div className="grid grid-cols-2 gap-4">
               <FormField
                 control={form.control}
                 name="expectedHarvestDate"
                 render={({ field }) => (
-                  <FormItem className="flex flex-col">
-                    <FormLabel>Expected Harvest Date</FormLabel>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <FormControl>
-                          <Button
-                            variant="outline"
-                            className={cn(
-                              "w-full pl-3 text-left font-normal",
-                              !field.value && "text-muted-foreground"
-                            )}
-                            data-testid="button-expected-harvest-date"
-                          >
-                            {field.value ? (
-                              format(field.value, "PPP")
-                            ) : (
-                              <span>Pick a date</span>
-                            )}
-                            <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                          </Button>
-                        </FormControl>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="start">
-                        <Calendar
-                          mode="single"
-                          selected={field.value}
-                          onSelect={field.onChange}
-                          initialFocus
-                        />
-                      </PopoverContent>
-                    </Popover>
+                  <FormItem>
+                    <FormLabel>Expected Harvest Date (Auto-calculated)</FormLabel>
+                    <FormControl>
+                      <Input 
+                        placeholder="Auto-calculated from planting date + days to harvest" 
+                        value={field.value ? format(field.value, "PPP") : "Will be calculated automatically"}
+                        disabled
+                        data-testid="input-harvest-date-readonly"
+                      />
+                    </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -544,12 +572,12 @@ function PlotForm({
                 control={form.control}
                 name="nettingOpenDate"
                 render={({ field }) => (
-                  <FormItem className="flex flex-col">
+                  <FormItem>
                     <FormLabel>Netting Open Date (Auto-calculated)</FormLabel>
                     <FormControl>
                       <Input 
-                        placeholder="Calculated automatically" 
-                        value={field.value ? format(field.value, "PPP") : "Auto-calculated from planting date + days to open netting"}
+                        placeholder="Auto-calculated from planting date + days to open netting" 
+                        value={field.value ? format(field.value, "PPP") : "Will be calculated automatically"}
                         disabled
                         data-testid="input-netting-date-readonly"
                       />
@@ -713,10 +741,20 @@ export default function PlotsPage() {
   });
 
   const handleSubmit = (data: PlotFormData) => {
+    // Auto-calculate Expected Harvest Date and Netting Open Date
+    const calculatedHarvestDate = addDays(data.plantingDate, data.daysToMaturity || 135);
+    const calculatedNettingDate = addDays(data.plantingDate, data.daysToOpenNetting || 75);
+    
+    const enrichedData = {
+      ...data,
+      expectedHarvestDate: calculatedHarvestDate,
+      nettingOpenDate: calculatedNettingDate,
+    };
+
     if (editingPlot) {
-      updateMutation.mutate({ id: editingPlot.id, data });
+      updateMutation.mutate({ id: editingPlot.id, data: enrichedData });
     } else {
-      createMutation.mutate(data);
+      createMutation.mutate(enrichedData);
     }
   };
 
