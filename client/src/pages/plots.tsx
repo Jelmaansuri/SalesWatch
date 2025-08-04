@@ -1319,67 +1319,26 @@ export default function Plots() {
     if (!harvestingPlot) return;
 
     try {
-      // HARVEST ACCUMULATION LOGIC - WORKS FOR ALL PLOTS (EXISTING AND NEW)
+      // Calculate total harvested amount (properly accumulate across cycles)
       const currentTotal = parseFloat(harvestingPlot.totalHarvestedKg?.toString() || "0");
       const currentCycleAmount = parseFloat(harvestingPlot.harvestAmountKg?.toString() || "0");
       
-      // CORRECTED LOGIC: Check if we're advancing to a NEW cycle vs editing current cycle
+      // Always add the new harvest amount to the accumulated total
+      // If there's already a harvest for this cycle, subtract it first to avoid double counting
       let newTotal;
-      
-      // Detect if this form submission is advancing to a new cycle
-      // IMPORTANT: Only count as new cycle if currentCycle is GREATER than harvestingPlot.currentCycle
-      const isAdvancingToNewCycle = data.currentCycle > harvestingPlot.currentCycle;
-      
-      if (isAdvancingToNewCycle) {
-        // NEW CYCLE: Always accumulate to total
-        newTotal = currentTotal + data.harvestAmountKg;
-        console.log(`NEW CYCLE ${harvestingPlot.currentCycle}→${data.currentCycle}: Adding ${data.harvestAmountKg}kg to total ${currentTotal}kg`);
+      if (currentCycleAmount > 0) {
+        // Replace existing harvest for this cycle: remove old amount, add new amount
+        newTotal = currentTotal - currentCycleAmount + data.harvestAmountKg;
       } else {
-        // SAME CYCLE: Check if editing existing harvest or first harvest
-        const hasExistingHarvest = currentCycleAmount > 0 && 
-          harvestingPlot.status === "harvested" && 
-          harvestingPlot.actualHarvestDate;
-          
-        if (hasExistingHarvest) {
-          // EDITING current cycle's harvest: Replace old amount with new amount
-          newTotal = currentTotal - currentCycleAmount + data.harvestAmountKg;
-          console.log(`EDIT CURRENT CYCLE ${harvestingPlot.currentCycle}: Replacing ${currentCycleAmount}kg → ${data.harvestAmountKg}kg`);
-        } else {
-          // FIRST harvest for this cycle: Add to total
-          newTotal = currentTotal + data.harvestAmountKg;
-          console.log(`FIRST HARVEST CYCLE ${harvestingPlot.currentCycle}: Adding ${data.harvestAmountKg}kg to total ${currentTotal}kg`);
-        }
+        // First harvest for this cycle: add to the accumulated total
+        newTotal = currentTotal + data.harvestAmountKg;
       }
       
-      // Logic is now handled above with cycle detection
-      
-      // Critical safety check - newTotal should never be negative or less than new harvest
-      if (newTotal < 0) {
-        console.error(`ERROR: Negative total calculated (${newTotal}). Resetting to new harvest amount.`);
-        newTotal = data.harvestAmountKg;
-      }
-      
-      console.log(`✓ HARVEST ACCUMULATION for ${harvestingPlot.name}:`, {
-        plotName: harvestingPlot.name,
-        currentCycle: harvestingPlot.currentCycle,
-        plotStatus: harvestingPlot.status,
-        hasActualHarvestDate: !!harvestingPlot.actualHarvestDate,
-        previousTotal: currentTotal,
-        currentCycleOldAmount: currentCycleAmount,
+      console.log(`Harvest calculation for ${harvestingPlot.name}:`, {
+        currentTotal,
+        currentCycleAmount,
         newHarvestAmount: data.harvestAmountKg,
-        calculatedNewTotal: newTotal,
-        operation: isAdvancingToNewCycle ? 'ADVANCE_NEW_CYCLE' : 
-          (currentCycleAmount > 0 && harvestingPlot.status === "harvested" ? 'EDIT_CURRENT_CYCLE' : 'FIRST_HARVEST'),
-        cycleChange: {
-          fromCycle: harvestingPlot.currentCycle,
-          toCycle: data.currentCycle,
-          isAdvancing: isAdvancingToNewCycle
-        },
-        formula: isAdvancingToNewCycle ? 
-          `NEW CYCLE: ${currentTotal} + ${data.harvestAmountKg} = ${newTotal}` :
-          (currentCycleAmount > 0 ? 
-            `EDIT: ${currentTotal} - ${currentCycleAmount} + ${data.harvestAmountKg} = ${newTotal}` :
-            `FIRST: ${currentTotal} + ${data.harvestAmountKg} = ${newTotal}`)
+        newTotal
       });
 
       let payload: any = {
