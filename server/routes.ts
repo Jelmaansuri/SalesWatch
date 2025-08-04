@@ -82,12 +82,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.delete("/api/customers/:id", isAuthenticated, async (req, res) => {
     try {
+      // Check if customer has any sales records
+      const customerSales = await storage.getSalesByCustomerId(req.params.id);
+      if (customerSales.length > 0) {
+        return res.status(400).json({ 
+          message: `Cannot delete customer. Customer has ${customerSales.length} sales record(s). Please delete or reassign the sales records first.`,
+          salesCount: customerSales.length
+        });
+      }
+
       const deleted = await storage.deleteCustomer(req.params.id);
       if (!deleted) {
         return res.status(404).json({ message: "Customer not found" });
       }
       res.status(204).send();
     } catch (error) {
+      console.error("Error deleting customer:", error);
+      if (error instanceof Error && error.message.includes("foreign key constraint")) {
+        return res.status(400).json({ 
+          message: "Cannot delete customer because they have associated sales records. Please delete the sales records first." 
+        });
+      }
       res.status(500).json({ message: "Failed to delete customer" });
     }
   });
@@ -152,12 +167,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.delete("/api/products/:id", isAuthenticated, async (req, res) => {
     try {
+      // Check if product has any sales records
+      const productSales = await storage.getSalesByProductId(req.params.id);
+      if (productSales.length > 0) {
+        return res.status(400).json({ 
+          message: `Cannot delete product. Product has ${productSales.length} sales record(s). Please delete or reassign the sales records first.`,
+          salesCount: productSales.length
+        });
+      }
+
       const deleted = await storage.deleteProduct(req.params.id);
       if (!deleted) {
         return res.status(404).json({ message: "Product not found" });
       }
       res.status(204).send();
     } catch (error) {
+      console.error("Error deleting product:", error);
+      if (error instanceof Error && error.message.includes("foreign key constraint")) {
+        return res.status(400).json({ 
+          message: "Cannot delete product because it has associated sales records. Please delete the sales records first." 
+        });
+      }
       res.status(500).json({ message: "Failed to delete product" });
     }
   });
@@ -438,12 +468,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         profit: parseFloat(sale.profit),
         profitMargin: parseFloat(sale.totalAmount) > 0 ? (parseFloat(sale.profit) / parseFloat(sale.totalAmount)) * 100 : 0,
         status: sale.status,
-        statusLabel: (['paid', 'pending_shipment', 'shipped', 'completed'].includes(sale.status) ? {
-          'paid': 'Paid',
-          'pending_shipment': 'Pending Shipment',
-          'shipped': 'Shipped',
-          'completed': 'Completed'
-        }[sale.status] : sale.status) as string,
+        statusLabel: (() => {
+          const statusMap = {
+            'paid': 'Paid',
+            'pending_shipment': 'Pending Shipment',
+            'shipped': 'Shipped',
+            'completed': 'Completed'
+          };
+          return statusMap[sale.status as keyof typeof statusMap] || sale.status;
+        })(),
         notes: sale.notes || 'N/A'
       })).sort((a: any, b: any) => new Date(b.orderDate + 'T' + b.orderTime).getTime() - new Date(a.orderDate + 'T' + a.orderTime).getTime());
 

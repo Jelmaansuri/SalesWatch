@@ -29,6 +29,8 @@ export interface IStorage {
   getSalesWithDetails(): Promise<SaleWithDetails[]>;
   getSale(id: string): Promise<Sale | undefined>;
   getSaleWithDetails(id: string): Promise<SaleWithDetails | undefined>;
+  getSalesByCustomerId(customerId: string): Promise<Sale[]>;
+  getSalesByProductId(productId: string): Promise<Sale[]>;
   createSale(sale: InsertSale): Promise<Sale>;
   updateSale(id: string, updates: Partial<Sale>): Promise<Sale | undefined>;
   deleteSale(id: string): Promise<boolean>;
@@ -345,6 +347,16 @@ export class MemStorage implements IStorage {
     await this.updateProductStock(sale.productId, sale.quantity);
     
     return this.sales.delete(id);
+  }
+
+  async getSalesByCustomerId(customerId: string): Promise<Sale[]> {
+    const sales = Array.from(this.sales.values());
+    return sales.filter(sale => sale.customerId === customerId);
+  }
+
+  async getSalesByProductId(productId: string): Promise<Sale[]> {
+    const sales = Array.from(this.sales.values());
+    return sales.filter(sale => sale.productId === productId);
   }
 
   // Analytics
@@ -763,6 +775,14 @@ export class DatabaseStorage implements IStorage {
   async deleteSale(id: string): Promise<boolean> {
     const result = await db.delete(sales).where(eq(sales.id, id));
     return result.rowCount! > 0;
+  }
+
+  async getSalesByCustomerId(customerId: string): Promise<Sale[]> {
+    return await db.select().from(sales).where(eq(sales.customerId, customerId));
+  }
+
+  async getSalesByProductId(productId: string): Promise<Sale[]> {
+    return await db.select().from(sales).where(eq(sales.productId, productId));
   }
 
   // Stock Management
