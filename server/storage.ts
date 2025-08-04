@@ -1,7 +1,7 @@
-import { type Customer, type InsertCustomer, type Product, type InsertProduct, type Sale, type InsertSale, type SaleWithDetails, type DashboardMetrics, type User, type UpsertUser } from "@shared/schema";
+import { type Customer, type InsertCustomer, type Product, type InsertProduct, type Sale, type InsertSale, type SaleWithDetails, type DashboardMetrics, type User, type UpsertUser, type Plot, type InsertPlot } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { db } from "./db";
-import { customers, products, sales, users } from "@shared/schema";
+import { customers, products, sales, users, plots } from "@shared/schema";
 import { eq, desc, sql, and } from "drizzle-orm";
 
 export interface IStorage {
@@ -43,6 +43,13 @@ export interface IStorage {
   getDashboardMetrics(): Promise<DashboardMetrics>;
   getRevenueByMonth(): Promise<{ month: string; revenue: number }[]>;
   getTopProducts(): Promise<Array<{ product: Product; totalRevenue: number; totalProfit: number; unitsSold: number }>>;
+
+  // Plots
+  getPlots(userId: string): Promise<Plot[]>;
+  getPlot(id: string): Promise<Plot | undefined>;
+  createPlot(plot: InsertPlot): Promise<Plot>;
+  updatePlot(id: string, updates: Partial<Plot>): Promise<Plot | undefined>;
+  deletePlot(id: string): Promise<boolean>;
 }
 
 export class MemStorage implements IStorage {
@@ -50,12 +57,14 @@ export class MemStorage implements IStorage {
   private customers: Map<string, Customer>;
   private products: Map<string, Product>;
   private sales: Map<string, Sale>;
+  private plots: Map<string, Plot>;
 
   constructor() {
     this.users = new Map();
     this.customers = new Map();
     this.products = new Map();
     this.sales = new Map();
+    this.plots = new Map();
     this.initializeSampleData();
   }
 
@@ -288,6 +297,7 @@ export class MemStorage implements IStorage {
     const now = new Date();
     const sale: Sale = {
       id,
+      userId: insertSale.userId,
       status: insertSale.status,
       customerId: insertSale.customerId,
       productId: insertSale.productId,
@@ -560,6 +570,7 @@ export class DatabaseStorage implements IStorage {
     const result = await db
       .select({
         id: sales.id,
+        userId: sales.userId,
         customerId: sales.customerId,
         productId: sales.productId,
         quantity: sales.quantity,
@@ -602,6 +613,7 @@ export class DatabaseStorage implements IStorage {
     
     return result.map(row => ({
       id: row.id,
+      userId: row.userId,
       customerId: row.customerId,
       productId: row.productId,
       quantity: row.quantity,
@@ -674,6 +686,7 @@ export class DatabaseStorage implements IStorage {
     const row = result[0];
     return {
       id: row.id,
+      userId: row.userId,
       customerId: row.customerId,
       productId: row.productId,
       quantity: row.quantity,
@@ -711,6 +724,7 @@ export class DatabaseStorage implements IStorage {
 
     const saleRecord = {
       id: randomUUID(),
+      userId: sale.userId,
       customerId: sale.customerId,
       productId: sale.productId,
       quantity: sale.quantity,
@@ -887,6 +901,38 @@ export class DatabaseStorage implements IStorage {
       totalProfit: Number(row.totalProfit),
       unitsSold: Number(row.unitsSold),
     }));
+  }
+
+  // Plot Management
+  async getPlots(userId: string): Promise<Plot[]> {
+    return await db.select().from(plots).where(eq(plots.userId, userId)).orderBy(desc(plots.createdAt));
+  }
+
+  async getPlot(id: string): Promise<Plot | undefined> {
+    const [plot] = await db.select().from(plots).where(eq(plots.id, id));
+    return plot || undefined;
+  }
+
+  async createPlot(plot: InsertPlot): Promise<Plot> {
+    const [newPlot] = await db.insert(plots).values({
+      ...plot,
+      id: randomUUID(),
+    }).returning();
+    return newPlot;
+  }
+
+  async updatePlot(id: string, updates: Partial<Plot>): Promise<Plot | undefined> {
+    const [updatedPlot] = await db
+      .update(plots)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(plots.id, id))
+      .returning();
+    return updatedPlot || undefined;
+  }
+
+  async deletePlot(id: string): Promise<boolean> {
+    const result = await db.delete(plots).where(eq(plots.id, id));
+    return result.rowCount! > 0;
   }
 }
 

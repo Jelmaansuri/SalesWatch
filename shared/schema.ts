@@ -50,6 +50,7 @@ export const products = pgTable("products", {
 
 export const sales = pgTable("sales", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id),
   customerId: varchar("customer_id").notNull().references(() => customers.id),
   productId: varchar("product_id").notNull().references(() => products.id),
   quantity: integer("quantity").notNull(),
@@ -60,6 +61,24 @@ export const sales = pgTable("sales", {
   status: text("status").notNull(), // unpaid, paid, pending_shipment, shipped, completed
   saleDate: timestamp("sale_date").defaultNow().notNull(),
   platformSource: text("platform_source").notNull(), // tiktok, facebook, whatsapp, others
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const plots = pgTable("plots", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  name: text("name").notNull(),
+  size: decimal("size", { precision: 10, scale: 2 }).notNull(), // in acres or hectares
+  location: text("location").notNull(),
+  cropType: text("crop_type").notNull(), // ginger, etc.
+  plantingDate: timestamp("planting_date").notNull(),
+  expectedHarvestDate: timestamp("expected_harvest_date").notNull(),
+  actualHarvestDate: timestamp("actual_harvest_date"),
+  daysToMaturity: integer("days_to_maturity").notNull(), // user-defined maturity period
+  nettingOpenDate: timestamp("netting_open_date"), // when to open netting for protection
+  status: text("status").notNull().default("planted"), // planted, growing, ready_for_harvest, harvested, dormant
   notes: text("notes"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
@@ -82,6 +101,12 @@ export const insertSaleSchema = createInsertSchema(sales).omit({
   updatedAt: true,
 });
 
+export const insertPlotSchema = createInsertSchema(plots).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 // Types
 export type Customer = typeof customers.$inferSelect;
 export type InsertCustomer = z.infer<typeof insertCustomerSchema>;
@@ -91,6 +116,9 @@ export type InsertProduct = z.infer<typeof insertProductSchema>;
 
 export type Sale = typeof sales.$inferSelect;
 export type InsertSale = z.infer<typeof insertSaleSchema>;
+
+export type Plot = typeof plots.$inferSelect;
+export type InsertPlot = z.infer<typeof insertPlotSchema>;
 
 // Derived types for API responses
 export type SaleWithDetails = Sale & {
