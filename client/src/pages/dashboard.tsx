@@ -14,6 +14,7 @@ export default function Dashboard() {
     queryKey: ["/api/analytics/dashboard"],
     staleTime: 0, // Always fetch fresh data
     gcTime: 0, // Don't cache the data (React Query v5)
+
   });
 
   const { data: revenueData = [], isLoading: revenueLoading } = useQuery<{ month: string; revenue: number }[]>({

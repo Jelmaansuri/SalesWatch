@@ -29,9 +29,10 @@ export default function MetricsCards({ metrics }: MetricsCardsProps) {
     },
     {
       title: "Harvested",
-      value: metrics.completedCycles.toString(),
+      value: `${metrics.completedCycles}`,
+      subtitle: "Completed cycles",
       icon: Wheat,
-      iconColor: "text-purple-600",
+      iconColor: "text-purple-600", 
       bgColor: "bg-purple-600 bg-opacity-10",
       change: null,
       changeType: null,

@@ -935,17 +935,29 @@ export class DatabaseStorage implements IStorage {
     
     // Calculate completed cycles from all plots
     const allPlots = await db.select().from(plots);
+    console.log('Dashboard calculation - all plots:', allPlots.map(p => ({ 
+      name: p.name, 
+      status: p.status, 
+      currentCycle: p.currentCycle,
+      totalHarvestedKg: p.totalHarvestedKg 
+    })));
+    
     const completedCycles = allPlots.reduce((sum, plot) => {
+      let cyclesForThisPlot = 0;
       // For plots with "harvested" status, the currentCycle represents completed cycles
       // For other statuses, we only count cycles that have been fully harvested (currentCycle - 1)
       if (plot.status === 'harvested') {
-        return sum + plot.currentCycle;
+        cyclesForThisPlot = plot.currentCycle;
       } else if (plot.currentCycle > 1) {
         // For plots in other statuses, count previously completed cycles
-        return sum + (plot.currentCycle - 1);
+        cyclesForThisPlot = plot.currentCycle - 1;
       }
-      return sum;
+      
+      console.log(`Plot ${plot.name}: status=${plot.status}, currentCycle=${plot.currentCycle}, contributing ${cyclesForThisPlot} cycles`);
+      return sum + cyclesForThisPlot;
     }, 0);
+    
+    console.log('Total completed cycles calculated:', completedCycles);
     
     // Calculate total harvest amount across all plots
     const totalHarvestKg = allPlots.reduce((sum, plot) => {
@@ -964,6 +976,15 @@ export class DatabaseStorage implements IStorage {
       shipped: allSales.filter(s => s.status === 'shipped').length,
       completed: allSales.filter(s => s.status === 'completed').length,
     };
+
+    console.log('API returning dashboard metrics:', { 
+      totalRevenue, 
+      totalProfit, 
+      activeOrders, 
+      totalCustomers, 
+      completedCycles, 
+      totalHarvestKg 
+    });
 
     return {
       totalRevenue,
