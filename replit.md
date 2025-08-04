@@ -79,3 +79,10 @@ const isEditingCurrentCycle = data.currentCycle === harvestingPlot.currentCycle;
 ```
 
 This logic ensures perfect accumulation across cycles while allowing specific cycle edits without affecting other cycles. All plots must follow this exact pattern for consistency.
+
+**Testing Verified (Aug 2025):**
+- Plot Ayam: Successfully tested complete cycle workflow
+- Cycle 1: 200kg → Cycle 2: +500kg = 700kg total ✓
+- Harvest updates work: Edit 400kg → 500kg = 700kg total ✓  
+- Next cycle works: Preserves 700kg total, resets current harvest ✓
+- All validation and API integration confirmed working

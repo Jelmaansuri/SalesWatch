@@ -1316,7 +1316,7 @@ export default function Plots() {
       const nextCyclePayload = {
         ...data,
         // Fix validation errors based on schema requirements
-        harvestAmountKg: 0,                          // Set to 0 instead of null (required number)
+        harvestAmountKg: null,                       // Reset to null for new cycle
         totalHarvestedKg: currentTotal.toString(),   // Convert to string as required by schema
         actualHarvestDate: null,                     // Reset harvest date for new cycle
         status: data.status,                         // Use the status from form
