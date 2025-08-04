@@ -1319,33 +1319,39 @@ export default function Plots() {
     if (!harvestingPlot) return;
 
     try {
-      // Calculate total harvested amount (properly accumulate across cycles)
+      // HARVEST ACCUMULATION LOGIC - WORKS FOR ALL PLOTS (EXISTING AND NEW)
       const currentTotal = parseFloat(harvestingPlot.totalHarvestedKg?.toString() || "0");
       const currentCycleAmount = parseFloat(harvestingPlot.harvestAmountKg?.toString() || "0");
       
-      // Accumulation logic: Always preserve previous cycles' totals and add current cycle
+      // Core accumulation formula that preserves ALL previous cycles
       let newTotal;
       if (currentCycleAmount > 0) {
-        // Replace existing harvest for this cycle: remove old current cycle amount, add new current cycle amount
-        // Formula: (total from all cycles) - (current cycle's old amount) + (current cycle's new amount)
+        // Updating existing harvest for current cycle:
+        // Remove the old amount for this cycle, add the new amount for this cycle
+        // This preserves all previous cycles' accumulated totals
         newTotal = currentTotal - currentCycleAmount + data.harvestAmountKg;
+        console.log(`UPDATE: Replacing cycle ${harvestingPlot.currentCycle} harvest: ${currentCycleAmount}kg → ${data.harvestAmountKg}kg`);
       } else {
-        // First harvest for this cycle: add to the accumulated total from previous cycles
+        // First harvest for current cycle:
+        // Add new harvest to the total accumulated from all previous cycles
         newTotal = currentTotal + data.harvestAmountKg;
+        console.log(`NEW: Adding cycle ${harvestingPlot.currentCycle} harvest: ${data.harvestAmountKg}kg to existing ${currentTotal}kg`);
       }
       
-      // Ensure newTotal is never less than the new harvest amount (safety check for single cycle plots)
-      if (newTotal < data.harvestAmountKg && harvestingPlot.currentCycle === 1) {
-        console.warn(`Warning: Single cycle plot total (${newTotal}) less than harvest (${data.harvestAmountKg}). Using harvest amount.`);
+      // Critical safety check - newTotal should never be negative or less than new harvest
+      if (newTotal < 0) {
+        console.error(`ERROR: Negative total calculated (${newTotal}). Resetting to new harvest amount.`);
         newTotal = data.harvestAmountKg;
       }
       
-      console.log(`Harvest calculation for ${harvestingPlot.name}:`, {
-        currentTotal,
-        currentCycleAmount,
+      console.log(`✓ HARVEST ACCUMULATION for ${harvestingPlot.name}:`, {
+        plotName: harvestingPlot.name,
+        currentCycle: harvestingPlot.currentCycle,
+        previousTotal: currentTotal,
+        currentCycleOldAmount: currentCycleAmount,
         newHarvestAmount: data.harvestAmountKg,
-        calculatedTotal: newTotal,
-        currentCycle: harvestingPlot.currentCycle
+        calculatedNewTotal: newTotal,
+        operation: currentCycleAmount > 0 ? 'REPLACE_CYCLE' : 'ADD_NEW_CYCLE'
       });
 
       let payload: any = {
