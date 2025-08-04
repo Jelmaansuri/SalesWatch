@@ -901,10 +901,13 @@ export class DatabaseStorage implements IStorage {
     // Calculate completed cycles from all plots
     const allPlots = await db.select().from(plots);
     const completedCycles = allPlots.reduce((sum, plot) => {
-      // Count harvested cycles: if status is harvested, count the current cycle
-      // For multi-cycle plots, count all completed cycles (currentCycle represents total completed)
+      // For plots with "harvested" status, the currentCycle represents completed cycles
+      // For other statuses, we only count cycles that have been fully harvested (currentCycle - 1)
       if (plot.status === 'harvested') {
         return sum + plot.currentCycle;
+      } else if (plot.currentCycle > 1) {
+        // For plots in other statuses, count previously completed cycles
+        return sum + (plot.currentCycle - 1);
       }
       return sum;
     }, 0);

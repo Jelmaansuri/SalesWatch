@@ -278,14 +278,12 @@ function PlotCard({ plot, onEdit, onDelete, onHarvest, onNextCycle }: {
             <span className="text-gray-600 dark:text-gray-400">Expected Harvest:</span>
             <span data-testid={`text-expected-harvest-${plot.id}`}>{format(expectedHarvestDate, "MMM dd, yyyy")}</span>
           </div>
-          {actualHarvestDate && (
-            <div className="flex justify-between">
-              <span className="text-gray-600 dark:text-gray-400">Actual Harvest:</span>
-              <span className="text-green-600 dark:text-green-400" data-testid={`text-actual-harvest-${plot.id}`}>
-                {format(actualHarvestDate, "MMM dd, yyyy")}
-              </span>
-            </div>
-          )}
+          <div className="flex justify-between">
+            <span className="text-gray-600 dark:text-gray-400">Actual Harvest:</span>
+            <span className={actualHarvestDate ? "text-green-600 dark:text-green-400" : "text-gray-500 dark:text-gray-500"} data-testid={`text-actual-harvest-${plot.id}`}>
+              {actualHarvestDate ? format(actualHarvestDate, "MMM dd, yyyy") : "Not available"}
+            </span>
+          </div>
           {nettingOpenDate && (
             <div className="flex justify-between">
               <span className="text-gray-600 dark:text-gray-400">Netting Open:</span>
