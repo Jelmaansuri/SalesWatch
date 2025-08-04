@@ -1301,11 +1301,19 @@ export default function Plots() {
       const currentTotal = parseFloat(harvestingPlot.totalHarvestedKg?.toString() || "0");
       const currentCycleAmount = parseFloat(harvestingPlot.harvestAmountKg?.toString() || "0");
       
-      // If this is updating an existing harvest for the current cycle, replace the current cycle amount
-      // If this is a new harvest (harvestAmountKg is null/0), add to the total
-      const newTotal = currentCycleAmount > 0 ? 
-        currentTotal - currentCycleAmount + data.harvestAmountKg : // Replace existing harvest for this cycle
-        currentTotal + data.harvestAmountKg; // Add new harvest to total
+      // PROGENY AGROTECH HARVEST ACCUMULATION LOGIC
+      // Critical: Ensure harvest amounts accumulate across cycles for ALL plots
+      let newTotal: number;
+      
+      if (currentCycleAmount > 0) {
+        // If there's already a harvest amount for this cycle, replace it (not add to avoid double counting)
+        newTotal = currentTotal - currentCycleAmount + data.harvestAmountKg;
+        console.log(`Plot ${harvestingPlot.name}: Replacing existing harvest - Previous total: ${currentTotal}, Current cycle: ${currentCycleAmount}, New harvest: ${data.harvestAmountKg}, New total: ${newTotal}`);
+      } else {
+        // If this is a new harvest for this cycle, add to the total
+        newTotal = currentTotal + data.harvestAmountKg;
+        console.log(`Plot ${harvestingPlot.name}: Adding new harvest - Previous total: ${currentTotal}, New harvest: ${data.harvestAmountKg}, New total: ${newTotal}`);
+      }
 
       let payload: any = {
         status: "harvested",
@@ -1327,9 +1335,10 @@ export default function Plots() {
           expectedHarvestDate: addDays(nextPlantingDate, harvestingPlot.daysToMaturity).toISOString(),
           nettingOpenDate: addDays(nextPlantingDate, harvestingPlot.daysToOpenNetting).toISOString(),
           actualHarvestDate: null,
-          harvestAmountKg: null,
-          // Keep the total accumulated harvest amount
+          harvestAmountKg: null, // Reset current cycle harvest amount for new cycle
+          // CRITICAL: totalHarvestedKg remains as newTotal to preserve accumulation
         };
+        console.log(`Plot ${harvestingPlot.name}: Starting next cycle ${harvestingPlot.currentCycle + 1} - Total accumulated: ${newTotal}kg`);
       }
 
       const response = await fetch(`/api/plots/${harvestingPlot.id}`, {
