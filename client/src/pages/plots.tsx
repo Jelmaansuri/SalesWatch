@@ -118,6 +118,7 @@ function PlotCard({ plot, onEdit, onDelete, onHarvest, onNextCycle }: {
   // Status badge colors
   const getStatusColor = (status: string) => {
     switch (status) {
+      case "plot_preparation": return "bg-orange-500";
       case "planted": return "bg-green-500";
       case "growing": return "bg-blue-500";
       case "ready_for_harvest": return "bg-yellow-500";
@@ -129,6 +130,7 @@ function PlotCard({ plot, onEdit, onDelete, onHarvest, onNextCycle }: {
 
   const getStatusLabel = (status: string) => {
     switch (status) {
+      case "plot_preparation": return "Plot Preparation";
       case "planted": return "Planted";
       case "growing": return "Growing";
       case "ready_for_harvest": return "Ready for Harvest";
@@ -1100,7 +1102,7 @@ function NextCycleModal({
       plantingDate: new Date(), // Default to today for new cycle
       daysToMaturity: plot.daysToMaturity,
       daysToOpenNetting: plot.daysToOpenNetting,
-      status: "planted", // Reset to planted for new cycle
+      status: "plot_preparation", // Automatically set to preparation status for new cycle
       currentCycle: plot.currentCycle + 1,
       totalCycles: plot.totalCycles,
       isMultiCycle: plot.isMultiCycle,
@@ -1334,7 +1336,7 @@ export default function Plots() {
         payload = {
           ...payload,
           currentCycle: harvestingPlot.currentCycle + 1,
-          status: "planted",
+          status: "plot_preparation", // Automatically set to preparation status
           plantingDate: nextPlantingDate.toISOString(),
           expectedHarvestDate: addDays(nextPlantingDate, harvestingPlot.daysToMaturity).toISOString(),
           nettingOpenDate: addDays(nextPlantingDate, harvestingPlot.daysToOpenNetting).toISOString(),
