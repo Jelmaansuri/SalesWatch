@@ -121,7 +121,7 @@ export default function AddSaleModal({ open, onOpenChange, onSaleAdded }: AddSal
           status: data.status,
           saleDate: data.saleDate.toISOString(),
           platformSource: data.platformSource,
-          notes: `${data.notes || ""} [GROUP:${groupId}]`, // Add group identifier
+          notes: data.notes || "", // Clean notes without group identifier
         };
         
         console.log("Sending sale data to API:", saleData);

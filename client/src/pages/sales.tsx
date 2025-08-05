@@ -10,6 +10,9 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { format } from "date-fns";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
@@ -27,7 +30,7 @@ import { useToast } from "@/hooks/use-toast";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { formatCurrency } from "@/lib/currency";
 import { ORDER_STATUS_LABELS, ORDER_STATUS_COLORS, PLATFORM_SOURCE_LABELS } from "@/lib/types";
-import { Plus, Edit, Trash2, ShoppingCart, User, Package, FileText } from "lucide-react";
+import { Plus, Edit, Trash2, ShoppingCart, User, Package, FileText, CalendarIcon } from "lucide-react";
 import AddSaleModal from "@/components/modals/add-sale-modal";
 import type { SaleWithDetails, Customer, Product } from "@shared/schema";
 import { z } from "zod";
@@ -247,7 +250,7 @@ export default function Sales() {
       discountAmount: typeof sale.discountAmount === 'string' ? sale.discountAmount : String(sale.discountAmount || 0),
       status: sale.status,
       platformSource: sale.platformSource,
-      notes: sale.notes || "",
+      notes: sale.notes ? sale.notes.replace(/\s*\[GROUP:[^\]]+\]/g, '').trim() : "",
       saleDate: new Date(sale.saleDate), // Include saleDate from existing sale
     });
     setIsEditDialogOpen(true);
@@ -503,6 +506,40 @@ export default function Sales() {
                     )}
                   />
                 </div>
+
+                <FormField
+                  control={form.control}
+                  name="saleDate"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Sale Date</FormLabel>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            className="w-full justify-start text-left font-normal"
+                          >
+                            <CalendarIcon className="mr-2 h-4 w-4" />
+                            {field.value ? (
+                              format(field.value, "PPP")
+                            ) : (
+                              <span>Pick a date</span>
+                            )}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0">
+                          <Calendar
+                            mode="single"
+                            selected={field.value}
+                            onSelect={(date) => date && field.onChange(date)}
+                            initialFocus
+                          />
+                        </PopoverContent>
+                      </Popover>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
                 <FormField
                   control={form.control}
