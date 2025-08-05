@@ -571,10 +571,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.put("/api/user-settings", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
+      console.log("PUT /api/user-settings - userId:", userId);
+      console.log("PUT /api/user-settings - request body:", req.body);
+      
       const updatedSettings = await storage.updateUserSettings(userId, req.body);
       if (!updatedSettings) {
         return res.status(404).json({ message: "User settings not found" });
       }
+      console.log("PUT /api/user-settings - updated successfully:", updatedSettings);
       res.json(updatedSettings);
     } catch (error) {
       console.error("Error updating user settings:", error);

@@ -102,6 +102,14 @@ export default function SettingsPage() {
   const onSubmit = (data: InsertUserSettings) => {
     console.log("Form submitted with data:", data);
     console.log("Form errors:", form.formState.errors);
+    console.log("Form is valid:", form.formState.isValid);
+    
+    // Check if form is valid before submitting
+    if (!form.formState.isValid) {
+      console.log("Form validation failed, not submitting");
+      return;
+    }
+    
     saveSettingsMutation.mutate(data);
   };
 
