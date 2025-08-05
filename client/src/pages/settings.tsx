@@ -268,6 +268,7 @@ export default function SettingsPage() {
                       type="button" 
                       variant="outline" 
                       size="sm"
+                      onClick={() => console.log("Upload logo button clicked")}
                       data-testid="button-upload-logo"
                     >
                       <Upload className="h-4 w-4 mr-2" />
@@ -463,6 +464,10 @@ export default function SettingsPage() {
             <Button 
               type="submit" 
               disabled={saveSettingsMutation.isPending}
+              onClick={(e) => {
+                console.log("Save button clicked", e);
+                console.log("Button disabled?", saveSettingsMutation.isPending);
+              }}
               data-testid="button-save-settings"
             >
               {saveSettingsMutation.isPending ? "Saving..." : "Save Settings"}
