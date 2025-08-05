@@ -33,7 +33,15 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import type { InvoiceWithDetails } from "@shared/schema";
 
-export default function InvoicesPage() {
+export default function Invoices() {
+  return (
+    <MainLayout title="Invoice Management">
+      <InvoicesContent />
+    </MainLayout>
+  );
+}
+
+function InvoicesContent() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState("");
