@@ -365,7 +365,7 @@ export default function Sales() {
       return;
     }
     
-    // Validate product items
+    // Validate product items and check inventory
     const validItems = editProductItems.filter(item => 
       item.productId && item.unitPrice && parseFloat(item.unitPrice) > 0
     );
@@ -377,6 +377,19 @@ export default function Sales() {
         variant: "destructive",
       });
       return;
+    }
+
+    // Check inventory levels for each product
+    for (const item of validItems) {
+      const product = products.find(p => p.id === item.productId);
+      if (product && item.quantity > product.stock) {
+        toast({
+          title: "Insufficient Stock",
+          description: `Not enough stock for ${product.name}. Available: ${product.stock}, Requested: ${item.quantity}`,
+          variant: "destructive",
+        });
+        return;
+      }
     }
     
     // Prepare multi-product update data
@@ -532,8 +545,8 @@ export default function Sales() {
                                 </SelectTrigger>
                                 <SelectContent>
                                   {products.map((product) => (
-                                    <SelectItem key={product.id} value={product.id}>
-                                      {product.name}
+                                    <SelectItem key={product.id} value={product.id} disabled={product.stock === 0}>
+                                      {product.name} - Stock: {product.stock}
                                     </SelectItem>
                                   ))}
                                 </SelectContent>

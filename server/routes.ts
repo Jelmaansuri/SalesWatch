@@ -927,8 +927,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         userSettings = await storage.createUserSettings(defaultSettings);
       }
 
-      // Generate intended invoice number
-      const invoiceNumber = `${userSettings.invoicePrefix}-${String(userSettings.nextInvoiceNumber).padStart(4, '0')}`;
+      // Check for reusable invoice numbers first
+      const reusableNumbers = await storage.getReusableInvoiceNumbers(userId);
+      let invoiceNumber;
+      
+      if (reusableNumbers.length > 0) {
+        // Use the oldest reusable number
+        invoiceNumber = reusableNumbers[0].invoiceNumber;
+      } else {
+        // Generate new invoice number
+        invoiceNumber = `${userSettings.invoicePrefix}-${String(userSettings.nextInvoiceNumber).padStart(4, '0')}`;
+      }
 
       res.json({ invoiceNumber });
     } catch (error) {
