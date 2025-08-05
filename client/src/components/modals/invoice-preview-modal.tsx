@@ -52,6 +52,18 @@ export function InvoicePreviewModal({ open, onOpenChange, invoice }: InvoicePrev
     };
   };
 
+  const getStatusText = (status: string) => {
+    const statusConfig = {
+      draft: "Draft",
+      sent: "Sent", 
+      paid: "Paid",
+      overdue: "Overdue",
+      cancelled: "Cancelled",
+    };
+    
+    return statusConfig[status as keyof typeof statusConfig] || "Draft";
+  };
+
   const getStatusBadge = (status: string) => {
     const statusConfig = {
       draft: { label: "Draft", variant: "secondary" as const },
@@ -210,7 +222,7 @@ export function InvoicePreviewModal({ open, onOpenChange, invoice }: InvoicePrev
                   <p>Due Date: {format(new Date(invoice.dueDate), "MMMM dd, yyyy")}</p>
                   <div className="mt-2">
                     <span className="text-sm text-gray-500">Status: </span>
-                    {getStatusBadge(invoice.status)}
+                    <span className="text-sm text-gray-700 font-medium">{getStatusText(invoice.status)}</span>
                   </div>
                 </div>
               </div>
