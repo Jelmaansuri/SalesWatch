@@ -381,12 +381,7 @@ export default function AddSaleModal({ open, onOpenChange, onSaleAdded }: AddSal
                             </SelectItem>
                             {products.map((product: Product) => (
                               <SelectItem key={product.id} value={product.id} disabled={product.stock === 0}>
-                                <div className="flex flex-col">
-                                  <span>{product.name}</span>
-                                  <span className="text-xs text-gray-500">
-                                    {formatCurrency(product.sellingPrice)} • Stock: {product.stock}
-                                  </span>
-                                </div>
+                                {product.name} - {formatCurrency(product.sellingPrice)} (Stock: {product.stock})
                               </SelectItem>
                             ))}
                           </SelectContent>
