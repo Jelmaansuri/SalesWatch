@@ -38,33 +38,35 @@ export function InvoicePreviewModal({ open, onOpenChange, invoice }: InvoicePrev
       // Create PDF with exact same format as preview
       const doc = new jsPDF();
       
-      // Header - Company name and title
-      doc.setFontSize(20);
+      // Header section with proper layout
+      // Company name (right aligned)
+      doc.setFontSize(18);
       doc.setFont("helvetica", "bold");
-      doc.text('PROGENY AGROTECH', 150, 25);
+      doc.text('PROGENY AGROTECH', 200, 25, { align: 'right' });
       
-      doc.setFontSize(12);
+      doc.setFontSize(10);
       doc.setFont("helvetica", "normal");
-      doc.text('Malaysian Fresh Young Ginger Farming', 150, 35);
-      doc.text('& Distribution', 150, 42);
+      doc.text('Malaysian Fresh Young Ginger Farming', 200, 33, { align: 'right' });
+      doc.text('& Distribution', 200, 40, { align: 'right' });
       
-      // Invoice title and number
-      doc.setFontSize(24);
+      // Invoice title (left side)
+      doc.setFontSize(32);
       doc.setFont("helvetica", "bold");
-      doc.text('INVOICE', 20, 30);
+      doc.text('INVOICE', 20, 35);
       
-      // Invoice details section
-      doc.setFontSize(12);
+      // Invoice details section (left side)
+      doc.setFontSize(14);
       doc.setFont("helvetica", "bold");
-      doc.text(invoice.invoiceNumber, 20, 45);
+      doc.text(invoice.invoiceNumber, 20, 50);
       
+      doc.setFontSize(11);
       doc.setFont("helvetica", "normal");
-      doc.text(`Date: ${new Date(invoice.invoiceDate).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}`, 20, 55);
-      doc.text(`Due Date: ${new Date(invoice.dueDate).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}`, 20, 65);
+      doc.text(`Date: ${new Date(invoice.invoiceDate).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}`, 20, 60);
+      doc.text(`Due Date: ${new Date(invoice.dueDate).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}`, 20, 68);
       
-      // Status with badge-like formatting
+      // Status
       const statusText = invoice.status.charAt(0).toUpperCase() + invoice.status.slice(1);
-      doc.text(`Status: ${statusText}`, 20, 75);
+      doc.text(`Status: ${statusText}`, 20, 76);
       
       // Bill To section
       doc.setFont("helvetica", "bold");
@@ -73,92 +75,122 @@ export function InvoicePreviewModal({ open, onOpenChange, invoice }: InvoicePrev
       doc.setFont("helvetica", "normal");
       let yPos = 105;
       doc.text(invoice.customer.name, 20, yPos);
-      yPos += 10;
+      yPos += 8;
       
       if (invoice.customer.company) {
         doc.text(invoice.customer.company, 20, yPos);
-        yPos += 10;
+        yPos += 8;
       }
       
       doc.text(invoice.customer.email, 20, yPos);
-      yPos += 10;
+      yPos += 8;
       
       if (invoice.customer.phone) {
         doc.text(invoice.customer.phone, 20, yPos);
-        yPos += 10;
+        yPos += 8;
       }
       
       if (invoice.customer.address) {
-        doc.text(invoice.customer.address, 20, yPos);
-        yPos += 10;
+        // Split address into multiple lines if too long
+        const addressLines = doc.splitTextToSize(invoice.customer.address, 100);
+        doc.text(addressLines, 20, yPos);
+        yPos += addressLines.length * 8;
       }
       
-      // Items table - matching the preview format exactly
-      const tableData = invoice.items.map((item: any) => [
-        [
-          { content: item.product.name, styles: { fontStyle: 'bold' } },
-          { content: `SKU: ${item.product.sku}`, styles: { fontSize: 9, textColor: [128, 128, 128] } }
-        ],
-        item.quantity.toString(),
-        `RM ${parseFloat(item.unitPrice).toFixed(2)}`,
-        `RM ${(parseFloat(item.discount) || 0).toFixed(2)}`,
-        `RM ${parseFloat(item.lineTotal).toFixed(2)}`
-      ]);
+      // Items table - properly formatted
+      const tableData = invoice.items.map((item: any) => {
+        const productName = item.product.name || 'Unknown Product';
+        const productSku = item.product.sku || '';
+        
+        return [
+          `${productName}\nSKU: ${productSku}`,
+          item.quantity.toString(),
+          `RM ${parseFloat(item.unitPrice || 0).toFixed(2)}`,
+          parseFloat(item.discount || 0) > 0 ? `RM ${parseFloat(item.discount).toFixed(2)}` : '-',
+          `RM ${parseFloat(item.lineTotal || 0).toFixed(2)}`
+        ];
+      });
       
       autoTable(doc, {
         startY: yPos + 15,
         head: [['Description', 'Qty', 'Unit Price', 'Discount', 'Total']],
         body: tableData,
         headStyles: {
-          fillColor: [240, 240, 240],
+          fillColor: [245, 245, 245],
           textColor: [0, 0, 0],
-          fontStyle: 'bold'
+          fontStyle: 'bold',
+          fontSize: 11
         },
         bodyStyles: {
-          fontSize: 10
+          fontSize: 10,
+          cellPadding: 5
         },
         columnStyles: {
-          0: { cellWidth: 80 },
-          1: { cellWidth: 20, halign: 'center' },
+          0: { cellWidth: 70, valign: 'top' },
+          1: { cellWidth: 25, halign: 'center' },
           2: { cellWidth: 30, halign: 'right' },
           3: { cellWidth: 25, halign: 'right' },
           4: { cellWidth: 30, halign: 'right' }
+        },
+        styles: {
+          overflow: 'linebreak',
+          cellWidth: 'wrap'
         }
       });
       
-      // Totals section
-      const finalY = (doc as any).lastAutoTable.finalY + 20;
-      const rightAlign = 170;
+      // Totals section - properly aligned
+      const finalY = (doc as any).lastAutoTable.finalY + 15;
+      const rightMargin = 180;
       
+      doc.setFontSize(11);
       doc.setFont("helvetica", "normal");
-      doc.text(`Subtotal:`, rightAlign - 40, finalY);
-      doc.text(`RM ${parseFloat(invoice.subtotal).toFixed(2)}`, rightAlign, finalY);
       
-      if (parseFloat(invoice.taxAmount) > 0) {
-        doc.text(`Tax:`, rightAlign - 40, finalY + 10);
-        doc.text(`RM ${parseFloat(invoice.taxAmount).toFixed(2)}`, rightAlign, finalY + 10);
+      // Subtotal
+      doc.text('Subtotal:', rightMargin - 35, finalY);
+      doc.text(`RM ${parseFloat(invoice.subtotal || 0).toFixed(2)}`, rightMargin, finalY, { align: 'right' });
+      
+      let totalY = finalY + 8;
+      
+      // Tax if applicable
+      if (parseFloat(invoice.taxAmount || 0) > 0) {
+        doc.text('Tax:', rightMargin - 35, totalY);
+        doc.text(`RM ${parseFloat(invoice.taxAmount).toFixed(2)}`, rightMargin, totalY, { align: 'right' });
+        totalY += 8;
       }
       
-      // Draw line above total
-      doc.line(rightAlign - 50, finalY + 15, rightAlign + 10, finalY + 15);
+      // Line above total
+      doc.setLineWidth(0.5);
+      doc.line(rightMargin - 40, totalY + 2, rightMargin, totalY + 2);
       
+      // Total
       doc.setFont("helvetica", "bold");
-      doc.text(`Total:`, rightAlign - 40, finalY + 25);
-      doc.text(`RM ${parseFloat(invoice.totalAmount).toFixed(2)}`, rightAlign, finalY + 25);
+      doc.setFontSize(12);
+      doc.text('Total:', rightMargin - 35, totalY + 10);
+      doc.text(`RM ${parseFloat(invoice.totalAmount || 0).toFixed(2)}`, rightMargin, totalY + 10, { align: 'right' });
       
-      // Notes if any
+      // Notes section
       if (invoice.notes) {
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(11);
+        doc.text('Notes:', 20, totalY + 35);
+        
         doc.setFont("helvetica", "normal");
         doc.setFontSize(10);
-        doc.text('Notes:', 20, finalY + 50);
-        doc.text(invoice.notes, 20, finalY + 60);
+        const noteLines = doc.splitTextToSize(invoice.notes, 170);
+        doc.text(noteLines, 20, totalY + 45);
       }
       
       // Payment terms
       if (invoice.paymentTerms) {
+        doc.setFont("helvetica", "normal");
         doc.setFontSize(10);
-        doc.text(`Payment Terms: ${invoice.paymentTerms}`, 20, finalY + 80);
+        doc.text(`Payment Terms: ${invoice.paymentTerms}`, 20, totalY + 70);
       }
+      
+      // Footer
+      doc.setFontSize(9);
+      doc.setTextColor(128, 128, 128);
+      doc.text('Thank you for your business!', 105, 280, { align: 'center' });
       
       // Download
       doc.save(`invoice-${invoice.invoiceNumber}.pdf`);
