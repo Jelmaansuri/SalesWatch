@@ -52,20 +52,20 @@ export default function SettingsPage() {
   useEffect(() => {
     if (settings) {
       form.reset({
-        businessName: settings.businessName,
-        businessRegistration: settings.businessRegistration ?? "",
-        businessAddress: settings.businessAddress,
-        businessPhone: settings.businessPhone,
-        businessEmail: settings.businessEmail,
-        businessWebsite: settings.businessWebsite ?? "",
-        logoUrl: settings.logoUrl ?? "",
-        invoicePrefix: settings.invoicePrefix ?? "INV",
-        nextInvoiceNumber: settings.nextInvoiceNumber ?? 1,
-        currency: settings.currency ?? "MYR",
-        taxRate: settings.taxRate ?? "0.00",
-        paymentTerms: settings.paymentTerms ?? "Payment due within 30 days",
-        bankDetails: settings.bankDetails ?? "",
-        footerNotes: settings.footerNotes ?? "",
+        businessName: settings.businessName || "",
+        businessRegistration: settings.businessRegistration || "",
+        businessAddress: settings.businessAddress || "",
+        businessPhone: settings.businessPhone || "",
+        businessEmail: settings.businessEmail || "",
+        businessWebsite: settings.businessWebsite || "",
+        logoUrl: settings.logoUrl || "",
+        invoicePrefix: settings.invoicePrefix || "INV",
+        nextInvoiceNumber: settings.nextInvoiceNumber || 1,
+        currency: settings.currency || "MYR",
+        taxRate: settings.taxRate || "0.00",
+        paymentTerms: settings.paymentTerms || "Payment due within 30 days",
+        bankDetails: settings.bankDetails || "",
+        footerNotes: settings.footerNotes || "",
       });
       
       if (settings.logoUrl) {
