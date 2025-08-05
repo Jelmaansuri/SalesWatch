@@ -553,7 +553,7 @@ export default function Sales() {
           <CardHeader>
             <CardTitle>Sales Records</CardTitle>
             <CardDescription>
-              {groupedSales.length} grouped sales recorded ({sales.length} individual transactions)
+              {groupedSales.length} sales recorded
             </CardDescription>
           </CardHeader>
           <CardContent>
