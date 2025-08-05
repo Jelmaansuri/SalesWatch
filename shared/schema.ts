@@ -210,11 +210,18 @@ export const insertInvoiceSchema = createInsertSchema(invoices).omit({
     z.string().transform((val) => new Date(val)),
     z.date()
   ]),
+  subtotal: z.number().min(0, "Subtotal must be positive"),
+  taxAmount: z.number().min(0, "Tax amount cannot be negative").optional(),
+  totalAmount: z.number().min(0, "Total amount must be positive"),
 });
 
 export const insertInvoiceItemSchema = createInsertSchema(invoiceItems).omit({
   id: true,
   createdAt: true,
+}).extend({
+  unitPrice: z.number().min(0, "Unit price must be positive"),
+  discount: z.number().min(0, "Discount cannot be negative").optional(),
+  lineTotal: z.number().min(0, "Line total must be positive"),
 });
 
 // Types
