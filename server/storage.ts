@@ -1,7 +1,7 @@
-import { type Customer, type InsertCustomer, type Product, type InsertProduct, type Sale, type InsertSale, type SaleWithDetails, type DashboardMetrics, type User, type UpsertUser, type Plot, type InsertPlot, type UserSettings, type InsertUserSettings, type Invoice, type InsertInvoice, type InvoiceItem, type InsertInvoiceItem, type InvoiceWithDetails, type InvoiceRevisionHistory, type InsertInvoiceRevisionHistory } from "@shared/schema";
+import { type Customer, type InsertCustomer, type Product, type InsertProduct, type Sale, type InsertSale, type SaleWithDetails, type DashboardMetrics, type User, type UpsertUser, type Plot, type InsertPlot, type UserSettings, type InsertUserSettings, type Invoice, type InsertInvoice, type InvoiceItem, type InsertInvoiceItem, type InvoiceWithDetails } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { db } from "./db";
-import { customers, products, sales, users, plots, userSettings, invoices, invoiceItems, reusableInvoiceNumbers, invoiceRevisionHistory } from "@shared/schema";
+import { customers, products, sales, users, plots, userSettings, invoices, invoiceItems, reusableInvoiceNumbers } from "@shared/schema";
 import { eq, desc, sql, and } from "drizzle-orm";
 
 export interface IStorage {
@@ -78,13 +78,6 @@ export interface IStorage {
   addReusableInvoiceNumber(userId: string, invoiceNumber: string): Promise<void>;
   getNextReusableInvoiceNumber(userId: string): Promise<string | null>;
   getReusableInvoiceNumbers(userId: string): Promise<{ invoiceNumber: string }[]>;
-  
-  // Invoice revision tracking methods
-  createInvoiceRevision(originalInvoiceId: string, revisionData: any, revisionReason: string, userId: string): Promise<Invoice>;
-  getInvoiceRevisionHistory(invoiceId: string): Promise<InvoiceRevisionHistory[]>;
-  getInvoicesByOriginalId(originalInvoiceId: string): Promise<Invoice[]>;
-  getCurrentInvoiceVersion(originalInvoiceId: string): Promise<Invoice | undefined>;
-  createRevisionHistoryEntry(data: InsertInvoiceRevisionHistory): Promise<InvoiceRevisionHistory>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -898,86 +891,6 @@ export class DatabaseStorage implements IStorage {
       .from(reusableInvoiceNumbers)
       .where(eq(reusableInvoiceNumbers.userId, userId))
       .orderBy(reusableInvoiceNumbers.createdAt);
-  }
-
-  // Invoice revision tracking methods
-  async createInvoiceRevision(originalInvoiceId: string, revisionData: any, revisionReason: string, userId: string): Promise<Invoice> {
-    // Get the original invoice to establish hierarchy
-    const originalInvoice = await this.getInvoice(originalInvoiceId);
-    if (!originalInvoice) {
-      throw new Error("Original invoice not found");
-    }
-
-    // Mark current version as not current
-    await db
-      .update(invoices)
-      .set({ isCurrentVersion: false })
-      .where(eq(invoices.originalInvoiceId, originalInvoiceId));
-
-    // Get the next revision number
-    const existingRevisions = await this.getInvoicesByOriginalId(originalInvoiceId);
-    const nextRevisionNumber = Math.max(...existingRevisions.map(inv => inv.revisionNumber), 0) + 1;
-
-    // Create the new revision
-    const newRevision = await db
-      .insert(invoices)
-      .values({
-        ...revisionData,
-        originalInvoiceId: originalInvoice.originalInvoiceId || originalInvoiceId,
-        parentInvoiceId: originalInvoiceId,
-        revisionNumber: nextRevisionNumber,
-        revisionReason,
-        isCurrentVersion: true,
-      })
-      .returning();
-
-    // Create revision history entry
-    await this.createRevisionHistoryEntry({
-      invoiceId: newRevision[0].id,
-      userId,
-      changeType: "revised",
-      changeDescription: `Invoice revised: ${revisionReason}`,
-      oldValues: { previousInvoiceId: originalInvoiceId },
-      newValues: { newInvoiceId: newRevision[0].id },
-      revisionNumber: nextRevisionNumber,
-    });
-
-    return newRevision[0];
-  }
-
-  async getInvoiceRevisionHistory(invoiceId: string): Promise<InvoiceRevisionHistory[]> {
-    return await db
-      .select()
-      .from(invoiceRevisionHistory)
-      .where(eq(invoiceRevisionHistory.invoiceId, invoiceId))
-      .orderBy(desc(invoiceRevisionHistory.createdAt));
-  }
-
-  async getInvoicesByOriginalId(originalInvoiceId: string): Promise<Invoice[]> {
-    return await db
-      .select()
-      .from(invoices)
-      .where(eq(invoices.originalInvoiceId, originalInvoiceId))
-      .orderBy(invoices.revisionNumber);
-  }
-
-  async getCurrentInvoiceVersion(originalInvoiceId: string): Promise<Invoice | undefined> {
-    const [currentVersion] = await db
-      .select()
-      .from(invoices)
-      .where(and(
-        eq(invoices.originalInvoiceId, originalInvoiceId),
-        eq(invoices.isCurrentVersion, true)
-      ));
-    return currentVersion || undefined;
-  }
-
-  async createRevisionHistoryEntry(data: InsertInvoiceRevisionHistory): Promise<InvoiceRevisionHistory> {
-    const [entry] = await db
-      .insert(invoiceRevisionHistory)
-      .values(data)
-      .returning();
-    return entry;
   }
 }
 

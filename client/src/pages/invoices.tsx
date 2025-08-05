@@ -13,8 +13,7 @@ import {
   DollarSign,
   Users,
   Clock,
-  CheckCircle,
-  GitBranch
+  CheckCircle
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -29,7 +28,6 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { CreateInvoiceModal } from "@/components/modals/create-invoice-modal";
 import { EditInvoiceModal } from "@/components/modals/edit-invoice-modal";
 import { InvoicePreviewModal } from "@/components/modals/invoice-preview-modal";
-import { InvoiceRevisionModal } from "@/components/modals/invoice-revision-modal";
 import MainLayout from "@/components/layout/main-layout";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
@@ -51,7 +49,6 @@ function InvoicesContent() {
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [previewModalOpen, setPreviewModalOpen] = useState(false);
-  const [revisionModalOpen, setRevisionModalOpen] = useState(false);
   const [selectedInvoice, setSelectedInvoice] = useState<InvoiceWithDetails | null>(null);
 
   // Fetch invoices
@@ -308,19 +305,7 @@ function InvoicesContent() {
                   filteredInvoices.map((invoice) => (
                     <TableRow key={invoice.id} data-testid={`row-invoice-${invoice.id}`}>
                       <TableCell className="font-medium">
-                        <div className="flex items-center gap-2">
-                          {invoice.invoiceNumber}
-                          {invoice.revisionNumber > 0 && (
-                            <Badge variant="secondary" className="text-xs">
-                              v{invoice.revisionNumber}
-                            </Badge>
-                          )}
-                          {!invoice.isCurrentVersion && (
-                            <Badge variant="outline" className="text-xs">
-                              Old
-                            </Badge>
-                          )}
-                        </div>
+                        {invoice.invoiceNumber}
                       </TableCell>
                       <TableCell>
                         <div>
@@ -391,17 +376,6 @@ function InvoicesContent() {
                           >
                             <Edit2 className="h-4 w-4" />
                           </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => {
-                              setSelectedInvoice(invoice);
-                              setRevisionModalOpen(true);
-                            }}
-                            data-testid={`button-revision-${invoice.id}`}
-                          >
-                            <GitBranch className="h-4 w-4" />
-                          </Button>
 
                           <AlertDialog>
                             <AlertDialogTrigger asChild>
@@ -460,11 +434,6 @@ function InvoicesContent() {
             open={previewModalOpen} 
             onOpenChange={setPreviewModalOpen}
             invoice={selectedInvoice}
-          />
-          <InvoiceRevisionModal 
-            invoice={selectedInvoice}
-            isOpen={revisionModalOpen} 
-            onClose={() => setRevisionModalOpen(false)}
           />
         </>
       )}

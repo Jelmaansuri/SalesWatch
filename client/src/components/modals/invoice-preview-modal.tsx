@@ -1,5 +1,5 @@
 import { format } from "date-fns";
-import { Download, Eye, X, GitBranch } from "lucide-react";
+import { Download, Eye, X } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 
 import { Button } from "@/components/ui/button";
@@ -205,25 +205,9 @@ export function InvoicePreviewModal({ open, onOpenChange, invoice }: InvoicePrev
               <div>
                 <h1 className="text-3xl font-bold text-gray-900 mb-2">INVOICE</h1>
                 <div className="text-gray-600">
-                  <div className="flex items-center gap-2 mb-1">
-                    <p className="font-semibold text-lg">{invoice.invoiceNumber}</p>
-                    {invoice.revisionNumber > 0 && (
-                      <div className="flex items-center gap-1">
-                        <GitBranch className="w-4 h-4 text-blue-600" />
-                        <Badge variant="secondary" className="text-xs">
-                          v{invoice.revisionNumber}
-                        </Badge>
-                      </div>
-                    )}
-                  </div>
+                  <p className="font-semibold text-lg">{invoice.invoiceNumber}</p>
                   <p>Date: {format(new Date(invoice.invoiceDate), "MMMM dd, yyyy")}</p>
                   <p>Due Date: {format(new Date(invoice.dueDate), "MMMM dd, yyyy")}</p>
-                  {invoice.revisionReason && (
-                    <div className="mt-2 p-2 bg-blue-50 dark:bg-blue-900/20 rounded text-sm">
-                      <span className="font-medium text-blue-800 dark:text-blue-200">Revision: </span>
-                      <span className="text-blue-700 dark:text-blue-300">{invoice.revisionReason}</span>
-                    </div>
-                  )}
                   <div className="mt-2">
                     <span className="text-sm text-gray-500">Status: </span>
                     {getStatusBadge(invoice.status)}
