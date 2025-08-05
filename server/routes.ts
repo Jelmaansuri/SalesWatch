@@ -198,6 +198,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const salesWithDetails = await storage.getSalesWithDetails();
       res.json(salesWithDetails);
     } catch (error) {
+      console.error("Error fetching sales:", error);
       res.status(500).json({ message: "Failed to fetch sales" });
     }
   });
