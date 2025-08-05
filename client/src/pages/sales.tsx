@@ -35,14 +35,12 @@ import AddSaleModal from "@/components/modals/add-sale-modal";
 import type { SaleWithDetails, Customer, Product } from "@shared/schema";
 import { z } from "zod";
 
-const formSchema = insertSaleSchema.extend({
-  unitPrice: z.string().min(1, "Unit price is required"),
-  discountAmount: z.string().optional(),
-  saleDate: z.date().optional(), // Make saleDate optional for edits
-}).partial({
-  totalAmount: true,
-  profit: true,
-  saleDate: true, // saleDate is optional during edits
+const formSchema = z.object({
+  customerId: z.string().min(1, "Customer is required"),
+  status: z.string().min(1, "Status is required"),
+  platformSource: z.string().min(1, "Platform source is required"),
+  saleDate: z.date().optional(),
+  notes: z.string().optional(),
 });
 
 type FormData = z.infer<typeof formSchema>;
@@ -114,14 +112,10 @@ export default function Sales() {
     resolver: zodResolver(formSchema),
     defaultValues: {
       customerId: "",
-      productId: "",
-      quantity: 1,
-      unitPrice: "",
       status: "paid",
+      platformSource: "others",
       notes: "",
       saleDate: undefined,
-      totalAmount: undefined,
-      profit: undefined,
     },
   });
 
