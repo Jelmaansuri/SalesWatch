@@ -51,7 +51,7 @@ export default function AddProductModal({ open, onOpenChange, onProductAdded }: 
   const createProductMutation = useMutation({
     mutationFn: async (data: FormData) => {
       const productData = { ...data, imageUrl: productImageUrl };
-      const response = await apiRequest("POST", "/api/products", productData);
+      const response = await apiRequest("/api/products", "POST", productData);
       return response.json();
     },
     onSuccess: () => {
@@ -74,7 +74,7 @@ export default function AddProductModal({ open, onOpenChange, onProductAdded }: 
   });
 
   const handleGetUploadParameters = async () => {
-    const response = await apiRequest("POST", "/api/objects/upload", {});
+    const response = await apiRequest("/api/objects/upload", "POST", {});
     const data = await response.json();
     return {
       method: "PUT" as const,
@@ -88,7 +88,7 @@ export default function AddProductModal({ open, onOpenChange, onProductAdded }: 
       
       // Normalize the upload URL to the object path format
       try {
-        const response = await apiRequest("POST", "/api/objects/normalize", { 
+        const response = await apiRequest("/api/objects/normalize", "POST", { 
           uploadURL: uploadURL 
         });
         const data = await response.json();

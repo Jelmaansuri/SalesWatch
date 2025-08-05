@@ -107,7 +107,7 @@ export default function AddSaleModal({ open, onOpenChange, onSaleAdded }: AddSal
       };
       
       console.log("Sending sale data to API:", saleData);
-      const response = await apiRequest("POST", "/api/sales", saleData);
+      const response = await apiRequest("/api/sales", "POST", saleData);
       return response.json();
     },
     onSuccess: () => {

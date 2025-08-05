@@ -81,7 +81,7 @@ export default function Sales() {
 
   const updateSaleMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: FormData }) => {
-      const response = await apiRequest("PUT", `/api/sales/${id}`, data);
+      const response = await apiRequest(`/api/sales/${id}`, "PUT", data);
       return response.json();
     },
     onSuccess: () => {
@@ -116,7 +116,7 @@ export default function Sales() {
 
   const deleteSaleMutation = useMutation({
     mutationFn: async (id: string) => {
-      await apiRequest("DELETE", `/api/sales/${id}`);
+      await apiRequest(`/api/sales/${id}`, "DELETE");
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/sales"] });
