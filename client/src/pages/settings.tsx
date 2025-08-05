@@ -100,6 +100,8 @@ export default function SettingsPage() {
   });
 
   const onSubmit = (data: InsertUserSettings) => {
+    console.log("Form submitted with data:", data);
+    console.log("Form errors:", form.formState.errors);
     saveSettingsMutation.mutate(data);
   };
 
