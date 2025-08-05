@@ -88,8 +88,9 @@ export default function AddSaleModal({ open, onOpenChange, onSaleAdded }: AddSal
     mutationFn: async (data: FormData) => {
       console.log("Creating sale with data:", data);
       
-      // Always use multi-product mode - create separate sales for each product
+      // Create sales with a shared group identifier for current sales
       const results = [];
+      const groupId = `GROUP_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
       
       for (const item of productItems) {
         if (!item.productId || !item.unitPrice) continue;
@@ -120,7 +121,7 @@ export default function AddSaleModal({ open, onOpenChange, onSaleAdded }: AddSal
           status: data.status,
           saleDate: data.saleDate.toISOString(),
           platformSource: data.platformSource,
-          notes: data.notes || "",
+          notes: `${data.notes || ""} [GROUP:${groupId}]`, // Add group identifier
         };
         
         console.log("Sending sale data to API:", saleData);

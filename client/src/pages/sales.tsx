@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import MainLayout from "@/components/layout/main-layout";
 import { Button } from "@/components/ui/button";
@@ -53,9 +53,43 @@ export default function Sales() {
   const [previewInvoiceNumber, setPreviewInvoiceNumber] = useState<string>("");
   const [pendingSale, setPendingSale] = useState<SaleWithDetails | null>(null);
 
-  const { data: sales = [], isLoading, error } = useQuery<SaleWithDetails[]>({
+  const { data: salesData = [], isLoading, error } = useQuery<SaleWithDetails[]>({
     queryKey: ["/api/sales"],
   });
+
+  // Group sales by customer and date (same notes with GROUP: identifier)
+  const groupedSales = useMemo(() => {
+    const groups: { [key: string]: SaleWithDetails[] } = {};
+    
+    salesData.forEach(sale => {
+      // Extract group ID from notes if it exists
+      const groupMatch = sale.notes?.match(/\[GROUP:([^\]]+)\]/);
+      const groupKey = groupMatch 
+        ? groupMatch[1] 
+        : `${sale.customerId}_${new Date(sale.createdAt).toDateString()}_${sale.id}`;
+      
+      if (!groups[groupKey]) {
+        groups[groupKey] = [];
+      }
+      groups[groupKey].push(sale);
+    });
+
+    return Object.values(groups).map(group => ({
+      groupKey: group[0].notes?.match(/\[GROUP:([^\]]+)\]/)?.[1] || 'ungrouped',
+      customer: group[0].customer,
+      items: group,
+      totalAmount: group.reduce((sum, sale) => sum + parseFloat(sale.totalAmount), 0),
+      totalProfit: group.reduce((sum, sale) => sum + parseFloat(sale.profit), 0),
+      status: group[0].status,
+      platformSource: group[0].platformSource,
+      saleDate: group[0].saleDate,
+      createdAt: group[0].createdAt,
+      id: group[0].id // Use first sale's ID for operations
+    }));
+  }, [salesData]);
+
+  // For backward compatibility, still use 'sales' for non-grouped operations
+  const sales = salesData;
 
   const { data: customers = [] } = useQuery<Customer[]>({
     queryKey: ["/api/customers"],
@@ -519,7 +553,7 @@ export default function Sales() {
           <CardHeader>
             <CardTitle>Sales Records</CardTitle>
             <CardDescription>
-              {sales.length} sales transactions recorded
+              {groupedSales.length} grouped sales recorded ({sales.length} individual transactions)
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -556,53 +590,79 @@ export default function Sales() {
                     </TableRow>
                   </TableHeader>
                 <TableBody>
-                  {sales.map((sale) => (
-                    <TableRow key={sale.id}>
+                  {groupedSales.map((saleGroup) => (
+                    <TableRow key={saleGroup.groupKey}>
                       <TableCell>
                         <div className="flex items-center">
                           <User className="h-4 w-4 mr-2 text-gray-400" />
-                          {sale.customer.name}
+                          {saleGroup.customer.name}
                         </div>
                       </TableCell>
                       <TableCell>
-                        <div className="flex items-center">
-                          <Package className="h-4 w-4 mr-2 text-gray-400" />
-                          {sale.product.name}
+                        <div className="flex flex-col space-y-1">
+                          {saleGroup.items.map((item, index) => (
+                            <div key={index} className="flex items-center">
+                              <Package className="h-3 w-3 mr-2 text-gray-400" />
+                              <span className="text-sm">{item.product.name}</span>
+                            </div>
+                          ))}
                         </div>
                       </TableCell>
-                      <TableCell>{sale.quantity}</TableCell>
-                      <TableCell>{formatCurrency(sale.unitPrice)}</TableCell>
+                      <TableCell>
+                        <div className="flex flex-col space-y-1">
+                          {saleGroup.items.map((item, index) => (
+                            <span key={index} className="text-sm">{item.quantity}</span>
+                          ))}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex flex-col space-y-1">
+                          {saleGroup.items.map((item, index) => (
+                            <span key={index} className="text-sm">{formatCurrency(item.unitPrice)}</span>
+                          ))}
+                        </div>
+                      </TableCell>
                       <TableCell className="text-orange-600">
-                        {formatCurrency(sale.discountAmount)}
+                        <div className="flex flex-col space-y-1">
+                          {saleGroup.items.map((item, index) => (
+                            <span key={index} className="text-sm">{formatCurrency(item.discountAmount)}</span>
+                          ))}
+                        </div>
                       </TableCell>
                       <TableCell className="font-medium text-blue-600">
-                        {formatCurrency((parseFloat(sale.unitPrice) - parseFloat(sale.discountAmount)).toString())}
+                        <div className="flex flex-col space-y-1">
+                          {saleGroup.items.map((item, index) => (
+                            <span key={index} className="text-sm">
+                              {formatCurrency((parseFloat(item.unitPrice) - parseFloat(item.discountAmount)).toString())}
+                            </span>
+                          ))}
+                        </div>
                       </TableCell>
                       <TableCell className="font-medium">
-                        {formatCurrency(sale.totalAmount)}
+                        {formatCurrency(saleGroup.totalAmount.toString())}
                       </TableCell>
-                      <TableCell className={parseFloat(sale.profit) >= 0 ? "text-green-600" : "text-red-600"}>
-                        {formatCurrency(sale.profit)}
+                      <TableCell className={saleGroup.totalProfit >= 0 ? "text-green-600" : "text-red-600"}>
+                        {formatCurrency(saleGroup.totalProfit.toString())}
                       </TableCell>
                       <TableCell>
-                        <Badge variant="secondary" className={ORDER_STATUS_COLORS[sale.status as keyof typeof ORDER_STATUS_COLORS]}>
-                          {ORDER_STATUS_LABELS[sale.status as keyof typeof ORDER_STATUS_LABELS]}
+                        <Badge variant="secondary" className={ORDER_STATUS_COLORS[saleGroup.status as keyof typeof ORDER_STATUS_COLORS]}>
+                          {ORDER_STATUS_LABELS[saleGroup.status as keyof typeof ORDER_STATUS_LABELS]}
                         </Badge>
                       </TableCell>
                       <TableCell>
                         <span className="text-sm text-gray-600 dark:text-gray-400">
-                          {PLATFORM_SOURCE_LABELS[sale.platformSource as keyof typeof PLATFORM_SOURCE_LABELS]}
+                          {PLATFORM_SOURCE_LABELS[saleGroup.platformSource as keyof typeof PLATFORM_SOURCE_LABELS]}
                         </span>
                       </TableCell>
                       <TableCell>
-                        {sale.saleDate ? new Date(sale.saleDate).toLocaleDateString() : new Date(sale.createdAt).toLocaleDateString()}
+                        {saleGroup.saleDate ? new Date(saleGroup.saleDate).toLocaleDateString() : new Date(saleGroup.createdAt).toLocaleDateString()}
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center space-x-2">
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => handleGenerateInvoice(sale)}
+                            onClick={() => handleGenerateInvoice(saleGroup.items[0])}
                             disabled={generateInvoiceMutation.isPending}
                             title="Generate Invoice"
                           >
@@ -611,7 +671,7 @@ export default function Sales() {
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => handleEdit(sale)}
+                            onClick={() => handleEdit(saleGroup.items[0])}
                           >
                             <Edit className="h-4 w-4" />
                           </Button>
@@ -623,18 +683,23 @@ export default function Sales() {
                             </AlertDialogTrigger>
                             <AlertDialogContent>
                               <AlertDialogHeader>
-                                <AlertDialogTitle>Delete Sale</AlertDialogTitle>
+                                <AlertDialogTitle>Delete Sale Group</AlertDialogTitle>
                                 <AlertDialogDescription>
-                                  Are you sure you want to delete this sale record? This action cannot be undone.
+                                  Are you sure you want to delete this sale group ({saleGroup.items.length} items)? This action cannot be undone.
                                 </AlertDialogDescription>
                               </AlertDialogHeader>
                               <AlertDialogFooter>
                                 <AlertDialogCancel>Cancel</AlertDialogCancel>
                                 <AlertDialogAction
-                                  onClick={() => deleteSaleMutation.mutate(sale.id)}
+                                  onClick={() => {
+                                    // Delete all items in the group
+                                    saleGroup.items.forEach(item => {
+                                      deleteSaleMutation.mutate(item.id);
+                                    });
+                                  }}
                                   className="bg-red-600 hover:bg-red-700"
                                 >
-                                  Delete
+                                  Delete Group
                                 </AlertDialogAction>
                               </AlertDialogFooter>
                             </AlertDialogContent>

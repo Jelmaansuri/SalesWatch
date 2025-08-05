@@ -48,22 +48,33 @@ export const products = pgTable("products", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// Sales header table (one record per order with multiple products)
 export const sales = pgTable("sales", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").notNull().references(() => users.id),
   customerId: varchar("customer_id").notNull().references(() => customers.id),
-  productId: varchar("product_id").notNull().references(() => products.id),
-  quantity: integer("quantity").notNull(),
-  unitPrice: decimal("unit_price", { precision: 10, scale: 2 }).notNull(),
-  discountAmount: decimal("discount_amount", { precision: 10, scale: 2 }).default("0.00").notNull(),
+  subtotal: decimal("subtotal", { precision: 10, scale: 2 }).notNull(),
   totalAmount: decimal("total_amount", { precision: 10, scale: 2 }).notNull(),
-  profit: decimal("profit", { precision: 10, scale: 2 }).notNull(),
+  totalProfit: decimal("total_profit", { precision: 10, scale: 2 }).notNull(),
   status: text("status").notNull(), // unpaid, paid, pending_shipment, shipped, completed
   saleDate: timestamp("sale_date").defaultNow().notNull(),
   platformSource: text("platform_source").notNull(), // tiktok, facebook, whatsapp, others
   notes: text("notes"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Sales items table (multiple products per sale)
+export const saleItems = pgTable("sale_items", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  saleId: varchar("sale_id").notNull().references(() => sales.id, { onDelete: "cascade" }),
+  productId: varchar("product_id").notNull().references(() => products.id),
+  quantity: integer("quantity").notNull(),
+  unitPrice: decimal("unit_price", { precision: 10, scale: 2 }).notNull(),
+  discountAmount: decimal("discount_amount", { precision: 10, scale: 2 }).default("0.00").notNull(),
+  lineTotal: decimal("line_total", { precision: 10, scale: 2 }).notNull(),
+  profit: decimal("profit", { precision: 10, scale: 2 }).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
 export const plots = pgTable("plots", {
@@ -174,6 +185,28 @@ export const insertSaleSchema = createInsertSchema(sales).omit({
   ]),
 });
 
+export const insertSaleItemSchema = createInsertSchema(saleItems).omit({
+  id: true,
+  createdAt: true,
+}).extend({
+  unitPrice: z.union([
+    z.string().transform((val) => parseFloat(val)),
+    z.number()
+  ]).refine((val) => val >= 0, "Unit price must be positive"),
+  discountAmount: z.union([
+    z.string().transform((val) => parseFloat(val)),
+    z.number()
+  ]).refine((val) => val >= 0, "Discount cannot be negative").optional(),
+  lineTotal: z.union([
+    z.string().transform((val) => parseFloat(val)),
+    z.number()
+  ]).refine((val) => val >= 0, "Line total must be positive"),
+  profit: z.union([
+    z.string().transform((val) => parseFloat(val)),
+    z.number()
+  ]).refine((val) => val >= 0, "Profit calculation must be positive"),
+});
+
 export const insertPlotSchema = createInsertSchema(plots).omit({
   id: true,
   createdAt: true,
@@ -253,13 +286,16 @@ export type InsertProduct = z.infer<typeof insertProductSchema>;
 export type Sale = typeof sales.$inferSelect;
 export type InsertSale = z.infer<typeof insertSaleSchema>;
 
+export type SaleItem = typeof saleItems.$inferSelect;
+export type InsertSaleItem = z.infer<typeof insertSaleItemSchema>;
+
 export type Plot = typeof plots.$inferSelect;
 export type InsertPlot = z.infer<typeof insertPlotSchema>;
 
 // Derived types for API responses
 export type SaleWithDetails = Sale & {
   customer: Customer;
-  product: Product;
+  items: (SaleItem & { product: Product })[];
 };
 
 export type UpsertUser = typeof users.$inferInsert;
