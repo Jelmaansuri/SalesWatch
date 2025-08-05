@@ -65,302 +65,61 @@ export function InvoicePreviewModal({ open, onOpenChange, invoice }: InvoicePrev
 
   const handleDownloadPDF = async () => {
     try {
-      // Create PDF that EXACTLY mirrors the preview Card design
+      // Use html2canvas to capture the preview and convert to PDF
+      const html2canvas = (await import('html2canvas')).default;
       const { jsPDF } = await import('jspdf');
-      const businessInfo = getBusinessInfo();
       
-      const doc = new jsPDF('p', 'mm', 'a4');
-      const pageWidth = doc.internal.pageSize.getWidth();
-      const pageHeight = doc.internal.pageSize.getHeight();
+      // Find the invoice preview content (the Card component)
+      const invoiceElement = document.querySelector('[data-testid="invoice-preview-content"]');
+      if (!invoiceElement) {
+        console.error('Invoice preview element not found');
+        return;
+      }
       
-      // Card container matching preview exactly
-      const margin = 12;
-      const padding = 25;
-      const containerX = margin;
-      const containerY = margin;
-      const containerWidth = pageWidth - (margin * 2);
-      const containerHeight = pageHeight - (margin * 2);
-      
-      // Draw white card background with border
-      doc.setFillColor(255, 255, 255);
-      doc.setDrawColor(229, 231, 235);
-      doc.setLineWidth(0.3);
-      doc.roundedRect(containerX, containerY, containerWidth, containerHeight, 2, 2, 'FD');
-      
-      // Content area
-      const contentX = containerX + padding;
-      const contentY = containerY + padding;
-      const contentWidth = containerWidth - (padding * 2);
-      
-      // Header section - flex justify-between items-start mb-8
-      let y = contentY + 15;
-      
-      // Left: INVOICE title and details
-      doc.setFontSize(28);
-      doc.setFont("helvetica", "bold");
-      doc.setTextColor(17, 24, 39);
-      doc.text('INVOICE', contentX, y);
-      
-      y += 10;
-      doc.setFontSize(16);
-      doc.text(invoice.invoiceNumber, contentX, y);
-      
-      y += 8;
-      doc.setFontSize(11);
-      doc.setFont("helvetica", "normal");
-      doc.setTextColor(75, 85, 99);
-      doc.text(`Date: ${format(new Date(invoice.invoiceDate), "MMMM dd, yyyy")}`, contentX, y);
-      
-      y += 6;
-      doc.text(`Due Date: ${format(new Date(invoice.dueDate), "MMMM dd, yyyy")}`, contentX, y);
-      
-      y += 8;
-      doc.setFontSize(10);
-      doc.setTextColor(107, 114, 128);
-      const statusText = invoice.status.charAt(0).toUpperCase() + invoice.status.slice(1);
-      doc.text(`Status: ${statusText}`, contentX, y);
-      
-      // Right: Company info
-      let rightY = contentY + 15;
-      doc.setFontSize(18);
-      doc.setFont("helvetica", "bold");
-      doc.setTextColor(17, 24, 39);
-      doc.text(businessInfo.name, contentX + contentWidth, rightY, { align: 'right' });
-      
-      rightY += 8;
-      doc.setFontSize(10);
-      doc.setFont("helvetica", "normal");
-      doc.setTextColor(75, 85, 99);
-      businessInfo.description.forEach((line) => {
-        doc.text(line, contentX + contentWidth, rightY, { align: 'right' });
-        rightY += 5;
+      // Temporarily hide any preview-specific elements
+      const previewElements = document.querySelectorAll('[data-testid*="preview-"], .preview-only');
+      previewElements.forEach(el => {
+        (el as HTMLElement).style.display = 'none';
       });
       
-      // Bill To section
-      y = contentY + 70;
-      doc.setFontSize(16);
-      doc.setFont("helvetica", "bold");
-      doc.setTextColor(17, 24, 39);
-      doc.text('Bill To:', contentX, y);
-      
-      y += 10;
-      doc.setFontSize(11);
-      doc.setFont("helvetica", "bold");
-      doc.setTextColor(55, 65, 81);
-      doc.text(invoice.customer.name, contentX, y);
-      
-      y += 6;
-      doc.setFont("helvetica", "normal");
-      if (invoice.customer.company) {
-        doc.text(invoice.customer.company, contentX, y);
-        y += 6;
-      }
-      
-      doc.text(invoice.customer.email, contentX, y);
-      y += 6;
-      
-      if (invoice.customer.phone) {
-        doc.text(invoice.customer.phone, contentX, y);
-        y += 6;
-      }
-      
-      if (invoice.customer.address) {
-        y += 3;
-        const addressLines = doc.splitTextToSize(invoice.customer.address, 80);
-        doc.text(addressLines, contentX, y);
-        y += addressLines.length * 6;
-      }
-      
-      // Table section
-      y += 20;
-      
-      // Table headers
-      const tableHeaders = ['Description', 'Qty', 'Unit Price', 'Discount', 'Total'];
-      const colX = [contentX, contentX + 70, contentX + 95, contentX + 125, contentX + 155];
-      const colWidths = [70, 25, 30, 30, 30];
-      
-      doc.setFontSize(11);
-      doc.setFont("helvetica", "bold");
-      doc.setTextColor(17, 24, 39);
-      
-      tableHeaders.forEach((header, i) => {
-        const align = i === 0 ? 'left' : i === 1 ? 'center' : 'right';
-        const x = align === 'left' ? colX[i] + 3 : 
-                  align === 'center' ? colX[i] + (colWidths[i] / 2) :
-                  colX[i] + colWidths[i] - 3;
-        doc.text(header, x, y + 8, { align });
+      // Capture the invoice content as canvas
+      const canvas = await html2canvas(invoiceElement as HTMLElement, {
+        scale: 2, // Higher quality
+        useCORS: true,
+        backgroundColor: '#ffffff',
+        width: invoiceElement.scrollWidth,
+        height: invoiceElement.scrollHeight,
       });
       
-      // Header border
-      doc.setDrawColor(209, 213, 219);
-      doc.setLineWidth(1);
-      doc.line(contentX, y + 12, contentX + 155, y + 12);
-      
-      y += 18;
-      
-      // Table rows
-      invoice.items.forEach((item) => {
-        const rowY = y;
-        
-        // Description
-        doc.setFontSize(11);
-        doc.setFont("helvetica", "bold");
-        doc.setTextColor(17, 24, 39);
-        doc.text(item.product.name, colX[0] + 3, rowY + 8);
-        
-        if (item.product.description) {
-          doc.setFontSize(9);
-          doc.setFont("helvetica", "normal");
-          doc.setTextColor(75, 85, 99);
-          doc.text(item.product.description, colX[0] + 3, rowY + 14);
-        }
-        
-        doc.setFontSize(8);
-        doc.setTextColor(107, 114, 128);
-        doc.text(`SKU: ${item.product.sku}`, colX[0] + 3, rowY + 20);
-        
-        // Quantity
-        doc.setFontSize(11);
-        doc.setFont("helvetica", "normal");
-        doc.setTextColor(55, 65, 81);
-        doc.text(item.quantity.toString(), colX[1] + (colWidths[1] / 2), rowY + 12, { align: 'center' });
-        
-        // Unit Price
-        doc.text(`RM ${parseFloat(item.unitPrice).toFixed(2)}`, colX[2] + colWidths[2] - 3, rowY + 12, { align: 'right' });
-        
-        // Discount
-        if (parseFloat(item.discount) > 0) {
-          doc.setTextColor(220, 38, 38);
-          doc.text(`-RM ${parseFloat(item.discount).toFixed(2)}`, colX[3] + colWidths[3] - 3, rowY + 12, { align: 'right' });
-          doc.setTextColor(55, 65, 81);
-        }
-        
-        // Total
-        doc.setFont("helvetica", "bold");
-        doc.setTextColor(17, 24, 39);
-        doc.text(`RM ${parseFloat(item.lineTotal).toFixed(2)}`, colX[4] + colWidths[4] - 3, rowY + 12, { align: 'right' });
-        
-        // Row border
-        doc.setDrawColor(229, 231, 235);
-        doc.setLineWidth(0.5);
-        doc.line(contentX, rowY + 26, contentX + 155, rowY + 26);
-        
-        y += 30;
+      // Restore preview elements
+      previewElements.forEach(el => {
+        (el as HTMLElement).style.display = '';
       });
       
-      // Totals section
-      y += 15;
-      const totalsX = contentX + contentWidth - 80;
+      // Create PDF from canvas
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF('p', 'mm', 'a4');
       
-      doc.setFontSize(11);
-      doc.setFont("helvetica", "normal");
-      doc.setTextColor(55, 65, 81);
-      doc.text('Subtotal:', totalsX, y);
-      doc.setFont("helvetica", "bold");
-      doc.setTextColor(17, 24, 39);
-      doc.text(`RM ${parseFloat(invoice.subtotal).toFixed(2)}`, totalsX + 80, y, { align: 'right' });
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = pdf.internal.pageSize.getHeight();
+      const imgWidth = canvas.width;
+      const imgHeight = canvas.height;
       
-      y += 10;
+      // Calculate scaling to fit the PDF page
+      const ratio = Math.min(pdfWidth / imgWidth, pdfHeight / imgHeight);
+      const scaledWidth = imgWidth * ratio;
+      const scaledHeight = imgHeight * ratio;
       
-      if (parseFloat(invoice.taxAmount || 0) > 0) {
-        doc.setFont("helvetica", "normal");
-        doc.setTextColor(55, 65, 81);
-        doc.text('Tax:', totalsX, y);
-        doc.setFont("helvetica", "bold");
-        doc.setTextColor(17, 24, 39);
-        doc.text(`RM ${parseFloat(invoice.taxAmount).toFixed(2)}`, totalsX + 80, y, { align: 'right' });
-        y += 10;
-      }
+      // Center the image on the page
+      const x = (pdfWidth - scaledWidth) / 2;
+      const y = (pdfHeight - scaledHeight) / 2;
       
-      // Separator
-      doc.setDrawColor(229, 231, 235);
-      doc.setLineWidth(0.5);
-      doc.line(totalsX, y + 3, totalsX + 80, y + 3);
+      pdf.addImage(imgData, 'PNG', x, y, scaledWidth, scaledHeight);
+      pdf.save(`invoice-${invoice.invoiceNumber}.pdf`);
       
-      y += 12;
-      
-      // Total
-      doc.setDrawColor(209, 213, 219);
-      doc.setLineWidth(1);
-      doc.line(totalsX, y - 3, totalsX + 80, y - 3);
-      
-      doc.setFontSize(16);
-      doc.setFont("helvetica", "bold");
-      doc.setTextColor(17, 24, 39);
-      doc.text('Total:', totalsX, y);
-      doc.text(`RM ${parseFloat(invoice.totalAmount).toFixed(2)}`, totalsX + 80, y, { align: 'right' });
-      
-      // Additional sections
-      y += 25;
-      
-      // Payment Terms
-      const paymentTerms = invoice.paymentTerms || userSettings?.paymentTerms;
-      if (paymentTerms) {
-        doc.setFontSize(13);
-        doc.setFont("helvetica", "bold");
-        doc.setTextColor(17, 24, 39);
-        doc.text('Payment Terms:', contentX, y);
-        
-        y += 8;
-        doc.setFontSize(11);
-        doc.setFont("helvetica", "normal");
-        doc.setTextColor(55, 65, 81);
-        doc.text(paymentTerms, contentX, y);
-        y += 15;
-      }
-      
-      // Notes
-      if (invoice.notes) {
-        doc.setFontSize(13);
-        doc.setFont("helvetica", "bold");
-        doc.setTextColor(17, 24, 39);
-        doc.text('Notes:', contentX, y);
-        
-        y += 8;
-        doc.setFontSize(11);
-        doc.setFont("helvetica", "normal");
-        doc.setTextColor(55, 65, 81);
-        const noteLines = doc.splitTextToSize(invoice.notes, contentWidth - 10);
-        doc.text(noteLines, contentX, y);
-        y += noteLines.length * 6 + 15;
-      }
-      
-      // Banking Details
-      y += 12;
-      doc.setFontSize(13);
-      doc.setFont("helvetica", "bold");
-      doc.setTextColor(17, 24, 39);
-      doc.text('Banking Details:', contentX, y);
-      
-      y += 8;
-      doc.setFontSize(11);
-      doc.setFont("helvetica", "normal");
-      doc.setTextColor(55, 65, 81);
-      const bankLines = businessInfo.bankDetails.split('\n');
-      bankLines.forEach((line, index) => {
-        doc.text(line, contentX, y + (index * 6));
-      });
-      
-      // Footer
-      const footerY = Math.max(y + (bankLines.length * 6) + 20, containerY + containerHeight - 30);
-      
-      doc.setDrawColor(229, 231, 235);
-      doc.setLineWidth(0.5);
-      doc.line(contentX, footerY, contentX + contentWidth, footerY);
-      
-      const footerLines = businessInfo.footerNotes.split('\n');
-      footerLines.forEach((line, index) => {
-        const isFirstLine = index === 0;
-        doc.setFontSize(isFirstLine ? 12 : 10);
-        doc.setFont("helvetica", isFirstLine ? "bold" : "normal");
-        doc.setTextColor(75, 85, 99);
-        doc.text(line, contentX + (contentWidth / 2), footerY + 10 + (index * 6), { align: 'center' });
-      });
-      
-      doc.save(`invoice-${invoice.invoiceNumber}.pdf`);
-      console.log("PDF downloaded successfully");
+      console.log("PDF downloaded successfully from preview");
     } catch (error) {
-      console.error("Error generating PDF:", error);
+      console.error("Error generating PDF from preview:", error);
     }
   };
 
@@ -400,7 +159,7 @@ export function InvoicePreviewModal({ open, onOpenChange, invoice }: InvoicePrev
                 data-testid="button-download-pdf"
               >
                 <Download className="h-4 w-4 mr-2" />
-                Download PDF
+                Print as PDF
               </Button>
               {getStatusBadge(invoice.status)}
             </div>
@@ -408,7 +167,7 @@ export function InvoicePreviewModal({ open, onOpenChange, invoice }: InvoicePrev
         </DialogHeader>
 
         {/* Invoice Preview */}
-        <Card className="bg-white dark:bg-gray-50">
+        <Card className="bg-white dark:bg-gray-50" data-testid="invoice-preview-content">
           <CardContent className="p-8">
             {/* Header */}
             <div className="flex justify-between items-start mb-8">
