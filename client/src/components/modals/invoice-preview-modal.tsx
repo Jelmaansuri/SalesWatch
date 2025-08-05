@@ -139,8 +139,8 @@ export function InvoicePreviewModal({ open, onOpenChange, invoice }: InvoicePrev
       const finalWidth = contentWidthMM * scale;
       const finalHeight = contentHeightMM * scale;
       
-      // Precise centering calculations
-      const x = (pdfWidth - finalWidth) / 2;
+      // Adjust positioning - move slightly to the right for better visual centering
+      const x = (pdfWidth - finalWidth) / 2 + 3; // Move 3mm to the right
       const y = (pdfHeight - finalHeight) / 2;
       
       pdf.addImage(imgData, 'PNG', x, y, finalWidth, finalHeight);
