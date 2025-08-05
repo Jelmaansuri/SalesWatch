@@ -49,7 +49,7 @@ export default function Products() {
   const updateProductMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: FormData }) => {
       const response = await apiRequest(`/api/products/${id}`, "PUT", data);
-      return response.json();
+      return response;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/products"] });
