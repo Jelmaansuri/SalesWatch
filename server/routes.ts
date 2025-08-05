@@ -997,14 +997,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const subtotal = groupedSales.reduce((sum, s) => sum + parseFloat(s.totalAmount), 0);
       const totalProfit = groupedSales.reduce((sum, s) => sum + parseFloat(s.profit), 0);
 
+      // Use the actual sale date from the main sale, not current date
+      const saleDate = new Date(sale.saleDate);
+      const dueDate = new Date(saleDate);
+      dueDate.setDate(dueDate.getDate() + 30); // 30 days from sale date
+      
       // Create invoice data from sale group
       const invoiceData = {
         userId,
         customerId: sale.customerId,
         saleId: sale.id, // Link to the primary sale (first sale in group)
         invoiceNumber,
-        invoiceDate: new Date(),
-        dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days from now
+        invoiceDate: saleDate, // Use actual sale date, not current date
+        dueDate: dueDate, // 30 days from sale date
         status: "draft",
         subtotal: subtotal,
         taxAmount: 0,
