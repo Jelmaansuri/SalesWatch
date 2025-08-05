@@ -355,8 +355,7 @@ export default function AddSaleModal({ open, onOpenChange, onSaleAdded }: AddSal
                       <div className="space-y-2">
                         <Label className="text-xs font-medium">Product *</Label>
                         <Select
-                          key={`select-${index}-${item.productId}`}
-                          value={item.productId || ""}
+                          value={item.productId || undefined}
                           onValueChange={(value) => {
                             console.log("Product selected for item", index, ":", value);
                             if (value === "add-new-product") {
@@ -373,7 +372,9 @@ export default function AddSaleModal({ open, onOpenChange, onSaleAdded }: AddSal
                           }}
                         >
                           <SelectTrigger className="h-9">
-                            <SelectValue placeholder="Select product" />
+                            <SelectValue placeholder="Select product">
+                              {item.productId && products.find(p => p.id === item.productId)?.name}
+                            </SelectValue>
                           </SelectTrigger>
                           <SelectContent>
                             <SelectItem value="add-new-product" className="text-blue-600 font-medium border-b">
