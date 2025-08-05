@@ -35,86 +35,72 @@ export function InvoicePreviewModal({ open, onOpenChange, invoice }: InvoicePrev
       const { jsPDF } = await import('jspdf');
       const autoTable = (await import('jspdf-autotable')).default;
       
-      // Create PDF that replicates the exact preview design in a bordered container
+      // Create PDF matching the exact sample design shown in the image
       const doc = new jsPDF();
       const pageWidth = doc.internal.pageSize.getWidth();
       const pageHeight = doc.internal.pageSize.getHeight();
       
-      // Container with soft border - like the preview Card component
+      // Create container with soft border (matching the sample)
       const containerMargin = 15;
-      const containerPadding = 32; // 8 * 4 (p-8 in preview)
+      const containerPadding = 20;
       const containerX = containerMargin;
       const containerY = containerMargin;
       const containerWidth = pageWidth - (containerMargin * 2);
       const containerHeight = pageHeight - (containerMargin * 2);
       
-      // Draw the soft border container (exactly like Card component)
-      doc.setFillColor(255, 255, 255); // White background
-      doc.setDrawColor(229, 231, 235); // Light gray border (#e5e7eb)
-      doc.setLineWidth(1);
-      doc.roundedRect(containerX, containerY, containerWidth, containerHeight, 3, 3, 'FD'); // Rounded corners like Card
+      // Draw soft border container
+      doc.setDrawColor(200, 200, 200); // Light gray border
+      doc.setLineWidth(0.5);
+      doc.rect(containerX, containerY, containerWidth, containerHeight);
       
-      // Content area inside the container (matching CardContent p-8)
+      // Content area inside container
       const contentX = containerX + containerPadding;
       const contentY = containerY + containerPadding;
       const contentWidth = containerWidth - (containerPadding * 2);
       
-      // Header section - exactly matching preview flex layout
-      // Left side - Invoice title and details
-      doc.setFontSize(24); // text-3xl equivalent
+      // Header: INVOICE (left) and PROGENY AGROTECH (right)
+      doc.setFontSize(18);
       doc.setFont("helvetica", "bold");
-      doc.setTextColor(17, 24, 39); // text-gray-900
-      doc.text('INVOICE', contentX, contentY + 20);
+      doc.setTextColor(0, 0, 0);
+      doc.text('INVOICE', contentX, contentY + 15);
       
-      // Invoice number (text-lg font-semibold)
-      doc.setFontSize(14);
-      doc.setFont("helvetica", "bold");
-      doc.text(invoice.invoiceNumber, contentX, contentY + 35);
+      // Company name (right aligned)
+      doc.text('PROGENY AGROTECH', contentX + contentWidth, contentY + 15, { align: 'right' });
       
-      // Date details (text-gray-600)
-      doc.setFontSize(11);
+      // Company description (right aligned, smaller text)
+      doc.setFontSize(9);
       doc.setFont("helvetica", "normal");
-      doc.setTextColor(75, 85, 99); // text-gray-600
-      doc.text(`Date: ${new Date(invoice.invoiceDate).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}`, contentX, contentY + 47);
-      doc.text(`Due Date: ${new Date(invoice.dueDate).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}`, contentX, contentY + 59);
+      doc.text('Malaysian Fresh Young Ginger Farming', contentX + contentWidth, contentY + 25, { align: 'right' });
+      doc.text('& Distribution', contentX + contentWidth, contentY + 33, { align: 'right' });
       
-      // Status
+      // Invoice details
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(0, 0, 0);
+      
+      let yPos = contentY + 45;
+      doc.text(invoice.invoiceNumber, contentX, yPos);
+      yPos += 12;
+      
+      doc.text(`Date: ${new Date(invoice.invoiceDate).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}`, contentX, yPos);
+      yPos += 10;
+      
+      doc.text(`Due Date: ${new Date(invoice.dueDate).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}`, contentX, yPos);
+      yPos += 12;
+      
       const statusText = invoice.status.charAt(0).toUpperCase() + invoice.status.slice(1);
-      doc.text(`Status: ${statusText}`, contentX, contentY + 71);
+      doc.text(`Status: ${statusText}`, contentX, yPos);
       
-      // Right side - Company details (text-right)
-      doc.setFontSize(16); // text-xl equivalent
+      // Bill To section
+      yPos += 25;
       doc.setFont("helvetica", "bold");
-      doc.setTextColor(17, 24, 39); // text-gray-900
-      doc.text('PROGENY AGROTECH', contentX + contentWidth, contentY + 20, { align: 'right' });
-      
-      doc.setFontSize(11); // text-sm equivalent
-      doc.setFont("helvetica", "normal");
-      doc.setTextColor(75, 85, 99); // text-gray-600
-      doc.text('Malaysian Fresh Young Ginger Farming', contentX + contentWidth, contentY + 32, { align: 'right' });
-      doc.text('& Distribution', contentX + contentWidth, contentY + 44, { align: 'right' });
-      
-      // Bill To Section (mb-8 spacing)
-      let yPos = contentY + 95;
-      doc.setFontSize(14); // text-lg equivalent
-      doc.setFont("helvetica", "bold");
-      doc.setTextColor(17, 24, 39); // text-gray-900
       doc.text('Bill To:', contentX, yPos);
       
-      yPos += 15; // mb-3 spacing
-      doc.setFontSize(11);
-      doc.setFont("helvetica", "bold");
-      doc.setTextColor(55, 65, 81); // text-gray-700
-      doc.text(invoice.customer.name, contentX, yPos);
-      
-      yPos += 10;
-      if (invoice.customer.company) {
-        doc.setFont("helvetica", "normal");
-        doc.text(invoice.customer.company, contentX, yPos);
-        yPos += 10;
-      }
-      
+      yPos += 15;
       doc.setFont("helvetica", "normal");
+      doc.text(invoice.customer.name, contentX, yPos);
+      yPos += 10;
+      
       doc.text(invoice.customer.email, contentX, yPos);
       yPos += 10;
       
@@ -124,8 +110,7 @@ export function InvoicePreviewModal({ open, onOpenChange, invoice }: InvoicePrev
       }
       
       if (invoice.customer.address) {
-        yPos += 5; // mt-2 spacing
-        const addressLines = doc.splitTextToSize(invoice.customer.address, 120);
+        const addressLines = doc.splitTextToSize(invoice.customer.address, 100);
         doc.text(addressLines, contentX, yPos);
         yPos += addressLines.length * 10;
       }
@@ -144,133 +129,109 @@ export function InvoicePreviewModal({ open, onOpenChange, invoice }: InvoicePrev
         ];
       });
       
-      // Table matching exact preview styling
+      // Table matching the sample design exactly
       autoTable(doc, {
-        startY: yPos + 20, // mb-8 spacing
+        startY: yPos + 20,
         head: [['Description', 'Qty', 'Unit Price', 'Discount', 'Total']],
         body: tableData,
         margin: { left: contentX, right: containerX + containerMargin + containerPadding },
         headStyles: {
-          fillColor: [255, 255, 255], // White background like preview
-          textColor: [17, 24, 39], // text-gray-900
+          fillColor: [245, 245, 245], // Light gray header background
+          textColor: [0, 0, 0],
           fontStyle: 'bold',
-          fontSize: 11,
-          cellPadding: { top: 12, bottom: 12, left: 8, right: 8 }, // py-3 px-2
-          lineColor: [75, 85, 99], // border-gray-300
-          lineWidth: 2 // border-b-2
+          fontSize: 10,
+          cellPadding: 6,
+          halign: 'center'
         },
         bodyStyles: {
-          fontSize: 10,
-          cellPadding: { top: 16, bottom: 16, left: 8, right: 8 }, // py-4 px-2
-          textColor: [55, 65, 81], // text-gray-700
-          lineColor: [229, 231, 235], // border-gray-200
-          lineWidth: 1 // border-b
+          fontSize: 9,
+          cellPadding: 6,
+          textColor: [0, 0, 0]
         },
         columnStyles: {
-          0: { cellWidth: 'auto', valign: 'top', minCellWidth: 80 },
-          1: { cellWidth: 25, halign: 'center' },
-          2: { cellWidth: 30, halign: 'right' },
-          3: { cellWidth: 25, halign: 'right' },
-          4: { cellWidth: 30, halign: 'right' }
+          0: { cellWidth: 80, halign: 'left', valign: 'top' },
+          1: { cellWidth: 20, halign: 'center' },
+          2: { cellWidth: 25, halign: 'center' },
+          3: { cellWidth: 25, halign: 'center' },
+          4: { cellWidth: 25, halign: 'right' }
         },
         styles: {
           overflow: 'linebreak',
-          cellWidth: 'wrap'
-        },
-        tableWidth: 'wrap'
+          lineColor: [200, 200, 200],
+          lineWidth: 0.5
+        }
       });
       
-      // Totals section - matching preview's right-aligned layout
-      const finalY = (doc as any).lastAutoTable.finalY + 20; // mb-8 spacing
+      // Totals section - matching the sample design
+      const finalY = (doc as any).lastAutoTable.finalY + 15;
       
-      // Right-aligned totals (matching preview flex layout)
-      const totalsStartX = contentX + contentWidth - 100; // Right side like preview
-      
-      // Background for totals (light gray like preview)
-      doc.setFillColor(249, 249, 249); // bg-gray-50
-      doc.rect(totalsStartX - 10, finalY - 5, 110, 45, 'F');
-      
-      doc.setFontSize(11);
+      // Subtotal (right aligned)
+      doc.setFontSize(10);
       doc.setFont("helvetica", "normal");
-      doc.setTextColor(55, 65, 81); // text-gray-700
+      doc.setTextColor(0, 0, 0);
       
-      // Subtotal
-      doc.text('Subtotal:', totalsStartX, finalY + 8);
-      doc.text(`RM ${parseFloat(invoice.subtotal || 0).toFixed(2)}`, contentX + contentWidth - 10, finalY + 8, { align: 'right' });
+      const labelX = contentX + contentWidth - 80;
+      const valueX = contentX + contentWidth - 10;
       
-      let totalLineY = finalY + 20;
+      doc.text('Subtotal:', labelX, finalY);
+      doc.text(`RM ${parseFloat(invoice.subtotal || 0).toFixed(2)}`, valueX, finalY, { align: 'right' });
       
-      // Tax if applicable
-      if (parseFloat(invoice.taxAmount || 0) > 0) {
-        doc.text('Tax:', totalsStartX, totalLineY);
-        doc.text(`RM ${parseFloat(invoice.taxAmount).toFixed(2)}`, contentX + contentWidth - 10, totalLineY, { align: 'right' });
-        totalLineY += 12;
+      // Total (bold and slightly larger)
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(11);
+      doc.text('Total:', labelX, finalY + 15);
+      doc.text(`RM ${parseFloat(invoice.totalAmount || 0).toFixed(2)}`, valueX, finalY + 15, { align: 'right' });
+      
+      // Payment Terms section
+      let sectionY = finalY + 35;
+      
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(10);
+      doc.setTextColor(0, 0, 0);
+      doc.text('Payment Terms:', contentX, sectionY);
+      
+      sectionY += 12;
+      doc.setFont("helvetica", "normal");
+      if (invoice.paymentTerms) {
+        doc.text(invoice.paymentTerms, contentX, sectionY);
+      } else {
+        doc.text('Payment due within 30 days', contentX, sectionY);
       }
       
-      // Total (bold and larger, matching preview)
+      // Notes section
+      sectionY += 25;
       doc.setFont("helvetica", "bold");
-      doc.setFontSize(14);
-      doc.setTextColor(17, 24, 39); // text-gray-900
-      doc.text('Total:', totalsStartX, totalLineY + 8);
-      doc.text(`RM ${parseFloat(invoice.totalAmount || 0).toFixed(2)}`, contentX + contentWidth - 10, totalLineY + 8, { align: 'right' });
+      doc.text('Notes:', contentX, sectionY);
       
-      // Additional sections matching preview layout (pt-6 spacing)
-      let sectionY = finalY + 60;
-      
-      // Banking Details section (exactly like preview)
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(12); // font-semibold
-      doc.setTextColor(17, 24, 39); // text-gray-900
-      doc.text('Banking Details:', contentX, sectionY);
-      
-      sectionY += 15; // mb-3 spacing
+      sectionY += 12;
       doc.setFont("helvetica", "normal");
-      doc.setFontSize(11);
-      doc.setTextColor(55, 65, 81); // text-gray-700
-      doc.text('Bank: Maybank', contentX, sectionY);
-      doc.text('Account Name: PROGENY AGROTECH SDN BHD', contentX, sectionY + 12);
-      doc.text('Account Number: 5642 1234 5678', contentX, sectionY + 24);
-      
-      sectionY += 45;
-      
-      // Notes section (if present)
       if (invoice.notes) {
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(12);
-        doc.setTextColor(17, 24, 39);
-        doc.text('Notes:', contentX, sectionY);
-        
-        sectionY += 15;
-        doc.setFont("helvetica", "normal");
-        doc.setFontSize(11);
-        doc.setTextColor(55, 65, 81);
         const noteLines = doc.splitTextToSize(invoice.notes, contentWidth - 20);
         doc.text(noteLines, contentX, sectionY);
-        sectionY += noteLines.length * 12 + 20;
+        sectionY += noteLines.length * 10 + 15;
       }
       
-      // Payment Terms section (if present)
-      if (invoice.paymentTerms) {
-        doc.setFont("helvetica", "normal");
-        doc.setFontSize(10);
-        doc.setTextColor(107, 114, 128); // text-gray-500
-        doc.text(`Payment Terms: ${invoice.paymentTerms}`, contentX, sectionY);
-        sectionY += 20;
-      }
-      
-      // Footer section with border (pt-8 border-t border-gray-200)
-      const footerStartY = Math.max(sectionY + 20, containerY + containerHeight - 40);
-      
-      // Border line (border-t border-gray-200)
-      doc.setDrawColor(229, 231, 235); // border-gray-200
-      doc.setLineWidth(1);
-      doc.line(contentX, footerStartY, contentX + contentWidth, footerStartY);
-      
-      // Thank you message (text-center text-gray-600)
-      doc.setFontSize(12); // font-medium
+      // Banking Details section
+      sectionY += 10;
       doc.setFont("helvetica", "bold");
-      doc.setTextColor(75, 85, 99); // text-gray-600
-      doc.text('Thank you for your business!', contentX + (contentWidth / 2), footerStartY + 20, { align: 'center' });
+      doc.text('Banking Details:', contentX, sectionY);
+      
+      sectionY += 12;
+      doc.setFont("helvetica", "normal");
+      doc.text('Bank: Maybank', contentX, sectionY);
+      doc.text('Account Name: PROGENY AGROTECH SDN BHD', contentX, sectionY + 10);
+      doc.text('Account Number: 5642 1234 5678', contentX, sectionY + 20);
+      
+      // Footer
+      const footerY = containerY + containerHeight - 35;
+      doc.setFontSize(9);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(100, 100, 100);
+      doc.text('Thank you for your business!', contentX + (contentWidth / 2), footerY, { align: 'center' });
+      
+      // Footer note
+      doc.setFontSize(8);
+      doc.text('For questions about this invoice, please contact us', contentX + (contentWidth / 2), footerY + 10, { align: 'center' });
       
       // Download
       doc.save(`invoice-${invoice.invoiceNumber}.pdf`);
