@@ -1213,10 +1213,22 @@ export class DatabaseStorage implements IStorage {
     };
   }
 
-  async createInvoice(invoice: InsertInvoice): Promise<Invoice> {
+  async createInvoice(invoiceData: any): Promise<Invoice> {
     const [newInvoice] = await db.insert(invoices).values({
-      ...invoice,
       id: randomUUID(),
+      userId: invoiceData.userId,
+      customerId: invoiceData.customerId,
+      saleId: invoiceData.saleId,
+      invoiceNumber: invoiceData.invoiceNumber,
+      invoiceDate: invoiceData.invoiceDate,
+      dueDate: invoiceData.dueDate,
+      status: invoiceData.status,
+      subtotal: invoiceData.subtotal.toString(),
+      taxAmount: (invoiceData.taxAmount || 0).toString(),
+      totalAmount: invoiceData.totalAmount.toString(),
+      currency: invoiceData.currency,
+      notes: invoiceData.notes,
+      paymentTerms: invoiceData.paymentTerms,
     }).returning();
     return newInvoice;
   }
@@ -1259,10 +1271,15 @@ export class DatabaseStorage implements IStorage {
     return await db.select().from(invoiceItems).where(eq(invoiceItems.invoiceId, invoiceId));
   }
 
-  async createInvoiceItem(item: InsertInvoiceItem): Promise<InvoiceItem> {
+  async createInvoiceItem(itemData: any): Promise<InvoiceItem> {
     const [newItem] = await db.insert(invoiceItems).values({
-      ...item,
       id: randomUUID(),
+      invoiceId: itemData.invoiceId,
+      productId: itemData.productId,
+      quantity: itemData.quantity,
+      unitPrice: itemData.unitPrice.toString(),
+      discount: (itemData.discount || 0).toString(),
+      lineTotal: itemData.lineTotal.toString(),
     }).returning();
     return newItem;
   }

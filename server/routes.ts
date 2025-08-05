@@ -642,16 +642,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Sale not found" });
       }
 
-      // Get user settings for invoice generation
-      const userSettings = await storage.getUserSettings(userId);
+      // Get user settings for invoice generation or create default
+      let userSettings = await storage.getUserSettings(userId);
       if (!userSettings) {
-        return res.status(400).json({ message: "User settings not configured. Please complete business setup first." });
+        // Create default user settings
+        const defaultSettings = {
+          userId,
+          businessName: "Your Business",
+          businessAddress: "Your Business Address",
+          businessPhone: "Your Phone",
+          businessEmail: "your@email.com",
+          invoicePrefix: "INV",
+          nextInvoiceNumber: 1,
+          currency: "MYR",
+          paymentTerms: "Payment due within 30 days",
+        };
+        userSettings = await storage.createUserSettings(defaultSettings);
       }
 
       // Generate invoice number
       const invoiceNumber = `${userSettings.invoicePrefix}-${String(userSettings.nextInvoiceNumber).padStart(4, '0')}`;
 
-      // Create invoice data from sale
+      // Create invoice data from sale (convert strings to numbers)
       const invoiceData = {
         userId,
         customerId: sale.customerId,
@@ -660,9 +672,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         invoiceDate: new Date(),
         dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days from now
         status: "draft",
-        subtotal: sale.totalAmount,
-        taxAmount: "0.00", // Could be calculated based on userSettings.taxRate
-        totalAmount: sale.totalAmount,
+        subtotal: parseFloat(sale.totalAmount),
+        taxAmount: 0, // Could be calculated based on userSettings.taxRate
+        totalAmount: parseFloat(sale.totalAmount),
         currency: userSettings.currency,
         paymentTerms: userSettings.paymentTerms,
         notes: `Generated from sale on ${sale.saleDate ? new Date(sale.saleDate).toLocaleDateString() : new Date(sale.createdAt).toLocaleDateString()}`,
@@ -676,16 +688,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         invoiceId: invoice.id,
         productId: sale.productId,
         quantity: sale.quantity,
-        unitPrice: sale.unitPrice,
-        discount: sale.discountAmount || "0.00",
-        lineTotal: sale.totalAmount,
+        unitPrice: parseFloat(sale.unitPrice),
+        discount: parseFloat(sale.discountAmount || "0"),
+        lineTotal: parseFloat(sale.totalAmount),
       };
 
       await storage.createInvoiceItem(invoiceItemData);
 
       // Update the next invoice number
       await storage.updateUserSettings(userId, {
-        nextInvoiceNumber: userSettings.nextInvoiceNumber + 1,
+        nextInvoiceNumber: (userSettings.nextInvoiceNumber || 1) + 1,
       });
 
       res.json(invoice);
