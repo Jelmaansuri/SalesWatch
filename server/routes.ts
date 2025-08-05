@@ -570,7 +570,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       const saleWithDetails = await storage.getSaleWithDetails(sale.id);
-      res.json(saleWithDetails);
+      
+      // Return response with potential deleted invoice information (same format as multi-product route)
+      res.json({
+        ...saleWithDetails,
+        deletedInvoicesCount: 0, // Regular updates don't delete invoices, they update them
+        deletedInvoiceNumbers: []
+      });
     } catch (error) {
       console.error("Error updating sale:", error);
       if (error instanceof z.ZodError) {

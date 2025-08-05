@@ -124,17 +124,33 @@ export default function Sales() {
       const response = await apiRequest(`/api/sales/${id}`, "PUT", data);
       return response.json();
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/sales"] });
       queryClient.invalidateQueries({ queryKey: ["/api/products"] });
       queryClient.invalidateQueries({ queryKey: ["/api/analytics"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/invoices"] });
       setIsEditDialogOpen(false);
       setEditingSale(null);
       form.reset();
-      toast({
-        title: "Success",
-        description: "Sale updated successfully",
-      });
+      
+      const deletedInvoicesCount = data?.deletedInvoicesCount || 0;
+      const deletedInvoiceNumbers = data?.deletedInvoiceNumbers || [];
+      
+      if (deletedInvoicesCount > 0) {
+        const invoiceNumbersText = deletedInvoiceNumbers.length > 0 
+          ? deletedInvoiceNumbers.join(", ") 
+          : "N/A";
+        toast({
+          title: "Sale Updated Successfully", 
+          description: `Invoice(s) ${invoiceNumbersText} were automatically deleted. Please generate a new invoice to reflect the updated data.`,
+          duration: 6000,
+        });
+      } else {
+        toast({
+          title: "Success",
+          description: "Sale updated successfully",
+        });
+      }
     },
     onError: (error) => {
       if (isUnauthorizedError(error)) {
