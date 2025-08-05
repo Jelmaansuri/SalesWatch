@@ -19,7 +19,9 @@ import type { Customer, Product } from "@shared/schema";
 import { z } from "zod";
 import QuickAddCustomerModal from "./quick-add-customer-modal";
 import QuickAddProductModal from "./quick-add-product-modal";
-import { Plus, CalendarIcon } from "lucide-react";
+import { Plus, CalendarIcon, Trash2, X } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { format } from "date-fns";
 
 // Product item schema for multi-product support
@@ -32,13 +34,6 @@ const productItemSchema = z.object({
 
 const formSchema = z.object({
   customerId: z.string().min(1, "Customer is required"),
-  // Single product fields for backwards compatibility
-  productId: z.string().optional(),
-  quantity: z.number().optional(),
-  unitPrice: z.string().optional(),
-  discountAmount: z.string().optional().default("0.00"),
-  // Multi-product support
-  productItems: z.array(productItemSchema).optional().default([]),
   status: z.string().min(1, "Status is required"),
   saleDate: z.date(),
   platformSource: z.string().min(1, "Platform source is required"),
@@ -65,18 +60,13 @@ export default function AddSaleModal({ open, onOpenChange, onSaleAdded }: AddSal
     unitPrice: "",
     discountAmount: "0.00"
   }]);
-  const [isMultiProduct, setIsMultiProduct] = useState(false);
+
 
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
     mode: "onChange",
     defaultValues: {
       customerId: "",
-      productId: "",
-      quantity: 1,
-      unitPrice: "",
-      discountAmount: "0.00",
-      productItems: [],
       status: "unpaid",
       saleDate: new Date(),
       platformSource: "others",
@@ -98,67 +88,32 @@ export default function AddSaleModal({ open, onOpenChange, onSaleAdded }: AddSal
     mutationFn: async (data: FormData) => {
       console.log("Creating sale with data:", data);
       
-      // Handle multi-product mode
-      if (isMultiProduct && productItems.length > 0) {
-        const results = [];
+      // Always use multi-product mode - create separate sales for each product
+      const results = [];
+      
+      for (const item of productItems) {
+        if (!item.productId || !item.unitPrice) continue;
         
-        for (const item of productItems) {
-          if (!item.productId || !item.unitPrice) continue;
-          
-          // Find the product for profit calculation
-          const product = products.find(p => p.id === item.productId);
-          
-          const unitPrice = parseFloat(item.unitPrice);
-          const discountAmount = parseFloat(item.discountAmount || "0.00");
-          const quantity = item.quantity;
-          const discountedUnitPrice = unitPrice - discountAmount;
-          const totalAmount = discountedUnitPrice * quantity;
-          
-          // Calculate profit
-          let profit = 0;
-          if (product) {
-            profit = calculateProfit(discountedUnitPrice, parseFloat(product.costPrice), quantity);
-          }
-          
-          const saleData = {
-            customerId: data.customerId,
-            productId: item.productId,
-            quantity: quantity,
-            unitPrice: item.unitPrice,
-            discountAmount: discountAmount.toFixed(2),
-            totalAmount: totalAmount.toFixed(2),
-            profit: profit.toFixed(2),
-            status: data.status,
-            saleDate: data.saleDate.toISOString(),
-            platformSource: data.platformSource,
-            notes: data.notes || "",
-          };
-          
-          console.log("Sending multi-product sale data to API:", saleData);
-          const response = await apiRequest("/api/sales", "POST", saleData);
-          results.push(response);
-        }
-        return results;
-      } else {
-        // Single product mode (backward compatibility)
-        const unitPrice = parseFloat(data.unitPrice || "0");
-        const discountAmount = parseFloat(data.discountAmount || "0.00");
-        const quantity = data.quantity || 1;
+        // Find the product for profit calculation
+        const product = products.find(p => p.id === item.productId);
+        
+        const unitPrice = parseFloat(item.unitPrice);
+        const discountAmount = parseFloat(item.discountAmount || "0.00");
+        const quantity = item.quantity;
         const discountedUnitPrice = unitPrice - discountAmount;
         const totalAmount = discountedUnitPrice * quantity;
         
-        // Calculate profit if we have the product selected
+        // Calculate profit
         let profit = 0;
-        if (selectedProduct) {
-          profit = calculateProfit(discountedUnitPrice, parseFloat(selectedProduct.costPrice), quantity);
+        if (product) {
+          profit = calculateProfit(discountedUnitPrice, parseFloat(product.costPrice), quantity);
         }
         
-        // Prepare the sale data for the API
         const saleData = {
           customerId: data.customerId,
-          productId: data.productId,
+          productId: item.productId,
           quantity: quantity,
-          unitPrice: data.unitPrice,
+          unitPrice: item.unitPrice,
           discountAmount: discountAmount.toFixed(2),
           totalAmount: totalAmount.toFixed(2),
           profit: profit.toFixed(2),
@@ -168,10 +123,11 @@ export default function AddSaleModal({ open, onOpenChange, onSaleAdded }: AddSal
           notes: data.notes || "",
         };
         
-        console.log("Sending single sale data to API:", saleData);
+        console.log("Sending sale data to API:", saleData);
         const response = await apiRequest("/api/sales", "POST", saleData);
-        return response;
+        results.push(response);
       }
+      return results;
     },
     onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ["/api/sales"] });
@@ -193,7 +149,6 @@ export default function AddSaleModal({ open, onOpenChange, onSaleAdded }: AddSal
         unitPrice: "",
         discountAmount: "0.00"
       }]);
-      setIsMultiProduct(false);
     },
     onError: (error: any) => {
       console.error("Sale creation error:", error);
@@ -257,61 +212,27 @@ export default function AddSaleModal({ open, onOpenChange, onSaleAdded }: AddSal
       return;
     }
     
-    if (isMultiProduct) {
-      // Validate multi-product items
-      const validItems = productItems.filter(item => 
-        item.productId && item.unitPrice && parseFloat(item.unitPrice) > 0
-      );
-      
-      if (validItems.length === 0) {
-        toast({
-          title: "Missing Products",
-          description: "Please add at least one valid product.",
-          variant: "destructive",
-        });
-        return;
-      }
-      
-      // Check stock for all items
-      for (const item of validItems) {
-        const product = products.find(p => p.id === item.productId);
-        if (product && item.quantity > product.stock) {
-          toast({
-            title: "Insufficient Stock",
-            description: `Only ${product.stock} units of ${product.name} available.`,
-            variant: "destructive",
-          });
-          return;
-        }
-      }
-    } else {
-      // Validate single product mode
-      if (!data.productId) {
-        console.log("Missing product ID");
-        toast({
-          title: "Missing Product", 
-          description: "Please select a product.",
-          variant: "destructive",
-        });
-        return;
-      }
-      
-      if (!data.unitPrice || parseFloat(data.unitPrice) <= 0) {
-        console.log("Invalid unit price:", data.unitPrice);
-        toast({
-          title: "Invalid Price",
-          description: "Please enter a valid unit price.",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      // Validate stock availability
-      if (selectedProduct && data.quantity && data.quantity > selectedProduct.stock) {
-        console.log("Insufficient stock:", data.quantity, "requested,", selectedProduct.stock, "available");
+    // Always validate using the product items (multi-product mode)
+    const validItems = productItems.filter(item => 
+      item.productId && item.unitPrice && parseFloat(item.unitPrice) > 0
+    );
+    
+    if (validItems.length === 0) {
+      toast({
+        title: "Missing Products",
+        description: "Please add at least one valid product.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    // Check stock for all items
+    for (const item of validItems) {
+      const product = products.find(p => p.id === item.productId);
+      if (product && item.quantity > product.stock) {
         toast({
           title: "Insufficient Stock",
-          description: `Only ${selectedProduct.stock} units available. Please reduce quantity.`,
+          description: `Only ${product.stock} units of ${product.name} available.`,
           variant: "destructive",
         });
         return;
@@ -395,109 +316,182 @@ export default function AddSaleModal({ open, onOpenChange, onSaleAdded }: AddSal
             )}
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="productId">Product</Label>
-            <Select 
-              value={form.watch("productId") || ""} 
-              onValueChange={(value) => {
-                console.log("Product selected:", value);
-                if (value === "add-new-product") {
-                  setShowQuickAddProduct(true);
-                } else {
-                  form.setValue("productId", value, { shouldValidate: true });
-                  handleProductChange(value);
-                }
-              }}
-              key={`product-${form.watch("productId")}-${products.length}`}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select product" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="add-new-product" className="text-blue-600 font-medium border-b">
-                  <div className="flex items-center gap-2">
-                    <Plus className="h-4 w-4" />
-                    Add New Product
-                  </div>
-                </SelectItem>
-                {products.map((product: Product) => (
-                  <SelectItem key={product.id} value={product.id} disabled={product.stock === 0}>
-                    <div className="flex justify-between items-center w-full">
-                      <span>{product.name} - {formatCurrency(product.sellingPrice)}</span>
-                      <span className={`text-xs ml-2 ${
-                        product.stock > 10 ? 'text-green-600' : 
-                        product.stock > 0 ? 'text-yellow-600' : 
-                        'text-red-600'
-                      }`}>
-                        Stock: {product.stock}
+          {/* Product Items Section */}
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+              <CardTitle className="text-base font-medium">Sale Items</CardTitle>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={addProductItem}
+                className="flex items-center gap-2"
+              >
+                <Plus className="h-4 w-4" />
+                Add Item
+              </Button>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {productItems.map((item, index) => (
+                <Card key={index} className="border border-gray-200 dark:border-gray-700">
+                  <CardContent className="p-4">
+                    <div className="flex justify-between items-start mb-4">
+                      <h4 className="text-sm font-medium">Item {index + 1}</h4>
+                      {productItems.length > 1 && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => removeProductItem(index)}
+                          className="h-6 w-6 p-0 text-red-600 hover:text-red-700"
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                      {/* Product Selection */}
+                      <div className="space-y-2">
+                        <Label className="text-xs font-medium">Product *</Label>
+                        <Select
+                          value={item.productId}
+                          onValueChange={(value) => {
+                            if (value === "add-new-product") {
+                              setShowQuickAddProduct(true);
+                            } else {
+                              updateProductItem(index, "productId", value);
+                              // Auto-fill unit price
+                              const product = products.find(p => p.id === value);
+                              if (product) {
+                                updateProductItem(index, "unitPrice", product.sellingPrice);
+                              }
+                            }
+                          }}
+                        >
+                          <SelectTrigger className="h-9">
+                            <SelectValue placeholder="Select product" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="add-new-product" className="text-blue-600 font-medium border-b">
+                              <div className="flex items-center gap-2">
+                                <Plus className="h-4 w-4" />
+                                Add New Product
+                              </div>
+                            </SelectItem>
+                            {products.map((product: Product) => (
+                              <SelectItem key={product.id} value={product.id} disabled={product.stock === 0}>
+                                <div className="flex flex-col">
+                                  <span>{product.name}</span>
+                                  <span className="text-xs text-gray-500">
+                                    {formatCurrency(product.sellingPrice)} • Stock: {product.stock}
+                                  </span>
+                                </div>
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      {/* Quantity */}
+                      <div className="space-y-2">
+                        <Label className="text-xs font-medium">Quantity *</Label>
+                        <Input
+                          type="number"
+                          min="1"
+                          value={item.quantity}
+                          onChange={(e) => updateProductItem(index, "quantity", parseInt(e.target.value) || 1)}
+                          className="h-9"
+                          placeholder="1"
+                        />
+                      </div>
+
+                      {/* Unit Price */}
+                      <div className="space-y-2">
+                        <Label className="text-xs font-medium">Unit Price (RM) *</Label>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          value={item.unitPrice}
+                          onChange={(e) => updateProductItem(index, "unitPrice", e.target.value)}
+                          className="h-9"
+                          placeholder="0.00"
+                        />
+                      </div>
+
+                      {/* Discount */}
+                      <div className="space-y-2">
+                        <Label className="text-xs font-medium">Discount (RM)</Label>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          value={item.discountAmount}
+                          onChange={(e) => updateProductItem(index, "discountAmount", e.target.value)}
+                          className="h-9"
+                          placeholder="0.00"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Line Total */}
+                    {item.productId && item.unitPrice && (
+                      <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
+                        <div className="flex justify-end">
+                          <span className="text-sm font-medium">
+                            Line Total: {formatCurrency(
+                              ((parseFloat(item.unitPrice) || 0) - (parseFloat(item.discountAmount) || 0)) * (item.quantity || 1)
+                            )}
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              ))}
+
+              {/* Subtotal Section */}
+              {productItems.some(item => item.productId && item.unitPrice) && (
+                <div className="mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span>Subtotal:</span>
+                      <span className="font-medium">
+                        {formatCurrency(
+                          productItems.reduce((total, item) => {
+                            if (!item.productId || !item.unitPrice) return total;
+                            const unitPrice = parseFloat(item.unitPrice) || 0;
+                            const discount = parseFloat(item.discountAmount) || 0;
+                            const quantity = item.quantity || 1;
+                            return total + ((unitPrice - discount) * quantity);
+                          }, 0)
+                        )}
                       </span>
                     </div>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {form.formState.errors.productId && (
-              <p className="text-sm text-red-600">{form.formState.errors.productId.message}</p>
-            )}
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="quantity">Quantity</Label>
-              <Input
-                id="quantity"
-                type="number"
-                min="1"
-                max={selectedProduct?.stock || undefined}
-                {...form.register("quantity", { 
-                  valueAsNumber: true,
-                  min: { value: 1, message: "Quantity must be at least 1" },
-                  max: selectedProduct ? { value: selectedProduct.stock, message: `Maximum ${selectedProduct.stock} units available` } : undefined
-                })}
-              />
-              {selectedProduct && (
-                <p className="text-xs text-gray-600 dark:text-gray-400">
-                  Available stock: {selectedProduct.stock} units
-                </p>
+                    <div className="flex justify-between text-sm">
+                      <span>Tax:</span>
+                      <span>RM 0.00</span>
+                    </div>
+                    <div className="flex justify-between text-lg font-bold">
+                      <span>Total:</span>
+                      <span>
+                        {formatCurrency(
+                          productItems.reduce((total, item) => {
+                            if (!item.productId || !item.unitPrice) return total;
+                            const unitPrice = parseFloat(item.unitPrice) || 0;
+                            const discount = parseFloat(item.discountAmount) || 0;
+                            const quantity = item.quantity || 1;
+                            return total + ((unitPrice - discount) * quantity);
+                          }, 0)
+                        )}
+                      </span>
+                    </div>
+                  </div>
+                </div>
               )}
-              {form.formState.errors.quantity && (
-                <p className="text-sm text-red-600">{form.formState.errors.quantity.message}</p>
-              )}
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="unitPrice">Unit Price (RM)</Label>
-              <Input
-                id="unitPrice"
-                type="number"
-                step="0.01"
-                min="0"
-                {...form.register("unitPrice")}
-              />
-              {form.formState.errors.unitPrice && (
-                <p className="text-sm text-red-600">{form.formState.errors.unitPrice.message}</p>
-              )}
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="discountAmount">Customer Discount (RM)</Label>
-            <Input
-              id="discountAmount"
-              type="number"
-              step="0.01"
-              min="0"
-              max={unitPrice || undefined}
-              placeholder="0.00"
-              {...form.register("discountAmount")}
-            />
-            <p className="text-xs text-gray-600 dark:text-gray-400">
-              Discount per unit for this customer (default: RM 0.00)
-            </p>
-            {form.formState.errors.discountAmount && (
-              <p className="text-sm text-red-600">{form.formState.errors.discountAmount.message}</p>
-            )}
-          </div>
+            </CardContent>
+          </Card>
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
