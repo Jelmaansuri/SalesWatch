@@ -1080,6 +1080,63 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Create invoice revision route
+  app.post("/api/invoices/:id/revise", isAuthenticated, async (req, res) => {
+    try {
+      const { revisionReason, ...invoiceData } = req.body;
+      const userId = req.user?.claims?.sub;
+      
+      if (!revisionReason) {
+        return res.status(400).json({ message: "Revision reason is required" });
+      }
+
+      // Create the revision
+      const revisedInvoice = await storage.createInvoiceRevision(
+        req.params.id,
+        { ...invoiceData, userId },
+        revisionReason,
+        userId
+      );
+
+      // Get the revised invoice with details
+      const invoiceWithDetails = await storage.getInvoiceWithDetails(revisedInvoice.id);
+      
+      res.json(invoiceWithDetails);
+    } catch (error) {
+      console.error("Error creating invoice revision:", error);
+      res.status(500).json({ message: "Failed to create invoice revision" });
+    }
+  });
+
+  // Get invoice revision history route
+  app.get("/api/invoices/:id/revisions", isAuthenticated, async (req, res) => {
+    try {
+      const revisionHistory = await storage.getInvoiceRevisionHistory(req.params.id);
+      res.json(revisionHistory);
+    } catch (error) {
+      console.error("Error fetching invoice revision history:", error);
+      res.status(500).json({ message: "Failed to fetch revision history" });
+    }
+  });
+
+  // Get all versions of an invoice (by original ID)
+  app.get("/api/invoices/:id/versions", isAuthenticated, async (req, res) => {
+    try {
+      const invoice = await storage.getInvoice(req.params.id);
+      if (!invoice) {
+        return res.status(404).json({ message: "Invoice not found" });
+      }
+
+      const originalId = invoice.originalInvoiceId || req.params.id;
+      const versions = await storage.getInvoicesByOriginalId(originalId);
+      
+      res.json(versions);
+    } catch (error) {
+      console.error("Error fetching invoice versions:", error);
+      res.status(500).json({ message: "Failed to fetch invoice versions" });
+    }
+  });
+
   app.put("/api/invoices/:id", isAuthenticated, async (req, res) => {
     try {
       // Handle partial updates (like status changes) vs full updates

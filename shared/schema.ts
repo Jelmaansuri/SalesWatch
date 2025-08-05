@@ -135,8 +135,27 @@ export const invoices = pgTable("invoices", {
   currency: varchar("currency").default("MYR"),
   notes: text("notes"),
   paymentTerms: text("payment_terms"),
+  // Revision tracking fields
+  revisionNumber: integer("revision_number").notNull().default(1),
+  originalInvoiceId: varchar("original_invoice_id"), // Points to the very first version
+  parentInvoiceId: varchar("parent_invoice_id"), // Points to the immediate previous version
+  revisionReason: text("revision_reason"), // Why was this revision created
+  isCurrentVersion: boolean("is_current_version").notNull().default(true),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Invoice revision history table - for tracking all changes made to invoices
+export const invoiceRevisionHistory = pgTable("invoice_revision_history", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  invoiceId: varchar("invoice_id").notNull().references(() => invoices.id, { onDelete: "cascade" }),
+  userId: varchar("user_id").notNull(), // Who made the change
+  changeType: varchar("change_type").notNull(), // created, updated, revised, cancelled, etc.
+  changeDescription: text("change_description"), // Human-readable description of what changed
+  oldValues: jsonb("old_values"), // Previous values (for updates)
+  newValues: jsonb("new_values"), // New values (for updates)
+  revisionNumber: integer("revision_number").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
 // Invoice items table (multiple products per invoice)
@@ -222,6 +241,8 @@ export const insertInvoiceSchema = createInsertSchema(invoices).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
+  revisionNumber: true, // Auto-calculated
+  isCurrentVersion: true, // Auto-set
 }).extend({
   invoiceDate: z.union([
     z.string().transform((val) => new Date(val)),
@@ -243,6 +264,12 @@ export const insertInvoiceSchema = createInsertSchema(invoices).omit({
     z.string().transform((val) => parseFloat(val)),
     z.number()
   ]).refine((val) => val >= 0, "Total amount must be positive"),
+});
+
+// Schema for creating invoice revisions
+export const insertInvoiceRevisionHistorySchema = createInsertSchema(invoiceRevisionHistory).omit({
+  id: true,
+  createdAt: true,
 });
 
 export const insertInvoiceItemSchema = createInsertSchema(invoiceItems).omit({
@@ -296,10 +323,18 @@ export type InsertInvoice = z.infer<typeof insertInvoiceSchema>;
 export type InvoiceItem = typeof invoiceItems.$inferSelect;
 export type InsertInvoiceItem = z.infer<typeof insertInvoiceItemSchema>;
 
+// Invoice revision history types
+export type InvoiceRevisionHistory = typeof invoiceRevisionHistory.$inferSelect;
+export type InsertInvoiceRevisionHistory = typeof invoiceRevisionHistory.$inferInsert;
+
 // Invoice with details for API responses
 export type InvoiceWithDetails = Invoice & {
   customer: Customer;
   items: (InvoiceItem & { product: Product })[];
+  revisionHistory?: InvoiceRevisionHistory[];
+  originalInvoice?: Invoice;
+  parentInvoice?: Invoice;
+  childRevisions?: Invoice[];
 };
 
 // Status enum for sales/orders
