@@ -1,5 +1,6 @@
 import { format } from "date-fns";
 import { Download, Eye, X } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -7,7 +8,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 
-import type { InvoiceWithDetails } from "@shared/schema";
+import type { InvoiceWithDetails, UserSettings } from "@shared/schema";
 
 interface InvoicePreviewModalProps {
   open: boolean;
@@ -16,6 +17,39 @@ interface InvoicePreviewModalProps {
 }
 
 export function InvoicePreviewModal({ open, onOpenChange, invoice }: InvoicePreviewModalProps) {
+  // Fetch user settings for business information
+  const { data: userSettings, isLoading: isSettingsLoading } = useQuery<UserSettings>({
+    queryKey: ["/api/user-settings"],
+    retry: false,
+  });
+
+  // Shared business information structure for both preview and PDF
+  const getBusinessInfo = () => {
+    if (!userSettings) {
+      return {
+        name: "PROGENY AGROTECH",
+        description: ["Malaysian Fresh Young Ginger Farming", "& Distribution"],
+        address: "",
+        phone: "",
+        email: "",
+        website: "",
+        bankDetails: "Bank: Maybank\nAccount Name: PROGENY AGROTECH SDN BHD\nAccount Number: 5642 1234 5678",
+        footerNotes: "Thank you for your business!\nFor questions about this invoice, please contact us."
+      };
+    }
+    
+    return {
+      name: userSettings.businessName,
+      description: [userSettings.businessName], // Could be expanded based on business type
+      address: userSettings.businessAddress,
+      phone: userSettings.businessPhone,
+      email: userSettings.businessEmail,
+      website: userSettings.businessWebsite || "",
+      bankDetails: userSettings.bankDetails || "Bank: Maybank\nAccount Name: PROGENY AGROTECH SDN BHD\nAccount Number: 5642 1234 5678",
+      footerNotes: userSettings.footerNotes || "Thank you for your business!\nFor questions about this invoice, please contact us."
+    };
+  };
+
   const getStatusBadge = (status: string) => {
     const statusConfig = {
       draft: { label: "Draft", variant: "secondary" as const },
@@ -34,6 +68,9 @@ export function InvoicePreviewModal({ open, onOpenChange, invoice }: InvoicePrev
       // Generate and download PDF using jsPDF
       const { jsPDF } = await import('jspdf');
       const autoTable = (await import('jspdf-autotable')).default;
+      
+      // Get business information (same as preview)
+      const businessInfo = getBusinessInfo();
       
       // Create PDF matching the exact sample design shown in the image
       const doc = new jsPDF();
@@ -58,20 +95,24 @@ export function InvoicePreviewModal({ open, onOpenChange, invoice }: InvoicePrev
       const contentY = containerY + containerPadding;
       const contentWidth = containerWidth - (containerPadding * 2);
       
-      // Header: INVOICE (left) and PROGENY AGROTECH (right)
+      // Header: INVOICE (left) and Company Name (right)
       doc.setFontSize(18);
       doc.setFont("helvetica", "bold");
       doc.setTextColor(0, 0, 0);
       doc.text('INVOICE', contentX, contentY + 15);
       
-      // Company name (right aligned)
-      doc.text('PROGENY AGROTECH', contentX + contentWidth, contentY + 15, { align: 'right' });
+      // Company name (right aligned) - using dynamic data
+      doc.text(businessInfo.name, contentX + contentWidth, contentY + 15, { align: 'right' });
       
-      // Company description (right aligned, smaller text)
+      // Company description (right aligned, smaller text) - using dynamic data
       doc.setFontSize(9);
       doc.setFont("helvetica", "normal");
-      doc.text('Malaysian Fresh Young Ginger Farming', contentX + contentWidth, contentY + 25, { align: 'right' });
-      doc.text('& Distribution', contentX + contentWidth, contentY + 33, { align: 'right' });
+      if (businessInfo.description.length > 1) {
+        doc.text(businessInfo.description[0], contentX + contentWidth, contentY + 25, { align: 'right' });
+        doc.text(businessInfo.description[1], contentX + contentWidth, contentY + 33, { align: 'right' });
+      } else {
+        doc.text(businessInfo.description[0], contentX + contentWidth, contentY + 25, { align: 'right' });
+      }
       
       // Invoice details
       doc.setFontSize(10);
@@ -182,7 +223,7 @@ export function InvoicePreviewModal({ open, onOpenChange, invoice }: InvoicePrev
       doc.text('Total:', labelX, finalY + 15);
       doc.text(`RM ${parseFloat(invoice.totalAmount || 0).toFixed(2)}`, valueX, finalY + 15, { align: 'right' });
       
-      // Payment Terms section
+      // Payment Terms section - using dynamic data
       let sectionY = finalY + 35;
       
       doc.setFont("helvetica", "bold");
@@ -192,11 +233,8 @@ export function InvoicePreviewModal({ open, onOpenChange, invoice }: InvoicePrev
       
       sectionY += 12;
       doc.setFont("helvetica", "normal");
-      if (invoice.paymentTerms) {
-        doc.text(invoice.paymentTerms, contentX, sectionY);
-      } else {
-        doc.text('Payment due within 30 days', contentX, sectionY);
-      }
+      const paymentTerms = invoice.paymentTerms || userSettings?.paymentTerms || 'Payment due within 30 days';
+      doc.text(paymentTerms, contentX, sectionY);
       
       // Notes section
       sectionY += 25;
@@ -211,27 +249,27 @@ export function InvoicePreviewModal({ open, onOpenChange, invoice }: InvoicePrev
         sectionY += noteLines.length * 10 + 15;
       }
       
-      // Banking Details section
+      // Banking Details section - using dynamic data
       sectionY += 10;
       doc.setFont("helvetica", "bold");
       doc.text('Banking Details:', contentX, sectionY);
       
       sectionY += 12;
       doc.setFont("helvetica", "normal");
-      doc.text('Bank: Maybank', contentX, sectionY);
-      doc.text('Account Name: PROGENY AGROTECH SDN BHD', contentX, sectionY + 10);
-      doc.text('Account Number: 5642 1234 5678', contentX, sectionY + 20);
+      const bankLines = businessInfo.bankDetails.split('\n');
+      bankLines.forEach((line, index) => {
+        doc.text(line, contentX, sectionY + (index * 10));
+      });
       
-      // Footer
+      // Footer - using dynamic data
       const footerY = containerY + containerHeight - 35;
       doc.setFontSize(9);
       doc.setFont("helvetica", "normal");
       doc.setTextColor(100, 100, 100);
-      doc.text('Thank you for your business!', contentX + (contentWidth / 2), footerY, { align: 'center' });
-      
-      // Footer note
-      doc.setFontSize(8);
-      doc.text('For questions about this invoice, please contact us', contentX + (contentWidth / 2), footerY + 10, { align: 'center' });
+      const footerLines = businessInfo.footerNotes.split('\n');
+      footerLines.forEach((line, index) => {
+        doc.text(line, contentX + (contentWidth / 2), footerY + (index * 10), { align: 'center' });
+      });
       
       // Download
       doc.save(`invoice-${invoice.invoiceNumber}.pdf`);
@@ -241,6 +279,23 @@ export function InvoicePreviewModal({ open, onOpenChange, invoice }: InvoicePrev
       console.error("Error generating PDF:", error);
     }
   };
+
+  // Show loading state while settings are loading
+  if (isSettingsLoading) {
+    return (
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="max-w-4xl">
+          <DialogHeader>
+            <DialogTitle>Invoice Preview</DialogTitle>
+            <DialogDescription>Loading business information...</DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-center py-8">
+            <div className="text-gray-500">Loading...</div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    );
+  }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -287,11 +342,10 @@ export function InvoicePreviewModal({ open, onOpenChange, invoice }: InvoicePrev
               </div>
               <div className="text-right">
                 <div className="text-gray-900">
-                  <h2 className="text-xl font-bold mb-2">PROGENY AGROTECH</h2>
-                  <p className="text-sm text-gray-600">
-                    Malaysian Fresh Young Ginger Farming
-                  </p>
-                  <p className="text-sm text-gray-600">& Distribution</p>
+                  <h2 className="text-xl font-bold mb-2">{getBusinessInfo().name}</h2>
+                  {getBusinessInfo().description.map((line, index) => (
+                    <p key={index} className="text-sm text-gray-600">{line}</p>
+                  ))}
                 </div>
               </div>
             </div>
@@ -392,10 +446,10 @@ export function InvoicePreviewModal({ open, onOpenChange, invoice }: InvoicePrev
 
             {/* Payment Terms & Notes */}
             <div className="space-y-4">
-              {invoice.paymentTerms && (
+              {(invoice.paymentTerms || userSettings?.paymentTerms) && (
                 <div>
                   <h4 className="font-semibold text-gray-900 mb-2">Payment Terms:</h4>
-                  <p className="text-gray-700">{invoice.paymentTerms}</p>
+                  <p className="text-gray-700">{invoice.paymentTerms || userSettings?.paymentTerms}</p>
                 </div>
               )}
 
@@ -406,23 +460,22 @@ export function InvoicePreviewModal({ open, onOpenChange, invoice }: InvoicePrev
                 </div>
               )}
 
-              {/* Banking Details */}
+              {/* Banking Details - using dynamic data */}
               <div className="pt-6">
                 <h4 className="font-semibold text-gray-900 mb-3">Banking Details:</h4>
                 <div className="text-gray-700 space-y-1">
-                  <p>Bank: Maybank</p>
-                  <p>Account Name: PROGENY AGROTECH SDN BHD</p>
-                  <p>Account Number: 5642 1234 5678</p>
+                  {getBusinessInfo().bankDetails.split('\n').map((line, index) => (
+                    <p key={index}>{line}</p>
+                  ))}
                 </div>
               </div>
 
-              {/* Footer */}
+              {/* Footer - using dynamic data */}
               <div className="pt-8 border-t border-gray-200">
                 <div className="text-center text-gray-600">
-                  <p className="font-medium">Thank you for your business!</p>
-                  <p className="text-sm mt-2">
-                    For questions about this invoice, please contact us.
-                  </p>
+                  {getBusinessInfo().footerNotes.split('\n').map((line, index) => (
+                    <p key={index} className={index === 0 ? "font-medium" : "text-sm mt-2"}>{line}</p>
+                  ))}
                 </div>
               </div>
             </div>
