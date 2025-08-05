@@ -61,6 +61,7 @@ export interface IStorage {
   getInvoicesWithDetails(userId: string): Promise<InvoiceWithDetails[]>;
   getInvoice(id: string): Promise<Invoice | undefined>;
   getInvoiceWithDetails(id: string): Promise<InvoiceWithDetails | undefined>;
+  getInvoicesBySaleId(saleId: string): Promise<Invoice[]>;
   createInvoice(invoice: InsertInvoice): Promise<Invoice>;
   updateInvoice(id: string, updates: Partial<Invoice>): Promise<Invoice | undefined>;
   deleteInvoice(id: string): Promise<boolean>;
@@ -379,6 +380,11 @@ export class MemStorage implements IStorage {
     await this.updateProductStock(sale.productId, sale.quantity);
     
     return this.sales.delete(id);
+  }
+
+  async getInvoicesBySaleId(saleId: string): Promise<Invoice[]> {
+    // MemStorage doesn't implement invoices yet, return empty array
+    return [];
   }
 
   async getSalesByCustomerId(customerId: string): Promise<Sale[]> {
@@ -1211,6 +1217,10 @@ export class DatabaseStorage implements IStorage {
         product: item.product!,
       })),
     };
+  }
+
+  async getInvoicesBySaleId(saleId: string): Promise<Invoice[]> {
+    return await db.select().from(invoices).where(eq(invoices.saleId, saleId));
   }
 
   async createInvoice(invoiceData: any): Promise<Invoice> {

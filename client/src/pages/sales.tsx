@@ -209,7 +209,7 @@ export default function Sales() {
       console.log("Invoice generation response:", data);
       toast({
         title: "Success",
-        description: `Invoice ${data.invoiceNumber || 'N/A'} generated successfully`,
+        description: `Invoice ${data.invoiceNumber || data.invoice?.invoiceNumber || 'N/A'} generated successfully`,
       });
       queryClient.invalidateQueries({ queryKey: ["/api/invoices"] });
       setShowInvoicePreview(false);

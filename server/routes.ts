@@ -330,12 +330,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.delete("/api/sales/:id", isAuthenticated, async (req, res) => {
     try {
+      console.log("Attempting to delete sale:", req.params.id);
+      
+      // Check if sale has any related invoices
+      const relatedInvoices = await storage.getInvoicesBySaleId(req.params.id);
+      if (relatedInvoices.length > 0) {
+        return res.status(400).json({ 
+          message: `Cannot delete sale. Sale has ${relatedInvoices.length} related invoice(s). Please delete the invoices first.`,
+          invoiceCount: relatedInvoices.length
+        });
+      }
+      
       const deleted = await storage.deleteSale(req.params.id);
+      console.log("Delete result:", deleted);
       if (!deleted) {
         return res.status(404).json({ message: "Sale not found" });
       }
       res.status(204).send();
     } catch (error) {
+      console.error("Error deleting sale:", error);
+      if (error instanceof Error && error.message.includes("foreign key constraint")) {
+        return res.status(400).json({ 
+          message: "Cannot delete sale because it has related records. Please delete associated invoices first." 
+        });
+      }
       res.status(500).json({ message: "Failed to delete sale" });
     }
   });
@@ -734,7 +752,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         nextInvoiceNumber: (userSettings.nextInvoiceNumber || 1) + 1,
       });
 
-      res.json(invoice);
+      // Return the complete invoice with details
+      const invoiceWithDetails = await storage.getInvoiceWithDetails(invoice.id);
+      res.json(invoiceWithDetails || invoice);
     } catch (error) {
       console.error("Error generating invoice from sale:", error);
       res.status(500).json({ message: "Failed to generate invoice" });
