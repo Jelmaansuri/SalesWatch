@@ -86,9 +86,9 @@ export function InvoicePreviewModal({ open, onOpenChange, invoice }: InvoicePrev
         (dialogHeader as HTMLElement).style.display = 'none';
       }
       
-      // Capture the invoice content as canvas with optimized quality for smaller file size
+      // Capture the invoice content as canvas with high resolution
       const canvas = await html2canvas(invoiceElement, {
-        scale: 1, // Standard resolution for smaller file size
+        scale: 10, // High resolution for sharp text
         useCORS: true,
         allowTaint: false,
         backgroundColor: '#ffffff',
@@ -107,8 +107,8 @@ export function InvoicePreviewModal({ open, onOpenChange, invoice }: InvoicePrev
         (dialogHeader as HTMLElement).style.display = originalHeaderDisplay;
       }
       
-      // Create optimized PDF from canvas for smaller file size
-      const imgData = canvas.toDataURL('image/jpeg', 0.8); // JPEG with 80% quality for smaller size
+      // Create high-quality but compressed PDF for smaller file size
+      const imgData = canvas.toDataURL('image/jpeg', 0.4); // JPEG with 40% quality to keep under 300KB
       const pdf = new jsPDF('p', 'mm', 'a4');
       
       const pdfWidth = pdf.internal.pageSize.getWidth();
@@ -119,9 +119,9 @@ export function InvoicePreviewModal({ open, onOpenChange, invoice }: InvoicePrev
       const availableWidth = pdfWidth - (margin * 2);
       const availableHeight = pdfHeight - (margin * 2);
       
-      // Get actual canvas dimensions (1x scale)
-      const actualCanvasWidth = canvas.width;
-      const actualCanvasHeight = canvas.height;
+      // Get actual canvas dimensions (10x scale)
+      const actualCanvasWidth = canvas.width / 10;
+      const actualCanvasHeight = canvas.height / 10;
       
       // Convert pixels to mm more accurately
       const pixelToMM = 0.26458333; // 1 pixel = 0.26458333 mm at 96 DPI
