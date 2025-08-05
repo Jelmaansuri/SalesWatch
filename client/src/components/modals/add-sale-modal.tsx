@@ -333,7 +333,7 @@ export default function AddSaleModal({ open, onOpenChange, onSaleAdded }: AddSal
             </CardHeader>
             <CardContent className="space-y-4">
               {productItems.map((item, index) => (
-                <Card key={index} className="border border-gray-200 dark:border-gray-700">
+                <Card key={`product-item-${index}-${item.productId}`} className="border border-gray-200 dark:border-gray-700">
                   <CardContent className="p-4">
                     <div className="flex justify-between items-start mb-4">
                       <h4 className="text-sm font-medium">Item {index + 1}</h4>
@@ -355,8 +355,10 @@ export default function AddSaleModal({ open, onOpenChange, onSaleAdded }: AddSal
                       <div className="space-y-2">
                         <Label className="text-xs font-medium">Product *</Label>
                         <Select
-                          value={item.productId}
+                          key={`select-${index}-${item.productId}`}
+                          value={item.productId || ""}
                           onValueChange={(value) => {
+                            console.log("Product selected for item", index, ":", value);
                             if (value === "add-new-product") {
                               setShowQuickAddProduct(true);
                             } else {
@@ -364,6 +366,7 @@ export default function AddSaleModal({ open, onOpenChange, onSaleAdded }: AddSal
                               // Auto-fill unit price
                               const product = products.find(p => p.id === value);
                               if (product) {
+                                console.log("Auto-filling unit price:", product.sellingPrice);
                                 updateProductItem(index, "unitPrice", product.sellingPrice);
                               }
                             }
