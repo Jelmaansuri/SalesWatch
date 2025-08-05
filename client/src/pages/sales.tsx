@@ -279,6 +279,9 @@ export default function Sales() {
     }),
     onSuccess: (data) => {
       console.log("Invoice generation response:", data);
+      console.log("Invoice number from response:", data?.invoiceNumber);
+      console.log("Data keys:", Object.keys(data || {}));
+      
       // The response is the full invoice object, so invoiceNumber is a direct property
       const invoiceNumber = data?.invoiceNumber || 'N/A';
       toast({

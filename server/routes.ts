@@ -1056,7 +1056,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Return the complete invoice with details
       const invoiceWithDetails = await storage.getInvoiceWithDetails(invoice.id);
-      res.json(invoiceWithDetails || invoice);
+      const response = invoiceWithDetails || invoice;
+      console.log("Sending invoice response:", { invoiceNumber: response.invoiceNumber, id: response.id });
+      res.json(response);
     } catch (error) {
       console.error("Error generating invoice from sale:", error);
       res.status(500).json({ message: "Failed to generate invoice" });
