@@ -172,9 +172,10 @@ export default function Sales() {
       saleId: sale.id,
     }),
     onSuccess: (data) => {
+      console.log("Invoice generation response:", data);
       toast({
         title: "Success",
-        description: `Invoice ${data.invoiceNumber} generated successfully`,
+        description: `Invoice ${data.invoiceNumber || 'N/A'} generated successfully`,
       });
       queryClient.invalidateQueries({ queryKey: ["/api/invoices"] });
       setShowInvoicePreview(false);
