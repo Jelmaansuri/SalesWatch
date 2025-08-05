@@ -186,7 +186,7 @@ function SettingsContent() {
                       <FormLabel>Business Name *</FormLabel>
                       <FormControl>
                         <Input 
-                          placeholder="PROGENY AGROTECH"
+                          placeholder="Your Business Name"
                           data-testid="input-business-name"
                           {...field} 
                         />
@@ -226,7 +226,8 @@ function SettingsContent() {
                     <FormLabel>Business Address *</FormLabel>
                     <FormControl>
                       <Textarea 
-                        placeholder="Enter your complete business address"
+                        placeholder="Street Address&#10;City, State, Postal Code&#10;Country"
+                        className="min-h-[80px] resize-y"
                         data-testid="textarea-business-address"
                         {...field} 
                       />
@@ -264,7 +265,7 @@ function SettingsContent() {
                       <FormControl>
                         <Input 
                           type="email"
-                          placeholder="info@progenyagrotech.com"
+                          placeholder="info@yourbusiness.com"
                           data-testid="input-business-email"
                           {...field} 
                         />
@@ -283,7 +284,7 @@ function SettingsContent() {
                     <FormLabel>Website</FormLabel>
                     <FormControl>
                       <Input 
-                        placeholder="https://www.progenyagrotech.com"
+                        placeholder="https://www.yourbusiness.com"
                         data-testid="input-business-website"
                         {...field} 
                       />
@@ -463,7 +464,8 @@ function SettingsContent() {
                     <FormLabel>Bank Details</FormLabel>
                     <FormControl>
                       <Textarea 
-                        placeholder="Bank Name: Maybank&#10;Account Number: 1234567890&#10;Account Name: PROGENY AGROTECH"
+                        placeholder="Bank Name: Your Bank&#10;Account Number: 123456789&#10;Account Name: Your Business Name"
+                        className="min-h-[80px] resize-y"
                         data-testid="textarea-bank-details"
                         {...field} 
                       />
