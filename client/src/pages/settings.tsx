@@ -91,13 +91,11 @@ function SettingsContent() {
     mutationFn: async (data: InsertUserSettings) => {
       try {
         console.log("Attempting to save settings:", data);
-        let response;
         if (settings) {
-          response = await apiRequest("/api/user-settings", "PUT", data);
+          return await apiRequest("/api/user-settings", "PUT", data);
         } else {
-          response = await apiRequest("/api/user-settings", "POST", data);
+          return await apiRequest("/api/user-settings", "POST", data);
         }
-        return await response.json();
       } catch (error: any) {
         console.error("Error in mutation:", error);
         throw error;
