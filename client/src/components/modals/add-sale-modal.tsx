@@ -188,8 +188,10 @@ export default function AddSaleModal({ open, onOpenChange, onSaleAdded }: AddSal
   };
 
   const updateProductItem = (index: number, field: keyof ProductItem, value: any) => {
+    console.log(`Updating product item ${index}, field: ${field}, value:`, value);
     const updated = [...productItems];
     updated[index] = { ...updated[index], [field]: value };
+    console.log("Updated productItems:", updated);
     setProductItems(updated);
   };
 
