@@ -154,6 +154,60 @@ export default function Sales() {
     },
   });
 
+  const updateMultiProductSaleMutation = useMutation({
+    mutationFn: async ({ id, data }: { 
+      id: string; 
+      data: {
+        customerId: string;
+        status: string;
+        platformSource: string;
+        notes?: string;
+        saleDate?: Date;
+        products: Array<{
+          productId: string;
+          quantity: number;
+          unitPrice: string;
+          discountAmount: string;
+        }>;
+      };
+    }) => {
+      // Use the multi-product update endpoint
+      const response = await apiRequest(`/api/sales/${id}/multi-product`, "PUT", data);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/sales"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/products"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/analytics"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/invoices"] });
+      setIsEditDialogOpen(false);
+      setEditingSale(null);
+      setEditProductItems([]);
+      form.reset();
+      toast({
+        title: "Success",
+        description: "Multi-product sale updated successfully",
+      });
+    },
+    onError: (error) => {
+      if (isUnauthorizedError(error)) {
+        toast({
+          title: "Session Expired",
+          description: "Please sign in again",
+          variant: "destructive",
+        });
+        setTimeout(() => window.location.href = "/api/login", 1000);
+        return;
+      }
+      console.error("Multi-product update error:", error);
+      toast({
+        title: "Error",
+        description: "Failed to update multi-product sale",
+        variant: "destructive",
+      });
+    },
+  });
+
   const deleteSaleMutation = useMutation({
     mutationFn: async (id: string) => {
       await apiRequest(`/api/sales/${id}`, "DELETE");
@@ -306,22 +360,18 @@ export default function Sales() {
       return;
     }
     
-    // For now, update just the first item (later we'll implement full multi-product edit)
-    const firstItem = validItems[0];
-    const cleanData: Record<string, any> = {
+    // Prepare multi-product update data
+    const updateData = {
       customerId: data.customerId,
-      productId: firstItem.productId,
-      quantity: firstItem.quantity,
-      unitPrice: firstItem.unitPrice,
-      discountAmount: firstItem.discountAmount,
       status: data.status,
       platformSource: data.platformSource,
       notes: data.notes,
       saleDate: data.saleDate,
+      products: validItems
     };
     
-    console.log("Clean data for API:", cleanData);
-    updateSaleMutation.mutate({ id: editingSale.id, data: cleanData });
+    console.log("Multi-product update data:", updateData);
+    updateMultiProductSaleMutation.mutate({ id: editingSale.id, data: updateData });
   };
 
   if (error && isUnauthorizedError(error)) {
@@ -652,7 +702,7 @@ export default function Sales() {
                   </Button>
                   <Button 
                     type="submit" 
-                    disabled={updateSaleMutation.isPending}
+                    disabled={updateMultiProductSaleMutation.isPending}
                     className="bg-blue-600 hover:bg-blue-700 text-white"
                     onClick={(e) => {
                       console.log("Update Order button clicked!");
@@ -661,7 +711,7 @@ export default function Sales() {
                       // Don't prevent default, let form submission happen naturally
                     }}
                   >
-                    {updateSaleMutation.isPending ? "Updating..." : "Update Order"}
+                    {updateMultiProductSaleMutation.isPending ? "Updating..." : "Update Order"}
                   </Button>
                 </div>
               </form>

@@ -275,6 +275,175 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Update multi-product sale (handles grouped sales)
+  app.put("/api/sales/:id/multi-product", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { id } = req.params;
+      const { customerId, status, platformSource, notes, saleDate, products } = req.body;
+
+      console.log("PUT /api/sales/:id/multi-product called with:", { 
+        saleId: id, 
+        customerId, 
+        status, 
+        products: products?.length 
+      });
+
+      // Get existing sale to verify ownership
+      const existingSale = await storage.getSale(id);
+      if (!existingSale) {
+        return res.status(404).json({ message: "Sale not found" });
+      }
+
+      if (existingSale.userId !== userId) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      // Find all sales in the same group (if grouped)
+      const groupMatch = existingSale.notes?.match(/\[GROUP:([^\]]+)\]/);
+      const groupId = groupMatch ? groupMatch[1] : null;
+      
+      let salesInGroup = [existingSale];
+      if (groupId) {
+        const allSales = await storage.getSales();
+        salesInGroup = allSales.filter((sale: any) => 
+          sale.userId === userId && 
+          sale.notes?.includes(`[GROUP:${groupId}]`) && 
+          sale.customerId === existingSale.customerId
+        );
+      }
+
+      // Delete existing sales in the group (except the main one, we'll update it)
+      for (const sale of salesInGroup) {
+        if (sale.id !== id) {
+          await storage.deleteSale(sale.id);
+        }
+      }
+
+      // Generate new group ID if multiple products
+      const newGroupId = products.length > 1 ? `${Date.now()}-${Math.random().toString(36).substr(2, 9)}` : null;
+      const groupNotes = newGroupId ? `${notes || ''} [GROUP:${newGroupId}]`.trim() : notes || '';
+
+      // Update the main sale with the first product
+      const firstProduct = products[0];
+      const product = await storage.getProduct(firstProduct.productId);
+      if (!product) {
+        return res.status(404).json({ message: "First product not found" });
+      }
+
+      const costPrice = parseFloat(product.costPrice);
+      const unitPrice = parseFloat(firstProduct.unitPrice);
+      const discountAmount = parseFloat(firstProduct.discountAmount || "0");
+      const quantity = firstProduct.quantity;
+      
+      const totalAmount = ((unitPrice - discountAmount) * quantity).toFixed(2);
+      const profit = ((unitPrice - discountAmount - costPrice) * quantity).toFixed(2);
+
+      const updatedMainSale = await storage.updateSale(id, {
+        customerId,
+        productId: firstProduct.productId,
+        quantity,
+        unitPrice: firstProduct.unitPrice,
+        discountAmount: firstProduct.discountAmount,
+        totalAmount,
+        profit,
+        status,
+        platformSource,
+        notes: groupNotes,
+        saleDate: saleDate || existingSale.saleDate,
+        updatedAt: new Date(),
+      });
+
+      // Create additional sales for remaining products
+      const createdSales = [updatedMainSale];
+      
+      for (let i = 1; i < products.length; i++) {
+        const productItem = products[i];
+        const product = await storage.getProduct(productItem.productId);
+        if (!product) {
+          console.warn(`Product ${productItem.productId} not found, skipping`);
+          continue;
+        }
+
+        const costPrice = parseFloat(product.costPrice);
+        const unitPrice = parseFloat(productItem.unitPrice);
+        const discountAmount = parseFloat(productItem.discountAmount || "0");
+        const quantity = productItem.quantity;
+        
+        const totalAmount = ((unitPrice - discountAmount) * quantity).toFixed(2);
+        const profit = ((unitPrice - discountAmount - costPrice) * quantity).toFixed(2);
+
+        const newSale = await storage.createSale({
+          userId,
+          customerId,
+          productId: productItem.productId,
+          quantity,
+          unitPrice: productItem.unitPrice,
+          discountAmount: productItem.discountAmount,
+          totalAmount,
+          profit,
+          status,
+          platformSource,
+          notes: groupNotes,
+          saleDate: saleDate || existingSale.saleDate,
+        });
+
+        createdSales.push(newSale);
+      }
+
+      // Update related invoices for all sales in the group
+      try {
+        for (const sale of createdSales) {
+          const relatedInvoices = await storage.getInvoicesBySaleId(sale.id);
+          if (relatedInvoices.length > 0) {
+            for (const invoice of relatedInvoices) {
+              // Update invoice based on all sales in the group
+              const newSubtotal = createdSales.reduce((sum, s) => sum + parseFloat(s.totalAmount), 0);
+              const invoiceUpdates: any = {
+                subtotal: newSubtotal.toString(),
+                totalAmount: newSubtotal.toString(),
+              };
+              
+              if (saleDate) {
+                invoiceUpdates.invoiceDate = saleDate;
+                const newDueDate = new Date(saleDate);
+                newDueDate.setDate(newDueDate.getDate() + 30);
+                invoiceUpdates.dueDate = newDueDate;
+              }
+              
+              await storage.updateInvoice(invoice.id, invoiceUpdates);
+              
+              // Update invoice items
+              await storage.deleteInvoiceItems(invoice.id);
+              for (const groupSale of createdSales) {
+                const lineTotal = parseFloat(groupSale.totalAmount);
+                await storage.createInvoiceItem({
+                  invoiceId: invoice.id,
+                  productId: groupSale.productId,
+                  quantity: groupSale.quantity,
+                  unitPrice: parseFloat(groupSale.unitPrice) - parseFloat(groupSale.discountAmount || "0"),
+                  discount: parseFloat(groupSale.discountAmount || "0"),
+                  lineTotal: lineTotal,
+                });
+              }
+            }
+          }
+        }
+      } catch (invoiceError) {
+        console.warn("Failed to update related invoices:", invoiceError);
+      }
+
+      res.json({ 
+        message: "Multi-product sale updated successfully",
+        sales: createdSales,
+        groupId: newGroupId 
+      });
+    } catch (error) {
+      console.error("Error updating multi-product sale:", error);
+      res.status(500).json({ message: "Failed to update multi-product sale" });
+    }
+  });
+
   app.put("/api/sales/:id", isAuthenticated, async (req, res) => {
     try {
       console.log(`Updating sale ${req.params.id} with data:`, req.body);
