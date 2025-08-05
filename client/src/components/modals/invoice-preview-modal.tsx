@@ -110,20 +110,23 @@ export function InvoicePreviewModal({ open, onOpenChange, invoice }: InvoicePrev
       
       const pdfWidth = pdf.internal.pageSize.getWidth();
       const pdfHeight = pdf.internal.pageSize.getHeight();
-      const imgWidth = canvas.width;
-      const imgHeight = canvas.height;
+      
+      // Convert canvas dimensions to mm (accounting for the 2x scale)
+      const imgWidthMM = (canvas.width / 2) * 0.264583; // Convert pixels to mm
+      const imgHeightMM = (canvas.height / 2) * 0.264583;
       
       // Calculate scaling to fit PDF page with margins
-      const margin = 10;
+      const margin = 15; // Increased margin for better spacing
       const availableWidth = pdfWidth - (margin * 2);
       const availableHeight = pdfHeight - (margin * 2);
       
-      const widthRatio = availableWidth / (imgWidth / 2); // Divide by 2 because scale is 2
-      const heightRatio = availableHeight / (imgHeight / 2);
-      const ratio = Math.min(widthRatio, heightRatio);
+      // Calculate the ratio to fit the content within available space
+      const widthRatio = availableWidth / imgWidthMM;
+      const heightRatio = availableHeight / imgHeightMM;
+      const ratio = Math.min(widthRatio, heightRatio, 1); // Don't scale up beyond original size
       
-      const scaledWidth = (imgWidth / 2) * ratio;
-      const scaledHeight = (imgHeight / 2) * ratio;
+      const scaledWidth = imgWidthMM * ratio;
+      const scaledHeight = imgHeightMM * ratio;
       
       // Center the image on the page
       const x = (pdfWidth - scaledWidth) / 2;
