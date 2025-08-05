@@ -313,18 +313,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
         );
       }
 
+      // Auto-delete all invoices linked to the sales group before updating
+      let deletedInvoicesCount = 0;
+      for (const sale of salesInGroup) {
+        try {
+          const relatedInvoices = await storage.getInvoicesBySaleId(sale.id);
+          for (const invoice of relatedInvoices) {
+            await storage.deleteInvoiceItems(invoice.id);
+            await storage.deleteInvoice(invoice.id);
+            deletedInvoicesCount++;
+          }
+        } catch (error) {
+          console.warn(`Failed to delete invoices for sale ${sale.id}:`, error);
+        }
+      }
+
       // Delete existing sales in the group (except the main one, we'll update it)
-      // First, delete any invoices linked to these sales to avoid foreign key constraint
       for (const sale of salesInGroup) {
         if (sale.id !== id) {
           try {
-            // Get and delete related invoices first
-            const relatedInvoices = await storage.getInvoicesBySaleId(sale.id);
-            for (const invoice of relatedInvoices) {
-              await storage.deleteInvoiceItems(invoice.id);
-              await storage.deleteInvoice(invoice.id);
-            }
-            // Now safe to delete the sale
             await storage.deleteSale(sale.id);
           } catch (error) {
             console.warn(`Failed to delete sale ${sale.id}:`, error);
@@ -450,7 +457,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ 
         message: "Multi-product sale updated successfully",
         sales: createdSales,
-        groupId: newGroupId 
+        groupId: newGroupId,
+        deletedInvoicesCount
       });
     } catch (error) {
       console.error("Error updating multi-product sale:", error);
