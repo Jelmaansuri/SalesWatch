@@ -102,10 +102,29 @@ export default function Products() {
         setTimeout(() => window.location.href = "/api/login", 1000);
         return;
       }
+      
+      // Extract detailed error message from API response
+      let errorMessage = "Failed to delete product";
+      if (error instanceof Error) {
+        if (error.message?.includes("404:")) {
+          errorMessage = "Product not found or already deleted";
+        } else if (error.message?.includes("400:")) {
+          // Extract the actual error message from the API
+          const match = error.message.match(/400: (.+)/);
+          errorMessage = match ? match[1] : "Cannot delete product - check for related sales or inventory";
+        } else if (error.message?.includes("500:")) {
+          errorMessage = "Server error occurred while deleting product";
+        } else if (error.message) {
+          // Use the full error message if available
+          errorMessage = error.message;
+        }
+      }
+      
       toast({
         title: "Error",
-        description: "Failed to delete product",
+        description: errorMessage,
         variant: "destructive",
+        duration: 8000,
       });
     },
   });

@@ -31,6 +31,7 @@ import { InvoicePreviewModal } from "@/components/modals/invoice-preview-modal";
 import MainLayout from "@/components/layout/main-layout";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import { isUnauthorizedError } from "@/lib/authUtils";
 import type { InvoiceWithDetails } from "@shared/schema";
 
 export default function Invoices() {
@@ -69,10 +70,38 @@ function InvoicesContent() {
       });
     },
     onError: (error) => {
+      if (isUnauthorizedError(error)) {
+        toast({
+          title: "Session Expired",
+          description: "Please sign in again",
+          variant: "destructive",
+        });
+        setTimeout(() => window.location.href = "/api/login", 1000);
+        return;
+      }
+      
+      // Extract detailed error message from API response
+      let errorMessage = "Failed to delete invoice";
+      if (error instanceof Error) {
+        if (error.message?.includes("404:")) {
+          errorMessage = "Invoice not found or already deleted";
+        } else if (error.message?.includes("400:")) {
+          // Extract the actual error message from the API
+          const match = error.message.match(/400: (.+)/);
+          errorMessage = match ? match[1] : "Cannot delete invoice - check for constraints";
+        } else if (error.message?.includes("500:")) {
+          errorMessage = "Server error occurred while deleting invoice";
+        } else if (error.message) {
+          // Use the full error message if available
+          errorMessage = error.message;
+        }
+      }
+      
       toast({
         title: "Error",
-        description: error.message,
+        description: errorMessage,
         variant: "destructive",
+        duration: 8000,
       });
     },
   });

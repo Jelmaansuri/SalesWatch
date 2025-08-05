@@ -1498,14 +1498,39 @@ export default function Plots() {
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
       const response = await fetch(`/api/plots/${id}`, { method: "DELETE" });
-      if (!response.ok) throw new Error("Failed to delete plot");
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`${response.status}: ${errorText}`);
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/plots"] });
       toast({ title: "Success", description: "Plot deleted successfully" });
     },
-    onError: () => {
-      toast({ title: "Error", description: "Failed to delete plot", variant: "destructive" });
+    onError: (error) => {
+      // Extract detailed error message from API response
+      let errorMessage = "Failed to delete plot";
+      if (error instanceof Error) {
+        if (error.message?.includes("404:")) {
+          errorMessage = "Plot not found or already deleted";
+        } else if (error.message?.includes("400:")) {
+          // Extract the actual error message from the API
+          const match = error.message.match(/400: (.+)/);
+          errorMessage = match ? match[1] : "Cannot delete plot - check for related records";
+        } else if (error.message?.includes("500:")) {
+          errorMessage = "Server error occurred while deleting plot";
+        } else if (error.message) {
+          // Use the full error message if available
+          errorMessage = error.message;
+        }
+      }
+      
+      toast({ 
+        title: "Error", 
+        description: errorMessage, 
+        variant: "destructive",
+        duration: 8000,
+      });
     },
   });
 
