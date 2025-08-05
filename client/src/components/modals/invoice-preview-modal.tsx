@@ -28,7 +28,7 @@ export function InvoicePreviewModal({ open, onOpenChange, invoice }: InvoicePrev
     if (!userSettings) {
       return {
         name: "PROGENY AGROTECH",
-        description: ["Malaysian Fresh Young Ginger Farming", "& Distribution"],
+        description: [],
         address: "Kuala Lumpur, Malaysia",
         phone: "+60 12-345 6789",
         email: "info@progenyagrotech.com",
@@ -41,7 +41,7 @@ export function InvoicePreviewModal({ open, onOpenChange, invoice }: InvoicePrev
     
     return {
       name: userSettings.businessName,
-      description: ["Malaysian Fresh Young Ginger Farming", "& Distribution"],
+      description: [],
       address: userSettings.businessAddress,
       phone: userSettings.businessPhone,
       email: userSettings.businessEmail,
@@ -216,13 +216,10 @@ export function InvoicePreviewModal({ open, onOpenChange, invoice }: InvoicePrev
               </div>
               <div className="text-right">
                 <div className="text-gray-900">
-                  <h2 className="text-xl font-bold mb-2">{getBusinessInfo().name}</h2>
-                  {getBusinessInfo().description.map((line, index) => (
-                    <p key={index} className="text-sm text-gray-600">{line}</p>
-                  ))}
-                  <div className="mt-3 text-sm text-gray-600 space-y-1">
+                  <h2 className="text-xl font-bold mb-1">{getBusinessInfo().name}</h2>
+                  <div className="text-sm text-gray-600 space-y-1">
                     {getBusinessInfo().address && (
-                      <p>{getBusinessInfo().address}</p>
+                      <p className="whitespace-pre-line">{getBusinessInfo().address}</p>
                     )}
                     {getBusinessInfo().phone && (
                       <p>Tel: {getBusinessInfo().phone}</p>
