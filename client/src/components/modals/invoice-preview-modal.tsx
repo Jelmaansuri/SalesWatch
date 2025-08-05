@@ -70,34 +70,42 @@ export function InvoicePreviewModal({ open, onOpenChange, invoice }: InvoicePrev
       const { jsPDF } = await import('jspdf');
       
       // Find the invoice preview content (the Card component)
-      const invoiceElement = document.querySelector('[data-testid="invoice-preview-content"]');
+      const invoiceElement = document.querySelector('[data-testid="invoice-preview-content"]') as HTMLElement;
       if (!invoiceElement) {
         console.error('Invoice preview element not found');
         return;
       }
       
-      // Temporarily hide any preview-specific elements
-      const previewElements = document.querySelectorAll('[data-testid*="preview-"], .preview-only');
-      previewElements.forEach(el => {
-        (el as HTMLElement).style.display = 'none';
-      });
+      // Wait a moment for the element to be fully rendered
+      await new Promise(resolve => setTimeout(resolve, 100));
       
-      // Capture the invoice content as canvas
-      const canvas = await html2canvas(invoiceElement as HTMLElement, {
-        scale: 2, // Higher quality
+      // Temporarily hide any preview-specific elements (like status badges in header)
+      const dialogHeader = document.querySelector('.dialog-header, [role="dialog"] header');
+      const originalHeaderDisplay = dialogHeader ? (dialogHeader as HTMLElement).style.display : '';
+      if (dialogHeader) {
+        (dialogHeader as HTMLElement).style.display = 'none';
+      }
+      
+      // Capture the invoice content as canvas with better options
+      const canvas = await html2canvas(invoiceElement, {
+        scale: 2,
         useCORS: true,
+        allowTaint: false,
         backgroundColor: '#ffffff',
-        width: invoiceElement.scrollWidth,
-        height: invoiceElement.scrollHeight,
+        logging: false,
+        width: invoiceElement.offsetWidth,
+        height: invoiceElement.offsetHeight,
+        windowWidth: invoiceElement.offsetWidth,
+        windowHeight: invoiceElement.offsetHeight,
       });
       
-      // Restore preview elements
-      previewElements.forEach(el => {
-        (el as HTMLElement).style.display = '';
-      });
+      // Restore dialog header
+      if (dialogHeader) {
+        (dialogHeader as HTMLElement).style.display = originalHeaderDisplay;
+      }
       
       // Create PDF from canvas
-      const imgData = canvas.toDataURL('image/png');
+      const imgData = canvas.toDataURL('image/png', 1.0);
       const pdf = new jsPDF('p', 'mm', 'a4');
       
       const pdfWidth = pdf.internal.pageSize.getWidth();
@@ -105,10 +113,17 @@ export function InvoicePreviewModal({ open, onOpenChange, invoice }: InvoicePrev
       const imgWidth = canvas.width;
       const imgHeight = canvas.height;
       
-      // Calculate scaling to fit the PDF page
-      const ratio = Math.min(pdfWidth / imgWidth, pdfHeight / imgHeight);
-      const scaledWidth = imgWidth * ratio;
-      const scaledHeight = imgHeight * ratio;
+      // Calculate scaling to fit PDF page with margins
+      const margin = 10;
+      const availableWidth = pdfWidth - (margin * 2);
+      const availableHeight = pdfHeight - (margin * 2);
+      
+      const widthRatio = availableWidth / (imgWidth / 2); // Divide by 2 because scale is 2
+      const heightRatio = availableHeight / (imgHeight / 2);
+      const ratio = Math.min(widthRatio, heightRatio);
+      
+      const scaledWidth = (imgWidth / 2) * ratio;
+      const scaledHeight = (imgHeight / 2) * ratio;
       
       // Center the image on the page
       const x = (pdfWidth - scaledWidth) / 2;
@@ -117,7 +132,7 @@ export function InvoicePreviewModal({ open, onOpenChange, invoice }: InvoicePrev
       pdf.addImage(imgData, 'PNG', x, y, scaledWidth, scaledHeight);
       pdf.save(`invoice-${invoice.invoiceNumber}.pdf`);
       
-      console.log("PDF downloaded successfully from preview");
+      console.log("PDF generated successfully from preview");
     } catch (error) {
       console.error("Error generating PDF from preview:", error);
     }

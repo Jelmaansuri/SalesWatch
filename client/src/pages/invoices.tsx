@@ -7,7 +7,7 @@ import {
   Eye, 
   Edit2, 
   Trash2, 
-  Download,
+
   Filter,
   Search,
   DollarSign,
@@ -68,81 +68,7 @@ export default function InvoicesPage() {
     },
   });
 
-  // Generate PDF mutation
-  const generatePDFMutation = useMutation({
-    mutationFn: async (invoiceId: string) => {
-      const response = await apiRequest(`/api/invoices/${invoiceId}/generate-pdf`, "POST");
-      return await response.json();
-    },
-    onSuccess: async (data) => {
-      // Generate and download PDF using jsPDF
-      const { jsPDF } = await import('jspdf');
-      const autoTable = (await import('jspdf-autotable')).default;
-      
-      const { invoice, businessSettings } = data;
-      
-      // Create PDF
-      const doc = new jsPDF();
-      
-      // Header
-      doc.setFontSize(20);
-      doc.text(businessSettings?.businessName || 'PROGENY AGROTECH', 20, 30);
-      doc.setFontSize(12);
-      doc.text('INVOICE', 20, 45);
-      
-      // Invoice details
-      doc.text(`Invoice #: ${invoice.invoiceNumber}`, 20, 60);
-      doc.text(`Date: ${new Date(invoice.invoiceDate).toLocaleDateString()}`, 20, 70);
-      doc.text(`Due Date: ${new Date(invoice.dueDate).toLocaleDateString()}`, 20, 80);
-      doc.text(`Status: ${invoice.status.charAt(0).toUpperCase() + invoice.status.slice(1)}`, 20, 90);
-      
-      // Customer details
-      doc.text('Bill To:', 120, 60);
-      doc.text(invoice.customer.name, 120, 70);
-      if (invoice.customer.company) {
-        doc.text(invoice.customer.company, 120, 80);
-        doc.text(invoice.customer.email, 120, 90);
-      } else {
-        doc.text(invoice.customer.email, 120, 80);
-      }
-      
-      // Items table
-      const tableData = invoice.items.map((item: any) => [
-        item.product.name,
-        item.quantity.toString(),
-        `RM ${parseFloat(item.unitPrice).toFixed(2)}`,
-        `RM ${(parseFloat(item.discount) || 0).toFixed(2)}`,
-        `RM ${parseFloat(item.lineTotal).toFixed(2)}`
-      ]);
-      
-      autoTable(doc, {
-        startY: 115,
-        head: [['Product', 'Qty', 'Unit Price', 'Discount', 'Total']],
-        body: tableData,
-      });
-      
-      // Total
-      const finalY = (doc as any).lastAutoTable.finalY + 20;
-      doc.text(`Subtotal: RM ${parseFloat(invoice.subtotal).toFixed(2)}`, 120, finalY);
-      doc.text(`Tax: RM ${(parseFloat(invoice.taxAmount) || 0).toFixed(2)}`, 120, finalY + 10);
-      doc.text(`Total: RM ${parseFloat(invoice.totalAmount).toFixed(2)}`, 120, finalY + 20);
-      
-      // Download
-      doc.save(`invoice-${invoice.invoiceNumber}.pdf`);
-      
-      toast({
-        title: "PDF Downloaded",
-        description: "Invoice PDF has been downloaded successfully",
-      });
-    },
-    onError: (error) => {
-      toast({
-        title: "Error",
-        description: "Failed to generate PDF",
-        variant: "destructive",
-      });
-    },
-  });
+
 
   // Update status mutation
   const updateStatusMutation = useMutation({
@@ -212,9 +138,7 @@ export default function InvoicesPage() {
     deleteInvoiceMutation.mutate(invoiceId);
   };
 
-  const handleGeneratePDF = (invoiceId: string) => {
-    generatePDFMutation.mutate(invoiceId);
-  };
+
 
   const handleStatusChange = (invoiceId: string, status: string) => {
     updateStatusMutation.mutate({ invoiceId, status });
@@ -429,15 +353,7 @@ export default function InvoicesPage() {
                           >
                             <Edit2 className="h-4 w-4" />
                           </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleGeneratePDF(invoice.id)}
-                            disabled={generatePDFMutation.isPending}
-                            data-testid={`button-pdf-${invoice.id}`}
-                          >
-                            <Download className="h-4 w-4" />
-                          </Button>
+
                           <AlertDialog>
                             <AlertDialogTrigger asChild>
                               <Button
