@@ -1,6 +1,7 @@
 import { useState } from "react";
 import Sidebar from "./sidebar";
 import Header from "./header";
+import { useSidebar } from "@/hooks/use-sidebar";
 import { cn } from "@/lib/utils";
 
 interface MainLayoutProps {
@@ -10,6 +11,7 @@ interface MainLayoutProps {
 
 export default function MainLayout({ children, title }: MainLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const { isCollapsed } = useSidebar();
 
   return (
     <div className="flex h-screen overflow-hidden">
@@ -32,7 +34,7 @@ export default function MainLayout({ children, title }: MainLayoutProps) {
       )}
 
       {/* Main Content */}
-      <div className="flex flex-col flex-1 overflow-hidden">
+      <div className="flex flex-col flex-1 overflow-hidden transition-all duration-300 ease-in-out">
         <Header 
           title={title} 
           onMenuClick={() => setSidebarOpen(!sidebarOpen)} 

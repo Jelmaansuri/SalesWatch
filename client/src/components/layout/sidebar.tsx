@@ -2,6 +2,7 @@ import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
 import { NavigationItem } from "@/lib/types";
 import { useAuth } from "@/hooks/useAuth";
+import { useSidebar } from "@/hooks/use-sidebar";
 import { 
   ChartPie, 
   TrendingUp, 
@@ -12,8 +13,12 @@ import {
   Sprout,
   MapPin,
   Receipt,
-  Settings
+  Settings,
+  ChevronLeft,
+  ChevronRight
 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 const navigation: NavigationItem[] = [
   { name: "Dashboard", href: "/", icon: "ChartPie" },
@@ -46,13 +51,35 @@ interface SidebarProps {
 export default function Sidebar({ className }: SidebarProps) {
   const [location] = useLocation();
   const { user } = useAuth();
+  const { isCollapsed, toggleSidebar } = useSidebar();
 
   return (
-    <div className={cn("flex flex-col w-64 bg-white dark:bg-gray-900 shadow-lg", className)}>
+    <div className={cn(
+      "flex flex-col bg-white dark:bg-gray-900 shadow-lg transition-all duration-300 ease-in-out relative",
+      isCollapsed ? "w-16" : "w-64",
+      className
+    )}>
       {/* Logo */}
-      <div className="flex items-center justify-center h-16 px-4 bg-green-600">
-        <Sprout className="h-6 w-6 text-white mr-2" />
-        <h1 className="text-lg font-bold text-white">PROGENY AGROTECH</h1>
+      <div className="flex items-center h-16 px-4 bg-green-600 relative">
+        <Sprout className="h-6 w-6 text-white flex-shrink-0" />
+        {!isCollapsed && (
+          <h1 className="text-lg font-bold text-white ml-2 truncate">PROGENY AGROTECH</h1>
+        )}
+        
+        {/* Toggle Button */}
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={toggleSidebar}
+          className="absolute -right-3 top-1/2 transform -translate-y-1/2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full p-1 h-6 w-6 hover:bg-gray-100 dark:hover:bg-gray-700 shadow-md z-10"
+          data-testid="button-toggle-sidebar"
+        >
+          {isCollapsed ? (
+            <ChevronRight className="h-3 w-3 text-gray-600 dark:text-gray-300" />
+          ) : (
+            <ChevronLeft className="h-3 w-3 text-gray-600 dark:text-gray-300" />
+          )}
+        </Button>
       </div>
       
       {/* Navigation Menu */}
@@ -61,7 +88,7 @@ export default function Sidebar({ className }: SidebarProps) {
           const Icon = iconMap[item.icon as keyof typeof iconMap];
           const isActive = location === item.href;
           
-          return (
+          const navItem = (
             <Link key={item.name} href={item.href}>
               <div
                 className={cn(
@@ -71,11 +98,29 @@ export default function Sidebar({ className }: SidebarProps) {
                     : "text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
                 )}
               >
-                <Icon className="mr-3 h-5 w-5" />
-                {item.name}
+                <Icon className="h-5 w-5 flex-shrink-0" />
+                {!isCollapsed && (
+                  <span className="ml-3 truncate">{item.name}</span>
+                )}
               </div>
             </Link>
           );
+
+          // If collapsed, wrap in tooltip
+          if (isCollapsed) {
+            return (
+              <Tooltip key={item.name} delayDuration={100}>
+                <TooltipTrigger asChild>
+                  {navItem}
+                </TooltipTrigger>
+                <TooltipContent side="right" className="ml-2">
+                  {item.name}
+                </TooltipContent>
+              </Tooltip>
+            );
+          }
+
+          return navItem;
         })}
       </nav>
       
