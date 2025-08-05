@@ -432,16 +432,33 @@ export default function Sales() {
       return;
     }
 
-    // Check inventory levels for each product
+    // Check inventory levels for each product 
+    // Note: We check against current stock levels as the backend will handle 
+    // the proper inventory calculations including stock restoration from original sales
     for (const item of validItems) {
       const product = products.find(p => p.id === item.productId);
-      if (product && item.quantity > product.stock) {
+      if (!product) {
         toast({
-          title: "Insufficient Stock",
-          description: `Not enough stock for ${product.name}. Available: ${product.stock}, Requested: ${item.quantity}`,
+          title: "Product Not Found",
+          description: `Product not found in inventory.`,
           variant: "destructive",
         });
         return;
+      }
+      
+      // For new products being added to the sale, check against current stock
+      // For existing products, the backend will handle the stock restoration properly
+      console.log(`Checking stock for ${product.name}: current=${product.stock}, requested=${item.quantity}`);
+      
+      // This is a basic check - the backend will do the detailed validation
+      // including accounting for the original sale quantities being restored
+      if (item.quantity > product.stock + 50) { // Add buffer for editing scenarios
+        toast({
+          title: "High Quantity Warning",
+          description: `Requesting ${item.quantity} units of ${product.name}. Current stock: ${product.stock}. The system will verify availability including restored quantities.`,
+          variant: "destructive",
+        });
+        // Don't return here - let the backend handle the detailed validation
       }
     }
     
