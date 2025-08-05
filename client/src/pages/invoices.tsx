@@ -28,6 +28,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { CreateInvoiceModal } from "@/components/modals/create-invoice-modal";
 import { EditInvoiceModal } from "@/components/modals/edit-invoice-modal";
 import { InvoicePreviewModal } from "@/components/modals/invoice-preview-modal";
+import MainLayout from "@/components/layout/main-layout";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import type { InvoiceWithDetails } from "@shared/schema";

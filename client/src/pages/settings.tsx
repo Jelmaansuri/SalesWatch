@@ -11,12 +11,21 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import MainLayout from "@/components/layout/main-layout";
 
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { insertUserSettingsSchema, type UserSettings, type InsertUserSettings } from "@shared/schema";
 
-export default function SettingsPage() {
+export default function Settings() {
+  return (
+    <MainLayout title="Business Settings">
+      <SettingsContent />
+    </MainLayout>
+  );
+}
+
+function SettingsContent() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [logoPreview, setLogoPreview] = useState<string>("");
