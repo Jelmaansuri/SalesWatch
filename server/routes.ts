@@ -314,9 +314,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Delete existing sales in the group (except the main one, we'll update it)
+      // First, delete any invoices linked to these sales to avoid foreign key constraint
       for (const sale of salesInGroup) {
         if (sale.id !== id) {
-          await storage.deleteSale(sale.id);
+          try {
+            // Get and delete related invoices first
+            const relatedInvoices = await storage.getInvoicesBySaleId(sale.id);
+            for (const invoice of relatedInvoices) {
+              await storage.deleteInvoiceItems(invoice.id);
+              await storage.deleteInvoice(invoice.id);
+            }
+            // Now safe to delete the sale
+            await storage.deleteSale(sale.id);
+          } catch (error) {
+            console.warn(`Failed to delete sale ${sale.id}:`, error);
+          }
         }
       }
 
@@ -394,11 +406,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Update related invoices for all sales in the group
       try {
         for (const sale of createdSales) {
+          if (!sale) continue;
           const relatedInvoices = await storage.getInvoicesBySaleId(sale.id);
           if (relatedInvoices.length > 0) {
             for (const invoice of relatedInvoices) {
               // Update invoice based on all sales in the group
-              const newSubtotal = createdSales.reduce((sum, s) => sum + parseFloat(s.totalAmount), 0);
+              const newSubtotal = createdSales.reduce((sum, s) => s ? sum + parseFloat(s.totalAmount) : sum, 0);
               const invoiceUpdates: any = {
                 subtotal: newSubtotal.toString(),
                 totalAmount: newSubtotal.toString(),
@@ -416,6 +429,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               // Update invoice items
               await storage.deleteInvoiceItems(invoice.id);
               for (const groupSale of createdSales) {
+                if (!groupSale) continue;
                 const lineTotal = parseFloat(groupSale.totalAmount);
                 await storage.createInvoiceItem({
                   invoiceId: invoice.id,

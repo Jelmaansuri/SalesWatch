@@ -728,13 +728,17 @@ export default function Sales() {
                   </Button>
                   <Button 
                     type="submit" 
-                    disabled={updateMultiProductSaleMutation.isPending}
+                    disabled={updateMultiProductSaleMutation.isPending || editProductItems.some(item => !item.productId || !item.unitPrice || parseFloat(item.unitPrice) <= 0)}
                     className="bg-blue-600 hover:bg-blue-700 text-white"
                     onClick={(e) => {
                       console.log("Update Order button clicked!");
                       console.log("Form valid:", form.formState.isValid);
                       console.log("Form errors:", form.formState.errors);
-                      // Don't prevent default, let form submission happen naturally
+                      console.log("Product items validation:", editProductItems.map(item => ({
+                        productId: !!item.productId,
+                        unitPrice: !!item.unitPrice && parseFloat(item.unitPrice) > 0,
+                        quantity: item.quantity > 0
+                      })));
                     }}
                   >
                     {updateMultiProductSaleMutation.isPending ? "Updating..." : "Update Order"}
