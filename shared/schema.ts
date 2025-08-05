@@ -210,18 +210,36 @@ export const insertInvoiceSchema = createInsertSchema(invoices).omit({
     z.string().transform((val) => new Date(val)),
     z.date()
   ]),
-  subtotal: z.number().min(0, "Subtotal must be positive"),
-  taxAmount: z.number().min(0, "Tax amount cannot be negative").optional(),
-  totalAmount: z.number().min(0, "Total amount must be positive"),
+  subtotal: z.union([
+    z.string().transform((val) => parseFloat(val)),
+    z.number()
+  ]).refine((val) => val >= 0, "Subtotal must be positive"),
+  taxAmount: z.union([
+    z.string().transform((val) => parseFloat(val)),
+    z.number()
+  ]).refine((val) => val >= 0, "Tax amount cannot be negative").optional(),
+  totalAmount: z.union([
+    z.string().transform((val) => parseFloat(val)),
+    z.number()
+  ]).refine((val) => val >= 0, "Total amount must be positive"),
 });
 
 export const insertInvoiceItemSchema = createInsertSchema(invoiceItems).omit({
   id: true,
   createdAt: true,
 }).extend({
-  unitPrice: z.number().min(0, "Unit price must be positive"),
-  discount: z.number().min(0, "Discount cannot be negative").optional(),
-  lineTotal: z.number().min(0, "Line total must be positive"),
+  unitPrice: z.union([
+    z.string().transform((val) => parseFloat(val)),
+    z.number()
+  ]).refine((val) => val >= 0, "Unit price must be positive"),
+  discount: z.union([
+    z.string().transform((val) => parseFloat(val)),
+    z.number()
+  ]).refine((val) => val >= 0, "Discount cannot be negative").optional(),
+  lineTotal: z.union([
+    z.string().transform((val) => parseFloat(val)),
+    z.number()
+  ]).refine((val) => val >= 0, "Line total must be positive"),
 });
 
 // Types
