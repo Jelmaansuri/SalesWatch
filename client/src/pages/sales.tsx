@@ -525,31 +525,37 @@ export default function Sales() {
                             <div className="space-y-2">
                               <Label className="text-xs font-medium">Quantity *</Label>
                               <Input
-                                type="number"
-                                min="1"
-                                className="h-8 text-xs"
+                                type="text"
+                                inputMode="numeric"
+                                pattern="[0-9]*"
+                                className="h-8 text-xs text-right"
                                 value={item.quantity.toString()}
                                 onChange={(e) => {
                                   const value = e.target.value;
-                                  // Allow empty string during editing, but default to 1 if empty
-                                  const newQuantity = value === '' ? 1 : Math.max(1, parseInt(value) || 1);
-                                  const updated = [...editProductItems];
-                                  updated[index] = { 
-                                    ...updated[index], 
-                                    quantity: newQuantity
-                                  };
-                                  setEditProductItems(updated);
-                                }}
-                                onBlur={(e) => {
-                                  // Ensure we have at least 1 when user finishes editing
-                                  if (e.target.value === '' || parseInt(e.target.value) < 1) {
+                                  // Only allow numeric input
+                                  if (value === '' || /^\d+$/.test(value)) {
+                                    const numValue = value === '' ? '' : parseInt(value);
                                     const updated = [...editProductItems];
                                     updated[index] = { 
                                       ...updated[index], 
-                                      quantity: 1
+                                      quantity: numValue === '' ? 1 : Math.max(1, numValue)
                                     };
                                     setEditProductItems(updated);
                                   }
+                                }}
+                                onFocus={(e) => {
+                                  // Select all text when focusing
+                                  e.target.select();
+                                }}
+                                onBlur={(e) => {
+                                  const value = e.target.value;
+                                  const numValue = parseInt(value) || 1;
+                                  const updated = [...editProductItems];
+                                  updated[index] = { 
+                                    ...updated[index], 
+                                    quantity: Math.max(1, numValue)
+                                  };
+                                  setEditProductItems(updated);
                                 }}
                               />
                             </div>
@@ -558,19 +564,25 @@ export default function Sales() {
                             <div className="space-y-2">
                               <Label className="text-xs font-medium">Unit Price (RM) *</Label>
                               <Input
-                                type="number"
-                                step="0.01"
-                                min="0"
-                                className="h-8 text-xs"
+                                type="text"
+                                inputMode="decimal"
+                                className="h-8 text-xs text-right"
                                 placeholder="0.00"
                                 value={item.unitPrice}
                                 onChange={(e) => {
-                                  const updated = [...editProductItems];
-                                  updated[index] = { 
-                                    ...updated[index], 
-                                    unitPrice: e.target.value
-                                  };
-                                  setEditProductItems(updated);
+                                  const value = e.target.value;
+                                  // Allow decimal numbers and empty string
+                                  if (value === '' || /^\d*\.?\d*$/.test(value)) {
+                                    const updated = [...editProductItems];
+                                    updated[index] = { 
+                                      ...updated[index], 
+                                      unitPrice: value
+                                    };
+                                    setEditProductItems(updated);
+                                  }
+                                }}
+                                onFocus={(e) => {
+                                  e.target.select();
                                 }}
                               />
                             </div>
