@@ -95,6 +95,61 @@ export const plots = pgTable("plots", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+// User business settings table for invoice generation
+export const userSettings = pgTable("user_settings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  // Business Information
+  businessName: varchar("business_name").notNull(),
+  businessRegistration: varchar("business_registration"), // SSM number for Malaysian businesses
+  businessAddress: text("business_address").notNull(),
+  businessPhone: varchar("business_phone").notNull(),
+  businessEmail: varchar("business_email").notNull(),
+  businessWebsite: varchar("business_website"),
+  logoUrl: varchar("logo_url"), // For uploaded business logo
+  // Invoice Settings
+  invoicePrefix: varchar("invoice_prefix").default("INV"), // e.g., "INV", "PROG"
+  nextInvoiceNumber: integer("next_invoice_number").default(1),
+  currency: varchar("currency").default("MYR"),
+  taxRate: decimal("tax_rate", { precision: 5, scale: 2 }).default("0.00"), // GST/SST rate
+  paymentTerms: text("payment_terms").default("Payment due within 30 days"),
+  bankDetails: text("bank_details"), // Banking information for payments
+  footerNotes: text("footer_notes"), // Additional notes for invoice footer
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Invoices table
+export const invoices = pgTable("invoices", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  invoiceNumber: varchar("invoice_number").notNull().unique(),
+  customerId: varchar("customer_id").notNull().references(() => customers.id),
+  invoiceDate: timestamp("invoice_date").notNull().defaultNow(),
+  dueDate: timestamp("due_date").notNull(),
+  status: varchar("status").notNull().default("draft"), // draft, sent, paid, overdue, cancelled
+  subtotal: decimal("subtotal", { precision: 10, scale: 2 }).notNull(),
+  taxAmount: decimal("tax_amount", { precision: 10, scale: 2 }).default("0.00"),
+  totalAmount: decimal("total_amount", { precision: 10, scale: 2 }).notNull(),
+  currency: varchar("currency").default("MYR"),
+  notes: text("notes"),
+  paymentTerms: text("payment_terms"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Invoice items table (multiple products per invoice)
+export const invoiceItems = pgTable("invoice_items", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  invoiceId: varchar("invoice_id").notNull().references(() => invoices.id, { onDelete: "cascade" }),
+  productId: varchar("product_id").notNull().references(() => products.id),
+  quantity: integer("quantity").notNull(),
+  unitPrice: decimal("unit_price", { precision: 10, scale: 2 }).notNull(),
+  discount: decimal("discount", { precision: 10, scale: 2 }).default("0.00"),
+  lineTotal: decimal("line_total", { precision: 10, scale: 2 }).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 // Insert schemas
 export const insertCustomerSchema = createInsertSchema(customers).omit({
   id: true,
@@ -134,6 +189,34 @@ export const insertPlotSchema = createInsertSchema(plots).omit({
   totalHarvestedKg: z.string().optional(), // Allow string for decimal initialization
 });
 
+// User settings insert schema
+export const insertUserSettingsSchema = createInsertSchema(userSettings).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+// Invoice insert schemas
+export const insertInvoiceSchema = createInsertSchema(invoices).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+}).extend({
+  invoiceDate: z.union([
+    z.string().transform((val) => new Date(val)),
+    z.date()
+  ]),
+  dueDate: z.union([
+    z.string().transform((val) => new Date(val)),
+    z.date()
+  ]),
+});
+
+export const insertInvoiceItemSchema = createInsertSchema(invoiceItems).omit({
+  id: true,
+  createdAt: true,
+});
+
 // Types
 export type Customer = typeof customers.$inferSelect;
 export type InsertCustomer = z.infer<typeof insertCustomerSchema>;
@@ -156,8 +239,28 @@ export type SaleWithDetails = Sale & {
 export type UpsertUser = typeof users.$inferInsert;
 export type User = typeof users.$inferSelect;
 
+// User settings types
+export type UserSettings = typeof userSettings.$inferSelect;
+export type InsertUserSettings = z.infer<typeof insertUserSettingsSchema>;
+
+// Invoice types
+export type Invoice = typeof invoices.$inferSelect;
+export type InsertInvoice = z.infer<typeof insertInvoiceSchema>;
+
+export type InvoiceItem = typeof invoiceItems.$inferSelect;
+export type InsertInvoiceItem = z.infer<typeof insertInvoiceItemSchema>;
+
+// Invoice with details for API responses
+export type InvoiceWithDetails = Invoice & {
+  customer: Customer;
+  items: (InvoiceItem & { product: Product })[];
+};
+
 // Status enum for sales/orders
 export const statusEnum = z.enum(["unpaid", "paid", "pending_shipment", "shipped", "completed"]);
+
+// Invoice status enum
+export const invoiceStatusEnum = z.enum(["draft", "sent", "paid", "overdue", "cancelled"]);
 
 export type DashboardMetrics = {
   totalRevenue: number;

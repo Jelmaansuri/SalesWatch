@@ -1,7 +1,7 @@
-import { type Customer, type InsertCustomer, type Product, type InsertProduct, type Sale, type InsertSale, type SaleWithDetails, type DashboardMetrics, type User, type UpsertUser, type Plot, type InsertPlot } from "@shared/schema";
+import { type Customer, type InsertCustomer, type Product, type InsertProduct, type Sale, type InsertSale, type SaleWithDetails, type DashboardMetrics, type User, type UpsertUser, type Plot, type InsertPlot, type UserSettings, type InsertUserSettings, type Invoice, type InsertInvoice, type InvoiceItem, type InsertInvoiceItem, type InvoiceWithDetails } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { db } from "./db";
-import { customers, products, sales, users, plots } from "@shared/schema";
+import { customers, products, sales, users, plots, userSettings, invoices, invoiceItems } from "@shared/schema";
 import { eq, desc, sql, and } from "drizzle-orm";
 
 export interface IStorage {
@@ -50,6 +50,28 @@ export interface IStorage {
   createPlot(plot: InsertPlot): Promise<Plot>;
   updatePlot(id: string, updates: Partial<Plot>): Promise<Plot | undefined>;
   deletePlot(id: string): Promise<boolean>;
+
+  // User Settings
+  getUserSettings(userId: string): Promise<UserSettings | undefined>;
+  createUserSettings(settings: InsertUserSettings): Promise<UserSettings>;
+  updateUserSettings(userId: string, updates: Partial<UserSettings>): Promise<UserSettings | undefined>;
+
+  // Invoices
+  getInvoices(userId: string): Promise<Invoice[]>;
+  getInvoicesWithDetails(userId: string): Promise<InvoiceWithDetails[]>;
+  getInvoice(id: string): Promise<Invoice | undefined>;
+  getInvoiceWithDetails(id: string): Promise<InvoiceWithDetails | undefined>;
+  createInvoice(invoice: InsertInvoice): Promise<Invoice>;
+  updateInvoice(id: string, updates: Partial<Invoice>): Promise<Invoice | undefined>;
+  deleteInvoice(id: string): Promise<boolean>;
+  generateInvoiceNumber(userId: string): Promise<string>;
+
+  // Invoice Items
+  getInvoiceItems(invoiceId: string): Promise<InvoiceItem[]>;
+  createInvoiceItem(item: InsertInvoiceItem): Promise<InvoiceItem>;
+  updateInvoiceItem(id: string, updates: Partial<InvoiceItem>): Promise<InvoiceItem | undefined>;
+  deleteInvoiceItem(id: string): Promise<boolean>;
+  deleteInvoiceItems(invoiceId: string): Promise<boolean>;
 }
 
 export class MemStorage implements IStorage {
@@ -526,13 +548,13 @@ export class MemStorage implements IStorage {
       updatedAt: now,
       // Add missing fields
       currentCycle: insertPlot.currentCycle || 1,
-      totalCycles: insertPlot.totalCycles || 1,
+      totalCycles: insertPlot.currentCycle || 1, // Fixed reference
       isMultiCycle: insertPlot.isMultiCycle || false,
-      cycleHistory: insertPlot.cycleHistory || null,
+      cycleHistory: insertPlot.cycleHistory || "[]",
       nextPlantingDate: insertPlot.nextPlantingDate || null,
-      harvestAmountKg: insertPlot.harvestAmountKg || null,
-      totalHarvestedKg: insertPlot.totalHarvestedKg || null,
-      restPeriodDays: insertPlot.restPeriodDays || null,
+      harvestAmountKg: insertPlot.harvestAmountKg?.toString() || null,
+      totalHarvestedKg: insertPlot.totalHarvestedKg || "0",
+      restPeriodDays: insertPlot.restPeriodDays || 30,
     };
     
     this.plots.set(id, plot);
@@ -1088,6 +1110,179 @@ export class DatabaseStorage implements IStorage {
 
   async deletePlot(id: string): Promise<boolean> {
     const result = await db.delete(plots).where(eq(plots.id, id));
+    return result.rowCount! > 0;
+  }
+
+  // User Settings Management
+  async getUserSettings(userId: string): Promise<UserSettings | undefined> {
+    const [settings] = await db.select().from(userSettings).where(eq(userSettings.userId, userId));
+    return settings || undefined;
+  }
+
+  async createUserSettings(settings: InsertUserSettings): Promise<UserSettings> {
+    const [newSettings] = await db.insert(userSettings).values({
+      ...settings,
+      id: randomUUID(),
+    }).returning();
+    return newSettings;
+  }
+
+  async updateUserSettings(userId: string, updates: Partial<UserSettings>): Promise<UserSettings | undefined> {
+    const [updatedSettings] = await db
+      .update(userSettings)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(userSettings.userId, userId))
+      .returning();
+    return updatedSettings || undefined;
+  }
+
+  // Invoice Management
+  async getInvoices(userId: string): Promise<Invoice[]> {
+    return await db.select().from(invoices).where(eq(invoices.userId, userId)).orderBy(desc(invoices.createdAt));
+  }
+
+  async getInvoicesWithDetails(userId: string): Promise<InvoiceWithDetails[]> {
+    const invoicesWithCustomers = await db
+      .select({
+        invoice: invoices,
+        customer: customers,
+      })
+      .from(invoices)
+      .leftJoin(customers, eq(invoices.customerId, customers.id))
+      .where(eq(invoices.userId, userId))
+      .orderBy(desc(invoices.createdAt));
+
+    const invoicesWithItems = await Promise.all(
+      invoicesWithCustomers.map(async ({ invoice, customer }) => {
+        const items = await db
+          .select({
+            invoiceItem: invoiceItems,
+            product: products,
+          })
+          .from(invoiceItems)
+          .leftJoin(products, eq(invoiceItems.productId, products.id))
+          .where(eq(invoiceItems.invoiceId, invoice.id));
+
+        return {
+          ...invoice,
+          customer: customer!,
+          items: items.map(item => ({
+            ...item.invoiceItem,
+            product: item.product!,
+          })),
+        };
+      })
+    );
+
+    return invoicesWithItems;
+  }
+
+  async getInvoice(id: string): Promise<Invoice | undefined> {
+    const [invoice] = await db.select().from(invoices).where(eq(invoices.id, id));
+    return invoice || undefined;
+  }
+
+  async getInvoiceWithDetails(id: string): Promise<InvoiceWithDetails | undefined> {
+    const [invoiceWithCustomer] = await db
+      .select({
+        invoice: invoices,
+        customer: customers,
+      })
+      .from(invoices)
+      .leftJoin(customers, eq(invoices.customerId, customers.id))
+      .where(eq(invoices.id, id));
+
+    if (!invoiceWithCustomer) return undefined;
+
+    const items = await db
+      .select({
+        invoiceItem: invoiceItems,
+        product: products,
+      })
+      .from(invoiceItems)
+      .leftJoin(products, eq(invoiceItems.productId, products.id))
+      .where(eq(invoiceItems.invoiceId, id));
+
+    return {
+      ...invoiceWithCustomer.invoice,
+      customer: invoiceWithCustomer.customer!,
+      items: items.map(item => ({
+        ...item.invoiceItem,
+        product: item.product!,
+      })),
+    };
+  }
+
+  async createInvoice(invoice: InsertInvoice): Promise<Invoice> {
+    const [newInvoice] = await db.insert(invoices).values({
+      ...invoice,
+      id: randomUUID(),
+    }).returning();
+    return newInvoice;
+  }
+
+  async updateInvoice(id: string, updates: Partial<Invoice>): Promise<Invoice | undefined> {
+    const [updatedInvoice] = await db
+      .update(invoices)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(invoices.id, id))
+      .returning();
+    return updatedInvoice || undefined;
+  }
+
+  async deleteInvoice(id: string): Promise<boolean> {
+    const result = await db.delete(invoices).where(eq(invoices.id, id));
+    return result.rowCount! > 0;
+  }
+
+  async generateInvoiceNumber(userId: string): Promise<string> {
+    // Get user settings to get prefix and next number
+    const settings = await this.getUserSettings(userId);
+    const prefix = settings?.invoicePrefix || "INV";
+    const nextNumber = settings?.nextInvoiceNumber || 1;
+    
+    // Generate the invoice number
+    const invoiceNumber = `${prefix}-${nextNumber.toString().padStart(4, '0')}`;
+    
+    // Update the next invoice number in settings
+    if (settings) {
+      await this.updateUserSettings(userId, {
+        nextInvoiceNumber: nextNumber + 1,
+      });
+    }
+    
+    return invoiceNumber;
+  }
+
+  // Invoice Items Management
+  async getInvoiceItems(invoiceId: string): Promise<InvoiceItem[]> {
+    return await db.select().from(invoiceItems).where(eq(invoiceItems.invoiceId, invoiceId));
+  }
+
+  async createInvoiceItem(item: InsertInvoiceItem): Promise<InvoiceItem> {
+    const [newItem] = await db.insert(invoiceItems).values({
+      ...item,
+      id: randomUUID(),
+    }).returning();
+    return newItem;
+  }
+
+  async updateInvoiceItem(id: string, updates: Partial<InvoiceItem>): Promise<InvoiceItem | undefined> {
+    const [updatedItem] = await db
+      .update(invoiceItems)
+      .set(updates)
+      .where(eq(invoiceItems.id, id))
+      .returning();
+    return updatedItem || undefined;
+  }
+
+  async deleteInvoiceItem(id: string): Promise<boolean> {
+    const result = await db.delete(invoiceItems).where(eq(invoiceItems.id, id));
+    return result.rowCount! > 0;
+  }
+
+  async deleteInvoiceItems(invoiceId: string): Promise<boolean> {
+    const result = await db.delete(invoiceItems).where(eq(invoiceItems.invoiceId, invoiceId));
     return result.rowCount! > 0;
   }
 }

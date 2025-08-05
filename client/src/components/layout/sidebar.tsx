@@ -10,7 +10,9 @@ import {
   ClipboardList, 
   FileText,
   Sprout,
-  MapPin
+  MapPin,
+  Receipt,
+  Settings
 } from "lucide-react";
 
 const navigation: NavigationItem[] = [
@@ -19,8 +21,10 @@ const navigation: NavigationItem[] = [
   { name: "Product Management", href: "/products", icon: "Package" },
   { name: "CRM & Customers", href: "/customers", icon: "Users" },
   { name: "Order Management", href: "/orders", icon: "ClipboardList" },
+  { name: "Invoice Management", href: "/invoices", icon: "Receipt" },
   { name: "Reports & Analytics", href: "/reports", icon: "FileText" },
   { name: "Plot Management", href: "/plots", icon: "MapPin" },
+  { name: "Business Settings", href: "/settings", icon: "Settings" },
 ];
 
 const iconMap = {
@@ -31,6 +35,8 @@ const iconMap = {
   ClipboardList,
   FileText,
   MapPin,
+  Receipt,
+  Settings,
 };
 
 interface SidebarProps {

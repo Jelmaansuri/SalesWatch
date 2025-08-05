@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertCustomerSchema, insertProductSchema, insertSaleSchema, insertPlotSchema } from "@shared/schema";
+import { insertCustomerSchema, insertProductSchema, insertSaleSchema, insertPlotSchema, insertUserSettingsSchema, insertInvoiceSchema, insertInvoiceItemSchema } from "@shared/schema";
 import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
 import { z } from "zod";
@@ -511,6 +511,185 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error generating Excel report:", error);
       res.status(500).json({ message: "Failed to generate report" });
+    }
+  });
+
+  // User Settings routes (protected)
+  app.get("/api/user-settings", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const settings = await storage.getUserSettings(userId);
+      res.json(settings);
+    } catch (error) {
+      console.error("Error fetching user settings:", error);
+      res.status(500).json({ message: "Failed to fetch user settings" });
+    }
+  });
+
+  app.post("/api/user-settings", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const validatedData = insertUserSettingsSchema.parse({
+        ...req.body,
+        userId
+      });
+      
+      // Check if settings already exist
+      const existingSettings = await storage.getUserSettings(userId);
+      if (existingSettings) {
+        const updatedSettings = await storage.updateUserSettings(userId, req.body);
+        return res.json(updatedSettings);
+      }
+      
+      const settings = await storage.createUserSettings(validatedData);
+      res.json(settings);
+    } catch (error) {
+      console.error("Error creating/updating user settings:", error);
+      res.status(500).json({ message: "Failed to save user settings" });
+    }
+  });
+
+  app.put("/api/user-settings", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const updatedSettings = await storage.updateUserSettings(userId, req.body);
+      if (!updatedSettings) {
+        return res.status(404).json({ message: "User settings not found" });
+      }
+      res.json(updatedSettings);
+    } catch (error) {
+      console.error("Error updating user settings:", error);
+      res.status(500).json({ message: "Failed to update user settings" });
+    }
+  });
+
+  // Invoice routes (protected)
+  app.get("/api/invoices", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const invoices = await storage.getInvoicesWithDetails(userId);
+      res.json(invoices);
+    } catch (error) {
+      console.error("Error fetching invoices:", error);
+      res.status(500).json({ message: "Failed to fetch invoices" });
+    }
+  });
+
+  app.get("/api/invoices/:id", isAuthenticated, async (req, res) => {
+    try {
+      const invoice = await storage.getInvoiceWithDetails(req.params.id);
+      if (!invoice) {
+        return res.status(404).json({ message: "Invoice not found" });
+      }
+      res.json(invoice);
+    } catch (error) {
+      console.error("Error fetching invoice:", error);
+      res.status(500).json({ message: "Failed to fetch invoice" });
+    }
+  });
+
+  app.post("/api/invoices", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      
+      // Generate invoice number
+      const invoiceNumber = await storage.generateInvoiceNumber(userId);
+      
+      const validatedData = insertInvoiceSchema.parse({
+        ...req.body,
+        userId,
+        invoiceNumber
+      });
+      
+      // Create invoice
+      const invoice = await storage.createInvoice(validatedData);
+      
+      // Create invoice items if provided
+      if (req.body.items && Array.isArray(req.body.items)) {
+        const invoiceItems = [];
+        for (const item of req.body.items) {
+          const validatedItem = insertInvoiceItemSchema.parse({
+            ...item,
+            invoiceId: invoice.id
+          });
+          const createdItem = await storage.createInvoiceItem(validatedItem);
+          invoiceItems.push(createdItem);
+        }
+      }
+      
+      // Return complete invoice with details
+      const invoiceWithDetails = await storage.getInvoiceWithDetails(invoice.id);
+      res.json(invoiceWithDetails);
+    } catch (error) {
+      console.error("Error creating invoice:", error);
+      res.status(500).json({ message: "Failed to create invoice" });
+    }
+  });
+
+  app.put("/api/invoices/:id", isAuthenticated, async (req, res) => {
+    try {
+      // Update invoice
+      const updatedInvoice = await storage.updateInvoice(req.params.id, req.body);
+      if (!updatedInvoice) {
+        return res.status(404).json({ message: "Invoice not found" });
+      }
+      
+      // Update invoice items if provided
+      if (req.body.items && Array.isArray(req.body.items)) {
+        // Delete existing items
+        await storage.deleteInvoiceItems(req.params.id);
+        
+        // Create new items
+        for (const item of req.body.items) {
+          const validatedItem = insertInvoiceItemSchema.parse({
+            ...item,
+            invoiceId: req.params.id
+          });
+          await storage.createInvoiceItem(validatedItem);
+        }
+      }
+      
+      // Return complete invoice with details
+      const invoiceWithDetails = await storage.getInvoiceWithDetails(req.params.id);
+      res.json(invoiceWithDetails);
+    } catch (error) {
+      console.error("Error updating invoice:", error);
+      res.status(500).json({ message: "Failed to update invoice" });
+    }
+  });
+
+  app.delete("/api/invoices/:id", isAuthenticated, async (req, res) => {
+    try {
+      const deleted = await storage.deleteInvoice(req.params.id);
+      if (!deleted) {
+        return res.status(404).json({ message: "Invoice not found" });
+      }
+      res.json({ message: "Invoice deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting invoice:", error);
+      res.status(500).json({ message: "Failed to delete invoice" });
+    }
+  });
+
+  app.post("/api/invoices/:id/generate-pdf", isAuthenticated, async (req, res) => {
+    try {
+      const invoice = await storage.getInvoiceWithDetails(req.params.id);
+      if (!invoice) {
+        return res.status(404).json({ message: "Invoice not found" });
+      }
+      
+      // Get user settings for business information
+      const userId = (req.user as any)?.claims?.sub;
+      const settings = await storage.getUserSettings(userId);
+      
+      // Return invoice data for PDF generation on frontend
+      res.json({
+        invoice,
+        businessSettings: settings
+      });
+    } catch (error) {
+      console.error("Error generating invoice PDF:", error);
+      res.status(500).json({ message: "Failed to generate invoice PDF" });
     }
   });
 
