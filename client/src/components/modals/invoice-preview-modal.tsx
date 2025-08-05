@@ -111,28 +111,31 @@ export function InvoicePreviewModal({ open, onOpenChange, invoice }: InvoicePrev
       const pdfWidth = pdf.internal.pageSize.getWidth();
       const pdfHeight = pdf.internal.pageSize.getHeight();
       
-      // Convert canvas dimensions to mm (accounting for the 2x scale)
-      const imgWidthMM = (canvas.width / 2) * 0.264583; // Convert pixels to mm
-      const imgHeightMM = (canvas.height / 2) * 0.264583;
-      
-      // Calculate scaling to fit PDF page with margins
-      const margin = 15; // Increased margin for better spacing
+      // Calculate optimal scaling to maximize page fill
+      const margin = 10; // Smaller margin for maximum fill
       const availableWidth = pdfWidth - (margin * 2);
       const availableHeight = pdfHeight - (margin * 2);
       
-      // Calculate the ratio to fit the content within available space
-      const widthRatio = availableWidth / imgWidthMM;
-      const heightRatio = availableHeight / imgHeightMM;
-      const ratio = Math.min(widthRatio, heightRatio, 1); // Don't scale up beyond original size
+      // Get actual canvas dimensions (accounting for 2x scale)
+      const actualCanvasWidth = canvas.width / 2;
+      const actualCanvasHeight = canvas.height / 2;
       
-      const scaledWidth = imgWidthMM * ratio;
-      const scaledHeight = imgHeightMM * ratio;
+      // Calculate ratios to fit within available space
+      const widthRatio = availableWidth / (actualCanvasWidth * 0.264583); // pixels to mm conversion
+      const heightRatio = availableHeight / (actualCanvasHeight * 0.264583);
       
-      // Center the image on the page
-      const x = (pdfWidth - scaledWidth) / 2;
-      const y = (pdfHeight - scaledHeight) / 2;
+      // Use the smaller ratio to ensure content fits, but allow scaling up for maximum fill
+      const optimalRatio = Math.min(widthRatio, heightRatio);
       
-      pdf.addImage(imgData, 'PNG', x, y, scaledWidth, scaledHeight);
+      // Final dimensions in mm
+      const finalWidth = actualCanvasWidth * 0.264583 * optimalRatio;
+      const finalHeight = actualCanvasHeight * 0.264583 * optimalRatio;
+      
+      // Perfect centering calculations
+      const x = (pdfWidth - finalWidth) / 2;
+      const y = (pdfHeight - finalHeight) / 2;
+      
+      pdf.addImage(imgData, 'PNG', x, y, finalWidth, finalHeight);
       pdf.save(`invoice-${invoice.invoiceNumber}.pdf`);
       
       console.log("PDF generated successfully from preview");
