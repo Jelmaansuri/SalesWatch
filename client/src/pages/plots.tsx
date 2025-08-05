@@ -1504,7 +1504,12 @@ export default function Plots() {
       }
     },
     onSuccess: () => {
+      // Force refetch all related data
       queryClient.invalidateQueries({ queryKey: ["/api/plots"] });
+      
+      // Also refetch immediately to ensure UI updates
+      queryClient.refetchQueries({ queryKey: ["/api/plots"] });
+      
       toast({ title: "Success", description: "Plot deleted successfully" });
     },
     onError: (error) => {

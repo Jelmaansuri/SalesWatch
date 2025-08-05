@@ -63,7 +63,12 @@ function InvoicesContent() {
       await apiRequest(`/api/invoices/${invoiceId}`, "DELETE");
     },
     onSuccess: () => {
+      // Force refetch all related data
       queryClient.invalidateQueries({ queryKey: ["/api/invoices"] });
+      
+      // Also refetch immediately to ensure UI updates
+      queryClient.refetchQueries({ queryKey: ["/api/invoices"] });
+      
       toast({
         title: "Success",
         description: "Invoice deleted successfully",

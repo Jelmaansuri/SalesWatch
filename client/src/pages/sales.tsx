@@ -290,14 +290,22 @@ export default function Sales() {
     mutationFn: async (id: string) => {
       await apiRequest(`/api/sales/${id}`, "DELETE");
     },
-    onSuccess: () => {
+    onSuccess: (data, variables, context: any) => {
+      // Force refetch all related data
       queryClient.invalidateQueries({ queryKey: ["/api/sales"] });
       queryClient.invalidateQueries({ queryKey: ["/api/products"] });
       queryClient.invalidateQueries({ queryKey: ["/api/analytics"] });
-      toast({
-        title: "Success",
-        description: "Sale deleted successfully",
-      });
+      
+      // Also refetch immediately to ensure UI updates
+      queryClient.refetchQueries({ queryKey: ["/api/sales"] });
+      
+      // Only show individual success toast if not part of group deletion
+      if (!context?.skipToast) {
+        toast({
+          title: "Success",
+          description: "Sale deleted successfully",
+        });
+      }
     },
     onError: (error) => {
       if (isUnauthorizedError(error)) {
@@ -1032,11 +1040,47 @@ export default function Sales() {
                               <AlertDialogFooter>
                                 <AlertDialogCancel>Cancel</AlertDialogCancel>
                                 <AlertDialogAction
-                                  onClick={() => {
-                                    // Delete all items in the group
-                                    saleGroup.items.forEach(item => {
-                                      deleteSaleMutation.mutate(item.id);
-                                    });
+                                  onClick={async () => {
+                                    // Delete all items in the group sequentially to avoid race conditions
+                                    const itemsToDelete = [...saleGroup.items];
+                                    let successCount = 0;
+                                    let errorCount = 0;
+                                    
+                                    for (const item of itemsToDelete) {
+                                      try {
+                                        await new Promise((resolve, reject) => {
+                                          deleteSaleMutation.mutate(item.id, {
+                                            onSuccess: () => {
+                                              successCount++;
+                                              resolve(true);
+                                            },
+                                            onError: (error) => {
+                                              // Don't show individual error toasts for group deletion
+                                              // Only count errors that aren't "already deleted"
+                                              if (!error.message?.includes("404:")) {
+                                                errorCount++;
+                                              }
+                                              resolve(false); // Continue with other deletions
+                                            },
+                                            meta: { skipToast: true } // Skip individual toasts for group operations
+                                          });
+                                        });
+                                      } catch (e) {
+                                        errorCount++;
+                                      }
+                                    }
+                                    
+                                    // Show final summary
+                                    if (successCount > 0) {
+                                      toast({
+                                        title: "Success",
+                                        description: `${successCount} sale(s) deleted successfully${errorCount > 0 ? ` (${errorCount} already deleted)` : ''}`,
+                                      });
+                                    }
+                                    
+                                    // Force refresh data after all deletions
+                                    queryClient.refetchQueries({ queryKey: ["/api/sales"] });
+                                    queryClient.refetchQueries({ queryKey: ["/api/products"] });
                                   }}
                                   className="bg-red-600 hover:bg-red-700"
                                 >

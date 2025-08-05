@@ -85,8 +85,13 @@ export default function Products() {
       await apiRequest(`/api/products/${id}`, "DELETE");
     },
     onSuccess: () => {
+      // Force refetch all related data
       queryClient.invalidateQueries({ queryKey: ["/api/products"] });
       queryClient.invalidateQueries({ queryKey: ["/api/analytics"] });
+      
+      // Also refetch immediately to ensure UI updates
+      queryClient.refetchQueries({ queryKey: ["/api/products"] });
+      
       toast({
         title: "Success",
         description: "Product deleted successfully",

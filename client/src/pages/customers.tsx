@@ -112,8 +112,13 @@ export default function Customers() {
       await apiRequest(`/api/customers/${id}`, "DELETE");
     },
     onSuccess: () => {
+      // Force refetch all related data
       queryClient.invalidateQueries({ queryKey: ["/api/customers"] });
       queryClient.invalidateQueries({ queryKey: ["/api/analytics"] });
+      
+      // Also refetch immediately to ensure UI updates
+      queryClient.refetchQueries({ queryKey: ["/api/customers"] });
+      
       toast({
         title: "Success",
         description: "Customer deleted successfully",
