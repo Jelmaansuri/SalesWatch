@@ -172,8 +172,7 @@ export default function Sales() {
       };
     }) => {
       // Use the multi-product update endpoint
-      const response = await apiRequest(`/api/sales/${id}/multi-product`, "PUT", data);
-      return response.json();
+      return await apiRequest(`/api/sales/${id}/multi-product`, "PUT", data);
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/sales"] });
@@ -605,6 +604,15 @@ export default function Sales() {
                                   e.target.select();
                                 }}
                               />
+                              {/* Stock Information */}
+                              {(() => {
+                                const product = products.find(p => p.id === item.productId);
+                                return product ? (
+                                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                                    Stock: {product.stock} available
+                                  </p>
+                                ) : null;
+                              })()}
                             </div>
 
                             {/* Discount */}
