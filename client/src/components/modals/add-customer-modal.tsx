@@ -35,8 +35,7 @@ export default function AddCustomerModal({ open, onOpenChange, onCustomerAdded }
 
   const createCustomerMutation = useMutation({
     mutationFn: async (data: FormData) => {
-      const response = await apiRequest("POST", "/api/customers", data);
-      return response.json();
+      return await apiRequest("/api/customers", "POST", data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/customers"] });

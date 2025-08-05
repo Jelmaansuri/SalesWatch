@@ -922,13 +922,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const defaultSettings = {
           userId,
           businessName: "Your Business",
+          businessRegistration: "",
           businessAddress: "Your Business Address",
           businessPhone: "Your Phone",
           businessEmail: "your@email.com",
+          businessWebsite: "",
+          logoUrl: null,
           invoicePrefix: "INV",
           nextInvoiceNumber: 1,
           currency: "MYR",
+          taxRate: 0,
           paymentTerms: "Payment due within 30 days",
+          footerText: null,
         };
         userSettings = await storage.createUserSettings(defaultSettings);
       }
@@ -999,13 +1004,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const defaultSettings = {
           userId,
           businessName: "Your Business",
+          businessRegistration: "",
           businessAddress: "Your Business Address",
           businessPhone: "Your Phone",
           businessEmail: "your@email.com",
+          businessWebsite: "",
+          logoUrl: null,
           invoicePrefix: "INV",
           nextInvoiceNumber: 1,
           currency: "MYR",
+          taxRate: 0,
           paymentTerms: "Payment due within 30 days",
+          footerText: null,
         };
         userSettings = await storage.createUserSettings(defaultSettings);
       }
@@ -1135,7 +1145,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Check if all invoices are deleted and reset invoice numbering
       const userId = req.user.claims.sub;
-      const remainingInvoices = await storage.getInvoices();
+      const remainingInvoices = await storage.getInvoices(userId);
       
       if (remainingInvoices.length === 0) {
         // Reset invoice numbering to 1 when all invoices are deleted
