@@ -198,7 +198,7 @@ export default function AddSaleModal({ open, onOpenChange, onSaleAdded }: AddSal
     console.log("Form data received:", data);
     console.log("Form errors:", form.formState.errors);
     console.log("Form is valid:", form.formState.isValid);
-    console.log("Multi-product mode:", isMultiProduct);
+    console.log("Multi-product mode: enabled");
     console.log("Product items:", productItems);
     
     // Validate required fields
