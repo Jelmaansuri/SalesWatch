@@ -258,20 +258,31 @@ export default function Sales() {
       }
       console.error("Multi-product update error:", error);
       
-      // Handle inventory-specific errors
-      if (error.message?.includes("Insufficient stock")) {
-        toast({
-          title: "Insufficient Stock",
-          description: error.message,
-          variant: "destructive",
-        });
-      } else {
-        toast({
-          title: "Error",
-          description: "Failed to update multi-product sale",
-          variant: "destructive",
-        });
+      // Extract detailed error message from API response
+      let errorMessage = "Failed to update multi-product sale";
+      if (error instanceof Error) {
+        if (error.message?.includes("Insufficient stock")) {
+          errorMessage = error.message;
+        } else if (error.message?.includes("400:")) {
+          // Extract the actual error message from the API
+          const match = error.message.match(/400: (.+)/);
+          errorMessage = match ? match[1] : "Bad request - check your input data";
+        } else if (error.message?.includes("404:")) {
+          errorMessage = "Sale not found";
+        } else if (error.message?.includes("500:")) {
+          errorMessage = "Server error occurred while updating sale";
+        } else if (error.message) {
+          // Use the full error message if available
+          errorMessage = error.message;
+        }
       }
+      
+      toast({
+        title: error.message?.includes("Insufficient stock") ? "Insufficient Stock" : "Error",
+        description: errorMessage,
+        variant: "destructive",
+        duration: 8000, // Longer duration for error messages
+      });
     },
   });
 
@@ -298,9 +309,28 @@ export default function Sales() {
         setTimeout(() => window.location.href = "/api/login", 1000);
         return;
       }
+      
+      // Extract error message from API response
+      let errorMessage = "Failed to delete sale";
+      if (error instanceof Error) {
+        // Try to parse the error message for API errors
+        if (error.message.includes("404:")) {
+          errorMessage = "Sale not found or already deleted";
+        } else if (error.message.includes("400:")) {
+          // Extract the actual error message from the API
+          const match = error.message.match(/400: (.+)/);
+          errorMessage = match ? match[1] : "Cannot delete sale - check for related records";
+        } else if (error.message.includes("500:")) {
+          errorMessage = "Server error occurred while deleting sale";
+        } else {
+          // Use the full error message if available
+          errorMessage = error.message || errorMessage;
+        }
+      }
+      
       toast({
         title: "Error",
-        description: "Failed to delete sale",
+        description: errorMessage,
         variant: "destructive",
       });
     },
