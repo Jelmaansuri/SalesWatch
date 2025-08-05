@@ -1572,7 +1572,7 @@ export default function Plots() {
 
   // Calculate summary statistics
   const activePlots = plots.filter((plot: Plot) => 
-    plot.status !== "harvested" && plot.status !== "dormant"
+    ["planted", "growing", "ready_to_harvest"].includes(plot.status)
   );
   const harvestedPlots = plots.filter((plot: Plot) => plot.status === "harvested");
   const totalPolybags = plots.reduce((sum: number, plot: Plot) => sum + plot.polybagCount, 0);
