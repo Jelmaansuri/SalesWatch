@@ -77,6 +77,7 @@ export interface IStorage {
   // Reusable invoice numbers
   addReusableInvoiceNumber(userId: string, invoiceNumber: string): Promise<void>;
   getNextReusableInvoiceNumber(userId: string): Promise<string | null>;
+  getReusableInvoiceNumbers(userId: string): Promise<{ invoiceNumber: string }[]>;
 }
 
 export class MemStorage implements IStorage {
@@ -1392,6 +1393,14 @@ export class DatabaseStorage implements IStorage {
     }
 
     return null;
+  }
+
+  async getReusableInvoiceNumbers(userId: string): Promise<{ invoiceNumber: string }[]> {
+    return await db
+      .select({ invoiceNumber: reusableInvoiceNumbers.invoiceNumber })
+      .from(reusableInvoiceNumbers)
+      .where(eq(reusableInvoiceNumbers.userId, userId))
+      .orderBy(reusableInvoiceNumbers.createdAt);
   }
 }
 
