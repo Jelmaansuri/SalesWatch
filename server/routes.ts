@@ -626,6 +626,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get intended invoice number for generation preview
+  app.post("/api/invoices/preview-number", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+
+      // Get user settings for invoice generation or create default
+      let userSettings = await storage.getUserSettings(userId);
+      if (!userSettings) {
+        // Create default user settings
+        const defaultSettings = {
+          userId,
+          businessName: "Your Business",
+          businessAddress: "Your Business Address",
+          businessPhone: "Your Phone",
+          businessEmail: "your@email.com",
+          invoicePrefix: "INV",
+          nextInvoiceNumber: 1,
+          currency: "MYR",
+          paymentTerms: "Payment due within 30 days",
+        };
+        userSettings = await storage.createUserSettings(defaultSettings);
+      }
+
+      // Generate intended invoice number
+      const invoiceNumber = `${userSettings.invoicePrefix}-${String(userSettings.nextInvoiceNumber).padStart(4, '0')}`;
+
+      res.json({ invoiceNumber });
+    } catch (error) {
+      console.error("Error previewing invoice number:", error);
+      res.status(500).json({ message: "Failed to preview invoice number" });
+    }
+  });
+
   // Generate invoice from sale
   app.post("/api/invoices/generate-from-sale", isAuthenticated, async (req: any, res) => {
     try {
@@ -753,12 +786,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/invoices/:id", isAuthenticated, async (req, res) => {
+  app.delete("/api/invoices/:id", isAuthenticated, async (req: any, res) => {
     try {
       const deleted = await storage.deleteInvoice(req.params.id);
       if (!deleted) {
         return res.status(404).json({ message: "Invoice not found" });
       }
+
+      // Check if all invoices are deleted and reset invoice numbering
+      const userId = req.user.claims.sub;
+      const remainingInvoices = await storage.getInvoices();
+      
+      if (remainingInvoices.length === 0) {
+        // Reset invoice numbering to 1 when all invoices are deleted
+        await storage.updateUserSettings(userId, {
+          nextInvoiceNumber: 1,
+        });
+      }
+      
       res.json({ message: "Invoice deleted successfully" });
     } catch (error) {
       console.error("Error deleting invoice:", error);

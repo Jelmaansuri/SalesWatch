@@ -49,6 +49,9 @@ export default function Sales() {
   const [editingSale, setEditingSale] = useState<SaleWithDetails | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [showInvoicePreview, setShowInvoicePreview] = useState(false);
+  const [previewInvoiceNumber, setPreviewInvoiceNumber] = useState<string>("");
+  const [pendingSale, setPendingSale] = useState<SaleWithDetails | null>(null);
 
   const { data: sales = [], isLoading, error } = useQuery<SaleWithDetails[]>({
     queryKey: ["/api/sales"],
@@ -145,6 +148,24 @@ export default function Sales() {
     },
   });
 
+  // Preview invoice number mutation
+  const previewInvoiceNumberMutation = useMutation({
+    mutationFn: () => apiRequest("/api/invoices/preview-number", "POST", {}),
+    onSuccess: (data) => {
+      // Show confirmation dialog with intended invoice number
+      setPreviewInvoiceNumber(data.invoiceNumber);
+      setShowInvoicePreview(true);
+    },
+    onError: (error) => {
+      console.error("Error previewing invoice number:", error);
+      toast({
+        title: "Error", 
+        description: "Failed to preview invoice number",
+        variant: "destructive",
+      });
+    },
+  });
+
   // Generate invoice from sale mutation
   const generateInvoiceMutation = useMutation({
     mutationFn: (sale: SaleWithDetails) => apiRequest("/api/invoices/generate-from-sale", "POST", {
@@ -156,6 +177,8 @@ export default function Sales() {
         description: `Invoice ${data.invoiceNumber} generated successfully`,
       });
       queryClient.invalidateQueries({ queryKey: ["/api/invoices"] });
+      setShowInvoicePreview(false);
+      setPendingSale(null);
     },
     onError: (error) => {
       console.error("Error generating invoice:", error);
@@ -164,11 +187,19 @@ export default function Sales() {
         description: "Failed to generate invoice",
         variant: "destructive",
       });
+      setShowInvoicePreview(false);
     },
   });
 
   const handleGenerateInvoice = (sale: SaleWithDetails) => {
-    generateInvoiceMutation.mutate(sale);
+    setPendingSale(sale);
+    previewInvoiceNumberMutation.mutate();
+  };
+
+  const confirmGenerateInvoice = () => {
+    if (pendingSale) {
+      generateInvoiceMutation.mutate(pendingSale);
+    }
   };
 
   const handleEdit = (sale: SaleWithDetails) => {
@@ -618,6 +649,33 @@ export default function Sales() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Invoice Generation Confirmation Dialog */}
+      <AlertDialog open={showInvoicePreview} onOpenChange={setShowInvoicePreview}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Generate Invoice</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will generate invoice number <strong>{previewInvoiceNumber}</strong> for this sale. 
+              Continue?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => {
+              setShowInvoicePreview(false);
+              setPendingSale(null);
+            }}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmGenerateInvoice}
+              disabled={generateInvoiceMutation.isPending}
+            >
+              {generateInvoiceMutation.isPending ? "Generating..." : "Generate Invoice"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </MainLayout>
   );
 }

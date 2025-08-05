@@ -22,12 +22,23 @@ import QuickAddProductModal from "./quick-add-product-modal";
 import { Plus, CalendarIcon } from "lucide-react";
 import { format } from "date-fns";
 
-const formSchema = z.object({
-  customerId: z.string().min(1, "Customer is required"),
+// Product item schema for multi-product support
+const productItemSchema = z.object({
   productId: z.string().min(1, "Product is required"),
   quantity: z.number().min(1, "Quantity must be at least 1"),
   unitPrice: z.string().min(1, "Unit price is required"),
   discountAmount: z.string().optional().default("0.00"),
+});
+
+const formSchema = z.object({
+  customerId: z.string().min(1, "Customer is required"),
+  // Single product fields for backwards compatibility
+  productId: z.string().optional(),
+  quantity: z.number().optional(),
+  unitPrice: z.string().optional(),
+  discountAmount: z.string().optional().default("0.00"),
+  // Multi-product support
+  productItems: z.array(productItemSchema).optional().default([]),
   status: z.string().min(1, "Status is required"),
   saleDate: z.date(),
   platformSource: z.string().min(1, "Platform source is required"),
@@ -35,6 +46,7 @@ const formSchema = z.object({
 });
 
 type FormData = z.infer<typeof formSchema>;
+type ProductItem = z.infer<typeof productItemSchema>;
 
 interface AddSaleModalProps {
   open: boolean;
@@ -47,6 +59,13 @@ export default function AddSaleModal({ open, onOpenChange, onSaleAdded }: AddSal
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [showQuickAddCustomer, setShowQuickAddCustomer] = useState(false);
   const [showQuickAddProduct, setShowQuickAddProduct] = useState(false);
+  const [productItems, setProductItems] = useState<ProductItem[]>([{
+    productId: "",
+    quantity: 1,
+    unitPrice: "",
+    discountAmount: "0.00"
+  }]);
+  const [isMultiProduct, setIsMultiProduct] = useState(false);
 
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
@@ -57,6 +76,7 @@ export default function AddSaleModal({ open, onOpenChange, onSaleAdded }: AddSal
       quantity: 1,
       unitPrice: "",
       discountAmount: "0.00",
+      productItems: [],
       status: "unpaid",
       saleDate: new Date(),
       platformSource: "others",
@@ -78,50 +98,102 @@ export default function AddSaleModal({ open, onOpenChange, onSaleAdded }: AddSal
     mutationFn: async (data: FormData) => {
       console.log("Creating sale with data:", data);
       
-      // Calculate the values needed for the sale
-      const unitPrice = parseFloat(data.unitPrice);
-      const discountAmount = parseFloat(data.discountAmount || "0.00");
-      const quantity = data.quantity;
-      const discountedUnitPrice = unitPrice - discountAmount;
-      const totalAmount = discountedUnitPrice * quantity;
-      
-      // Calculate profit if we have the product selected
-      let profit = 0;
-      if (selectedProduct) {
-        profit = calculateProfit(discountedUnitPrice, parseFloat(selectedProduct.costPrice), quantity);
+      // Handle multi-product mode
+      if (isMultiProduct && productItems.length > 0) {
+        const results = [];
+        
+        for (const item of productItems) {
+          if (!item.productId || !item.unitPrice) continue;
+          
+          // Find the product for profit calculation
+          const product = products.find(p => p.id === item.productId);
+          
+          const unitPrice = parseFloat(item.unitPrice);
+          const discountAmount = parseFloat(item.discountAmount || "0.00");
+          const quantity = item.quantity;
+          const discountedUnitPrice = unitPrice - discountAmount;
+          const totalAmount = discountedUnitPrice * quantity;
+          
+          // Calculate profit
+          let profit = 0;
+          if (product) {
+            profit = calculateProfit(discountedUnitPrice, parseFloat(product.costPrice), quantity);
+          }
+          
+          const saleData = {
+            customerId: data.customerId,
+            productId: item.productId,
+            quantity: quantity,
+            unitPrice: item.unitPrice,
+            discountAmount: discountAmount.toFixed(2),
+            totalAmount: totalAmount.toFixed(2),
+            profit: profit.toFixed(2),
+            status: data.status,
+            saleDate: data.saleDate.toISOString(),
+            platformSource: data.platformSource,
+            notes: data.notes || "",
+          };
+          
+          console.log("Sending multi-product sale data to API:", saleData);
+          const response = await apiRequest("/api/sales", "POST", saleData);
+          results.push(response);
+        }
+        return results;
+      } else {
+        // Single product mode (backward compatibility)
+        const unitPrice = parseFloat(data.unitPrice || "0");
+        const discountAmount = parseFloat(data.discountAmount || "0.00");
+        const quantity = data.quantity || 1;
+        const discountedUnitPrice = unitPrice - discountAmount;
+        const totalAmount = discountedUnitPrice * quantity;
+        
+        // Calculate profit if we have the product selected
+        let profit = 0;
+        if (selectedProduct) {
+          profit = calculateProfit(discountedUnitPrice, parseFloat(selectedProduct.costPrice), quantity);
+        }
+        
+        // Prepare the sale data for the API
+        const saleData = {
+          customerId: data.customerId,
+          productId: data.productId,
+          quantity: quantity,
+          unitPrice: data.unitPrice,
+          discountAmount: discountAmount.toFixed(2),
+          totalAmount: totalAmount.toFixed(2),
+          profit: profit.toFixed(2),
+          status: data.status,
+          saleDate: data.saleDate.toISOString(),
+          platformSource: data.platformSource,
+          notes: data.notes || "",
+        };
+        
+        console.log("Sending single sale data to API:", saleData);
+        const response = await apiRequest("/api/sales", "POST", saleData);
+        return response;
       }
-      
-      // Prepare the sale data for the API
-      const saleData = {
-        customerId: data.customerId,
-        productId: data.productId,
-        quantity: quantity,
-        unitPrice: data.unitPrice,
-        discountAmount: discountAmount.toFixed(2),
-        totalAmount: totalAmount.toFixed(2),
-        profit: profit.toFixed(2),
-        status: data.status,
-        saleDate: data.saleDate.toISOString(),
-        platformSource: data.platformSource,
-        notes: data.notes || "",
-      };
-      
-      console.log("Sending sale data to API:", saleData);
-      const response = await apiRequest("/api/sales", "POST", saleData);
-      return response.json();
     },
-    onSuccess: () => {
+    onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ["/api/sales"] });
       queryClient.invalidateQueries({ queryKey: ["/api/products"] });
       queryClient.invalidateQueries({ queryKey: ["/api/analytics"] });
+      
+      const saleCount = Array.isArray(result) ? result.length : 1;
       toast({
         title: "Success",
-        description: "Sale has been created successfully.",
+        description: `${saleCount} sale${saleCount > 1 ? 's' : ''} created successfully.`,
       });
       onSaleAdded();
       onOpenChange(false);
       form.reset();
       setSelectedProduct(null);
+      setProductItems([{
+        productId: "",
+        quantity: 1,
+        unitPrice: "",
+        discountAmount: "0.00"
+      }]);
+      setIsMultiProduct(false);
     },
     onError: (error: any) => {
       console.error("Sale creation error:", error);
@@ -144,11 +216,35 @@ export default function AddSaleModal({ open, onOpenChange, onSaleAdded }: AddSal
     },
   });
 
+  // Helper functions for multi-product management
+  const addProductItem = () => {
+    setProductItems([...productItems, {
+      productId: "",
+      quantity: 1,
+      unitPrice: "",
+      discountAmount: "0.00"
+    }]);
+  };
+
+  const removeProductItem = (index: number) => {
+    if (productItems.length > 1) {
+      setProductItems(productItems.filter((_, i) => i !== index));
+    }
+  };
+
+  const updateProductItem = (index: number, field: keyof ProductItem, value: any) => {
+    const updated = [...productItems];
+    updated[index] = { ...updated[index], [field]: value };
+    setProductItems(updated);
+  };
+
   const onSubmit = (data: FormData) => {
     console.log("=== FORM SUBMITTED ===");
     console.log("Form data received:", data);
     console.log("Form errors:", form.formState.errors);
     console.log("Form is valid:", form.formState.isValid);
+    console.log("Multi-product mode:", isMultiProduct);
+    console.log("Product items:", productItems);
     
     // Validate required fields
     if (!data.customerId) {
@@ -161,35 +257,65 @@ export default function AddSaleModal({ open, onOpenChange, onSaleAdded }: AddSal
       return;
     }
     
-    if (!data.productId) {
-      console.log("Missing product ID");
-      toast({
-        title: "Missing Product", 
-        description: "Please select a product.",
-        variant: "destructive",
-      });
-      return;
-    }
-    
-    if (!data.unitPrice || parseFloat(data.unitPrice) <= 0) {
-      console.log("Invalid unit price:", data.unitPrice);
-      toast({
-        title: "Invalid Price",
-        description: "Please enter a valid unit price.",
-        variant: "destructive",
-      });
-      return;
-    }
+    if (isMultiProduct) {
+      // Validate multi-product items
+      const validItems = productItems.filter(item => 
+        item.productId && item.unitPrice && parseFloat(item.unitPrice) > 0
+      );
+      
+      if (validItems.length === 0) {
+        toast({
+          title: "Missing Products",
+          description: "Please add at least one valid product.",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      // Check stock for all items
+      for (const item of validItems) {
+        const product = products.find(p => p.id === item.productId);
+        if (product && item.quantity > product.stock) {
+          toast({
+            title: "Insufficient Stock",
+            description: `Only ${product.stock} units of ${product.name} available.`,
+            variant: "destructive",
+          });
+          return;
+        }
+      }
+    } else {
+      // Validate single product mode
+      if (!data.productId) {
+        console.log("Missing product ID");
+        toast({
+          title: "Missing Product", 
+          description: "Please select a product.",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      if (!data.unitPrice || parseFloat(data.unitPrice) <= 0) {
+        console.log("Invalid unit price:", data.unitPrice);
+        toast({
+          title: "Invalid Price",
+          description: "Please enter a valid unit price.",
+          variant: "destructive",
+        });
+        return;
+      }
 
-    // Validate stock availability
-    if (selectedProduct && data.quantity > selectedProduct.stock) {
-      console.log("Insufficient stock:", data.quantity, "requested,", selectedProduct.stock, "available");
-      toast({
-        title: "Insufficient Stock",
-        description: `Only ${selectedProduct.stock} units available. Please reduce quantity.`,
-        variant: "destructive",
-      });
-      return;
+      // Validate stock availability
+      if (selectedProduct && data.quantity && data.quantity > selectedProduct.stock) {
+        console.log("Insufficient stock:", data.quantity, "requested,", selectedProduct.stock, "available");
+        toast({
+          title: "Insufficient Stock",
+          description: `Only ${selectedProduct.stock} units available. Please reduce quantity.`,
+          variant: "destructive",
+        });
+        return;
+      }
     }
     
     console.log("All validation passed, creating sale...");
