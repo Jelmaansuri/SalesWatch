@@ -65,95 +65,108 @@ export function InvoicePreviewModal({ open, onOpenChange, invoice }: InvoicePrev
 
   const handleDownloadPDF = async () => {
     try {
-      // Generate and download PDF using jsPDF
+      // Generate PDF that exactly replicates the preview Card design
       const { jsPDF } = await import('jspdf');
       const autoTable = (await import('jspdf-autotable')).default;
       
       // Get business information (same as preview)
       const businessInfo = getBusinessInfo();
       
-      // Create PDF matching the exact sample design shown in the image
       const doc = new jsPDF();
       const pageWidth = doc.internal.pageSize.getWidth();
       const pageHeight = doc.internal.pageSize.getHeight();
       
-      // Create container with soft border (matching the sample)
-      const containerMargin = 15;
-      const containerPadding = 20;
-      const containerX = containerMargin;
-      const containerY = containerMargin;
-      const containerWidth = pageWidth - (containerMargin * 2);
-      const containerHeight = pageHeight - (containerMargin * 2);
+      // Create Card-like container matching preview exactly
+      const cardMargin = 20; // Similar to dialog padding
+      const cardPadding = 32; // Matches CardContent p-8 (8*4=32px)
+      const cardX = cardMargin;
+      const cardY = cardMargin;
+      const cardWidth = pageWidth - (cardMargin * 2);
+      const cardHeight = pageHeight - (cardMargin * 2);
       
-      // Draw soft border container
-      doc.setDrawColor(200, 200, 200); // Light gray border
-      doc.setLineWidth(0.5);
-      doc.rect(containerX, containerY, containerWidth, containerHeight);
+      // Draw Card background and border (matching preview Card component)
+      doc.setFillColor(255, 255, 255); // White background like Card
+      doc.setDrawColor(229, 231, 235); // Light gray border
+      doc.setLineWidth(1);
+      doc.roundedRect(cardX, cardY, cardWidth, cardHeight, 3, 3, 'FD'); // Rounded corners
       
-      // Content area inside container
-      const contentX = containerX + containerPadding;
-      const contentY = containerY + containerPadding;
-      const contentWidth = containerWidth - (containerPadding * 2);
+      // Content area (matching CardContent p-8)
+      const contentX = cardX + cardPadding;
+      const contentY = cardY + cardPadding;
+      const contentWidth = cardWidth - (cardPadding * 2);
       
-      // Header: INVOICE (left) and Company Name (right)
-      doc.setFontSize(18);
+      // Header section - exact match to preview flex layout
+      // Left side: INVOICE title and details
+      doc.setFontSize(24); // text-3xl (48px in web = 24pt in PDF)
       doc.setFont("helvetica", "bold");
-      doc.setTextColor(0, 0, 0);
-      doc.text('INVOICE', contentX, contentY + 15);
+      doc.setTextColor(17, 24, 39); // text-gray-900
+      doc.text('INVOICE', contentX, contentY + 24);
       
-      // Company name (right aligned) - using dynamic data
-      doc.text(businessInfo.name, contentX + contentWidth, contentY + 15, { align: 'right' });
+      // Invoice number and details (matching preview spacing)
+      doc.setFontSize(18); // text-lg (18px = 18pt)
+      doc.setFont("helvetica", "bold");
+      doc.text(invoice.invoiceNumber, contentX, contentY + 40);
       
-      // Company description (right aligned, smaller text) - using dynamic data
-      doc.setFontSize(9);
+      doc.setFontSize(12); // Default text size
       doc.setFont("helvetica", "normal");
-      if (businessInfo.description.length > 1) {
-        doc.text(businessInfo.description[0], contentX + contentWidth, contentY + 25, { align: 'right' });
-        doc.text(businessInfo.description[1], contentX + contentWidth, contentY + 33, { align: 'right' });
-      } else {
-        doc.text(businessInfo.description[0], contentX + contentWidth, contentY + 25, { align: 'right' });
-      }
+      doc.setTextColor(75, 85, 99); // text-gray-600
+      doc.text(`Date: ${format(new Date(invoice.invoiceDate), "MMMM dd, yyyy")}`, contentX, contentY + 54);
+      doc.text(`Due Date: ${format(new Date(invoice.dueDate), "MMMM dd, yyyy")}`, contentX, contentY + 68);
       
-      // Invoice details
-      doc.setFontSize(10);
-      doc.setFont("helvetica", "normal");
-      doc.setTextColor(0, 0, 0);
-      
-      let yPos = contentY + 45;
-      doc.text(invoice.invoiceNumber, contentX, yPos);
-      yPos += 12;
-      
-      doc.text(`Date: ${new Date(invoice.invoiceDate).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}`, contentX, yPos);
-      yPos += 10;
-      
-      doc.text(`Due Date: ${new Date(invoice.dueDate).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}`, contentX, yPos);
-      yPos += 12;
-      
+      // Status
       const statusText = invoice.status.charAt(0).toUpperCase() + invoice.status.slice(1);
-      doc.text(`Status: ${statusText}`, contentX, yPos);
+      doc.text(`Status: ${statusText}`, contentX, contentY + 82);
       
-      // Bill To section
-      yPos += 25;
+      // Right side: Company details (text-right alignment)
+      doc.setFontSize(20); // text-xl
       doc.setFont("helvetica", "bold");
+      doc.setTextColor(17, 24, 39); // text-gray-900
+      doc.text(businessInfo.name, contentX + contentWidth, contentY + 24, { align: 'right' });
+      
+      // Company description (smaller text, right aligned)
+      doc.setFontSize(11); // text-sm
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(75, 85, 99); // text-gray-600
+      let descY = contentY + 40;
+      businessInfo.description.forEach((line) => {
+        doc.text(line, contentX + contentWidth, descY, { align: 'right' });
+        descY += 12;
+      });
+      
+      // Bill To section (matching preview mb-8 spacing)
+      let yPos = contentY + 110; // After header with proper spacing
+      
+      doc.setFontSize(18); // text-lg
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(17, 24, 39); // text-gray-900
       doc.text('Bill To:', contentX, yPos);
       
-      yPos += 15;
-      doc.setFont("helvetica", "normal");
+      yPos += 18; // mb-3 spacing
+      doc.setFontSize(12);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(55, 65, 81); // text-gray-700
       doc.text(invoice.customer.name, contentX, yPos);
-      yPos += 10;
+      
+      yPos += 14;
+      doc.setFont("helvetica", "normal");
+      if (invoice.customer.company) {
+        doc.text(invoice.customer.company, contentX, yPos);
+        yPos += 14;
+      }
       
       doc.text(invoice.customer.email, contentX, yPos);
-      yPos += 10;
+      yPos += 14;
       
       if (invoice.customer.phone) {
         doc.text(invoice.customer.phone, contentX, yPos);
-        yPos += 10;
+        yPos += 14;
       }
       
       if (invoice.customer.address) {
-        const addressLines = doc.splitTextToSize(invoice.customer.address, 100);
+        yPos += 8; // mt-2 spacing
+        const addressLines = doc.splitTextToSize(invoice.customer.address, 140);
         doc.text(addressLines, contentX, yPos);
-        yPos += addressLines.length * 10;
+        yPos += addressLines.length * 14;
       }
       
       // Items table - properly formatted
@@ -170,105 +183,168 @@ export function InvoicePreviewModal({ open, onOpenChange, invoice }: InvoicePrev
         ];
       });
       
-      // Table matching the sample design exactly
+      // Table matching preview design exactly
+      yPos += 32; // mb-8 spacing before table
+      
       autoTable(doc, {
-        startY: yPos + 20,
+        startY: yPos,
         head: [['Description', 'Qty', 'Unit Price', 'Discount', 'Total']],
         body: tableData,
-        margin: { left: contentX, right: containerX + containerMargin + containerPadding },
+        margin: { left: contentX, right: cardX + cardMargin + cardPadding },
         headStyles: {
-          fillColor: [245, 245, 245], // Light gray header background
-          textColor: [0, 0, 0],
+          fillColor: [255, 255, 255], // White background like preview
+          textColor: [17, 24, 39], // text-gray-900
           fontStyle: 'bold',
-          fontSize: 10,
-          cellPadding: 6,
-          halign: 'center'
+          fontSize: 12, // font-semibold
+          cellPadding: { top: 12, bottom: 12, left: 8, right: 8 }, // py-3 px-2
+          lineColor: [209, 213, 219], // border-gray-300
+          lineWidth: 2, // border-b-2
+          valign: 'middle'
         },
         bodyStyles: {
-          fontSize: 9,
-          cellPadding: 6,
-          textColor: [0, 0, 0]
+          fontSize: 11,
+          cellPadding: { top: 16, bottom: 16, left: 8, right: 8 }, // py-4 px-2
+          textColor: [55, 65, 81], // text-gray-700
+          lineColor: [229, 231, 235], // border-gray-200
+          lineWidth: 1, // border-b
+          valign: 'top'
         },
         columnStyles: {
-          0: { cellWidth: 80, halign: 'left', valign: 'top' },
-          1: { cellWidth: 20, halign: 'center' },
-          2: { cellWidth: 25, halign: 'center' },
-          3: { cellWidth: 25, halign: 'center' },
-          4: { cellWidth: 25, halign: 'right' }
+          0: { cellWidth: 'auto', halign: 'left', valign: 'top' }, // Description
+          1: { cellWidth: 30, halign: 'center' }, // Qty
+          2: { cellWidth: 35, halign: 'right' }, // Unit Price
+          3: { cellWidth: 35, halign: 'right' }, // Discount
+          4: { cellWidth: 35, halign: 'right', fontStyle: 'bold', textColor: [17, 24, 39] } // Total
         },
         styles: {
           overflow: 'linebreak',
-          lineColor: [200, 200, 200],
-          lineWidth: 0.5
-        }
+          cellWidth: 'wrap',
+          fontSize: 11
+        },
+        tableWidth: 'wrap',
+        theme: 'plain'
       });
       
-      // Totals section - matching the sample design
-      const finalY = (doc as any).lastAutoTable.finalY + 15;
+      // Totals section - exactly matching preview flex justify-end layout
+      const finalY = (doc as any).lastAutoTable.finalY + 32; // mb-8 spacing
       
-      // Subtotal (right aligned)
-      doc.setFontSize(10);
+      // Create totals container (matching preview w-80 container)
+      const totalsWidth = 80; // w-80 equivalent
+      const totalsX = contentX + contentWidth - totalsWidth;
+      
+      // Background for totals area (subtle like preview)
+      doc.setFillColor(249, 250, 251); // Very light gray
+      doc.rect(totalsX - 5, finalY - 10, totalsWidth + 10, 65, 'F');
+      
+      let totalsY = finalY;
+      
+      // Subtotal row (matching preview flex justify-between py-2)
+      doc.setFontSize(12);
       doc.setFont("helvetica", "normal");
-      doc.setTextColor(0, 0, 0);
-      
-      const labelX = contentX + contentWidth - 80;
-      const valueX = contentX + contentWidth - 10;
-      
-      doc.text('Subtotal:', labelX, finalY);
-      doc.text(`RM ${parseFloat(invoice.subtotal || 0).toFixed(2)}`, valueX, finalY, { align: 'right' });
-      
-      // Total (bold and slightly larger)
+      doc.setTextColor(55, 65, 81); // text-gray-700
+      doc.text('Subtotal:', totalsX, totalsY);
       doc.setFont("helvetica", "bold");
-      doc.setFontSize(11);
-      doc.text('Total:', labelX, finalY + 15);
-      doc.text(`RM ${parseFloat(invoice.totalAmount || 0).toFixed(2)}`, valueX, finalY + 15, { align: 'right' });
+      doc.setTextColor(17, 24, 39); // text-gray-900
+      doc.text(`RM ${parseFloat(invoice.subtotal || 0).toFixed(2)}`, totalsX + totalsWidth, totalsY, { align: 'right' });
       
-      // Payment Terms section - using dynamic data
-      let sectionY = finalY + 35;
+      totalsY += 20; // py-2 spacing
       
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(10);
-      doc.setTextColor(0, 0, 0);
-      doc.text('Payment Terms:', contentX, sectionY);
-      
-      sectionY += 12;
-      doc.setFont("helvetica", "normal");
-      const paymentTerms = invoice.paymentTerms || userSettings?.paymentTerms || 'Payment due within 30 days';
-      doc.text(paymentTerms, contentX, sectionY);
-      
-      // Notes section
-      sectionY += 25;
-      doc.setFont("helvetica", "bold");
-      doc.text('Notes:', contentX, sectionY);
-      
-      sectionY += 12;
-      doc.setFont("helvetica", "normal");
-      if (invoice.notes) {
-        const noteLines = doc.splitTextToSize(invoice.notes, contentWidth - 20);
-        doc.text(noteLines, contentX, sectionY);
-        sectionY += noteLines.length * 10 + 15;
+      // Tax if applicable
+      if (parseFloat(invoice.taxAmount || 0) > 0) {
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(55, 65, 81);
+        doc.text('Tax:', totalsX, totalsY);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(17, 24, 39);
+        doc.text(`RM ${parseFloat(invoice.taxAmount).toFixed(2)}`, totalsX + totalsWidth, totalsY, { align: 'right' });
+        totalsY += 20;
       }
       
-      // Banking Details section - using dynamic data
-      sectionY += 10;
+      // Separator line (matching preview Separator component)
+      doc.setDrawColor(229, 231, 235);
+      doc.setLineWidth(1);
+      doc.line(totalsX, totalsY + 5, totalsX + totalsWidth, totalsY + 5);
+      
+      totalsY += 20; // py-3 spacing after separator
+      
+      // Total (matching preview border-t-2 border-gray-300 styling)
+      doc.setDrawColor(209, 213, 219); // border-gray-300
+      doc.setLineWidth(2);
+      doc.line(totalsX, totalsY - 10, totalsX + totalsWidth, totalsY - 10);
+      
+      doc.setFontSize(18); // text-lg
       doc.setFont("helvetica", "bold");
+      doc.setTextColor(17, 24, 39); // text-gray-900
+      doc.text('Total:', totalsX, totalsY);
+      doc.text(`RM ${parseFloat(invoice.totalAmount || 0).toFixed(2)}`, totalsX + totalsWidth, totalsY, { align: 'right' });
+      
+      // Additional sections matching preview space-y-4 layout
+      let sectionY = finalY + 80; // After totals with proper spacing
+      
+      // Payment Terms section (if present) - matching preview styling
+      const paymentTerms = invoice.paymentTerms || userSettings?.paymentTerms;
+      if (paymentTerms) {
+        doc.setFontSize(14); // font-semibold
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(17, 24, 39); // text-gray-900
+        doc.text('Payment Terms:', contentX, sectionY);
+        
+        sectionY += 12; // mb-2 spacing
+        doc.setFontSize(12);
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(55, 65, 81); // text-gray-700
+        doc.text(paymentTerms, contentX, sectionY);
+        sectionY += 28; // space-y-4 spacing
+      }
+      
+      // Notes section (if present) - matching preview styling
+      if (invoice.notes) {
+        doc.setFontSize(14); // font-semibold
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(17, 24, 39); // text-gray-900
+        doc.text('Notes:', contentX, sectionY);
+        
+        sectionY += 12; // mb-2 spacing
+        doc.setFontSize(12);
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(55, 65, 81); // text-gray-700
+        const noteLines = doc.splitTextToSize(invoice.notes, contentWidth - 20);
+        doc.text(noteLines, contentX, sectionY);
+        sectionY += noteLines.length * 14 + 28; // space-y-4 spacing
+      }
+      
+      // Banking Details section - matching preview pt-6 styling
+      sectionY += 24; // pt-6 spacing
+      doc.setFontSize(14); // font-semibold
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(17, 24, 39); // text-gray-900
       doc.text('Banking Details:', contentX, sectionY);
       
-      sectionY += 12;
+      sectionY += 18; // mb-3 spacing
+      doc.setFontSize(12);
       doc.setFont("helvetica", "normal");
+      doc.setTextColor(55, 65, 81); // text-gray-700 space-y-1
       const bankLines = businessInfo.bankDetails.split('\n');
       bankLines.forEach((line, index) => {
-        doc.text(line, contentX, sectionY + (index * 10));
+        doc.text(line, contentX, sectionY + (index * 14));
       });
       
-      // Footer - using dynamic data
-      const footerY = containerY + containerHeight - 35;
-      doc.setFontSize(9);
-      doc.setFont("helvetica", "normal");
-      doc.setTextColor(100, 100, 100);
+      // Footer section - matching preview pt-8 border-t styling
+      const footerStartY = Math.max(sectionY + (bankLines.length * 14) + 32, cardY + cardHeight - 60);
+      
+      // Border line (matching preview border-t border-gray-200)
+      doc.setDrawColor(229, 231, 235); // border-gray-200
+      doc.setLineWidth(1);
+      doc.line(contentX, footerStartY, contentX + contentWidth, footerStartY);
+      
+      // Footer text (matching preview text-center text-gray-600)
       const footerLines = businessInfo.footerNotes.split('\n');
       footerLines.forEach((line, index) => {
-        doc.text(line, contentX + (contentWidth / 2), footerY + (index * 10), { align: 'center' });
+        const isFirstLine = index === 0;
+        doc.setFontSize(isFirstLine ? 14 : 11); // font-medium for first line, text-sm for others
+        doc.setFont("helvetica", isFirstLine ? "bold" : "normal");
+        doc.setTextColor(75, 85, 99); // text-gray-600
+        doc.text(line, contentX + (contentWidth / 2), footerStartY + 20 + (index * 14), { align: 'center' });
       });
       
       // Download
