@@ -44,7 +44,7 @@ export default function Customers() {
   const createCustomerMutation = useMutation({
     mutationFn: async (data: FormData) => {
       const response = await apiRequest("/api/customers", "POST", data);
-      return response.json();
+      return response;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/customers"] });
@@ -77,7 +77,7 @@ export default function Customers() {
   const updateCustomerMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: FormData }) => {
       const response = await apiRequest(`/api/customers/${id}`, "PUT", data);
-      return response.json();
+      return response;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/customers"] });
