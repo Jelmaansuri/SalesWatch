@@ -323,137 +323,138 @@ export default function Sales() {
 
         {/* Edit Sale Dialog */}
         <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-          <DialogContent className="max-w-2xl">
+          <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Edit Sale</DialogTitle>
             </DialogHeader>
             <Form {...form}>
               <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="customerId"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Customer</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select customer" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {customers.map((customer) => (
-                              <SelectItem key={customer.id} value={customer.id}>
-                                {customer.name} - {customer.email}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="productId"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Product</FormLabel>
-                        <Select 
-                          onValueChange={(productId) => {
-                            field.onChange(productId);
-                            // Auto-update unit price when product changes
-                            const selectedProduct = products.find(p => p.id === productId);
-                            if (selectedProduct) {
-                              console.log('Sales Edit - Product changed to:', selectedProduct.name, 'Price:', selectedProduct.sellingPrice);
-                              form.setValue('unitPrice', selectedProduct.sellingPrice);
-                            }
-                          }} 
-                          value={field.value}
-                        >
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select product" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {products.map((product) => (
-                              <SelectItem key={product.id} value={product.id}>
-                                {product.name} - {formatCurrency(product.sellingPrice)}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="quantity"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Quantity</FormLabel>
-                        <FormControl>
-                          <Input
-                            type="number"
-                            min="1"
-                            {...field}
-                            onChange={(e) => field.onChange(parseInt(e.target.value))}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="unitPrice"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Unit Price (RM)</FormLabel>
-                        <FormControl>
-                          <Input
-                            type="number"
-                            step="0.01"
-                            min="0"
-                            {...field}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-
+                {/* Customer Selection */}
                 <FormField
                   control={form.control}
-                  name="discountAmount"
+                  name="customerId"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Customer Discount (RM)</FormLabel>
-                      <FormControl>
-                        <Input
-                          type="number"
-                          step="0.01"
-                          min="0"
-                          placeholder="0.00"
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormDescription>
-                        Discount per unit for this customer (default: RM 0.00)
-                      </FormDescription>
+                      <FormLabel>Customer</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select customer" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {customers.map((customer) => (
+                            <SelectItem key={customer.id} value={customer.id}>
+                              {customer.name} - {customer.email}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
+
+                {/* Product Item Card */}
+                <Card>
+                  <CardContent className="p-4">
+                    <div className="mb-4">
+                      <h4 className="text-sm font-medium">Item 1</h4>
+                    </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                      {/* Product Selection */}
+                      <div className="space-y-2">
+                        <Label className="text-xs font-medium">Product *</Label>
+                        <FormField
+                          control={form.control}
+                          name="productId"
+                          render={({ field }) => (
+                            <Select 
+                              onValueChange={(productId) => {
+                                field.onChange(productId);
+                                // Auto-update unit price when product changes
+                                const selectedProduct = products.find(p => p.id === productId);
+                                if (selectedProduct) {
+                                  console.log('Sales Edit - Product changed to:', selectedProduct.name, 'Price:', selectedProduct.sellingPrice);
+                                  form.setValue('unitPrice', selectedProduct.sellingPrice);
+                                }
+                              }} 
+                              value={field.value}
+                            >
+                              <SelectTrigger className="h-8 text-xs">
+                                <SelectValue placeholder="Select..." />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {products.map((product) => (
+                                  <SelectItem key={product.id} value={product.id}>
+                                    {product.name}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          )}
+                        />
+                      </div>
+
+                      {/* Quantity */}
+                      <div className="space-y-2">
+                        <Label className="text-xs font-medium">Quantity *</Label>
+                        <FormField
+                          control={form.control}
+                          name="quantity"
+                          render={({ field }) => (
+                            <Input
+                              type="number"
+                              min="1"
+                              className="h-8 text-xs"
+                              {...field}
+                              onChange={(e) => field.onChange(parseInt(e.target.value))}
+                            />
+                          )}
+                        />
+                      </div>
+
+                      {/* Unit Price */}
+                      <div className="space-y-2">
+                        <Label className="text-xs font-medium">Unit Price (RM) *</Label>
+                        <FormField
+                          control={form.control}
+                          name="unitPrice"
+                          render={({ field }) => (
+                            <Input
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              className="h-8 text-xs"
+                              placeholder="0.00"
+                              {...field}
+                            />
+                          )}
+                        />
+                      </div>
+
+                      {/* Discount */}
+                      <div className="space-y-2">
+                        <Label className="text-xs font-medium">Discount (RM)</Label>
+                        <FormField
+                          control={form.control}
+                          name="discountAmount"
+                          render={({ field }) => (
+                            <Input
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              className="h-8 text-xs"
+                              placeholder="0.00"
+                              {...field}
+                            />
+                          )}
+                        />
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
 
                 <div className="grid grid-cols-2 gap-4">
                   <FormField
