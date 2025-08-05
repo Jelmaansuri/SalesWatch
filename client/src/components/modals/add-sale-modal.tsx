@@ -136,10 +136,23 @@ export default function AddSaleModal({ open, onOpenChange, onSaleAdded }: AddSal
       queryClient.invalidateQueries({ queryKey: ["/api/analytics"] });
       
       const saleCount = Array.isArray(result) ? result.length : 1;
-      toast({
-        title: "Success",
-        description: `${saleCount} sale${saleCount > 1 ? 's' : ''} created successfully.`,
-      });
+      
+      // Check for stock warnings from individual sales in the result array
+      const stockWarnings = result.filter((sale: any) => sale.stockWarning).map((sale: any) => sale.stockWarning.message);
+      
+      if (stockWarnings.length > 0) {
+        toast({
+          title: "Sales Created with Stock Warnings",
+          description: stockWarnings.join("; "),
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Success",
+          description: `${saleCount} sale${saleCount > 1 ? 's' : ''} created successfully.`,
+        });
+      }
+      
       onSaleAdded();
       onOpenChange(false);
       form.reset();
@@ -164,11 +177,20 @@ export default function AddSaleModal({ open, onOpenChange, onSaleAdded }: AddSal
         }, 1000);
         return;
       }
-      toast({
-        title: "Error",
-        description: error.message || "Failed to create sale.",
-        variant: "destructive",
-      });
+      // Handle inventory-specific errors
+      if (error.message?.includes("Insufficient stock")) {
+        toast({
+          title: "Insufficient Stock",
+          description: error.message,
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Error",
+          description: error.message || "Failed to create sale.",
+          variant: "destructive",
+        });
+      }
     },
   });
 

@@ -135,8 +135,16 @@ export default function Sales() {
       
       const deletedInvoicesCount = data?.deletedInvoicesCount || 0;
       const deletedInvoiceNumbers = data?.deletedInvoiceNumbers || [];
+      const stockWarning = data?.stockWarning;
       
-      if (deletedInvoicesCount > 0) {
+      if (stockWarning) {
+        toast({
+          title: "Sale Updated with Stock Warning",
+          description: stockWarning.message,
+          variant: "destructive",
+          duration: 6000,
+        });
+      } else if (deletedInvoicesCount > 0) {
         const invoiceNumbersText = deletedInvoiceNumbers.length > 0 
           ? deletedInvoiceNumbers.join(", ") 
           : "N/A";
@@ -162,11 +170,21 @@ export default function Sales() {
         setTimeout(() => window.location.href = "/api/login", 1000);
         return;
       }
-      toast({
-        title: "Error",
-        description: "Failed to update sale",
-        variant: "destructive",
-      });
+      
+      // Handle inventory-specific errors
+      if (error.message?.includes("Insufficient stock")) {
+        toast({
+          title: "Insufficient Stock",
+          description: error.message,
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Error",
+          description: "Failed to update sale",
+          variant: "destructive",
+        });
+      }
     },
   });
 
@@ -202,8 +220,17 @@ export default function Sales() {
       
       const deletedInvoicesCount = data?.deletedInvoicesCount || 0;
       const deletedInvoiceNumbers = data?.deletedInvoiceNumbers || [];
+      const stockWarnings = data?.stockWarnings;
       
-      if (deletedInvoicesCount > 0) {
+      if (stockWarnings && stockWarnings.length > 0) {
+        const warningMessage = stockWarnings.map((w: any) => w.message).join("; ");
+        toast({
+          title: "Sale Updated with Stock Warnings",
+          description: warningMessage,
+          variant: "destructive",
+          duration: 8000,
+        });
+      } else if (deletedInvoicesCount > 0) {
         const invoiceNumbersText = deletedInvoiceNumbers.length > 0 
           ? deletedInvoiceNumbers.join(", ") 
           : "N/A";
@@ -230,11 +257,21 @@ export default function Sales() {
         return;
       }
       console.error("Multi-product update error:", error);
-      toast({
-        title: "Error",
-        description: "Failed to update multi-product sale",
-        variant: "destructive",
-      });
+      
+      // Handle inventory-specific errors
+      if (error.message?.includes("Insufficient stock")) {
+        toast({
+          title: "Insufficient Stock",
+          description: error.message,
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Error",
+          description: "Failed to update multi-product sale",
+          variant: "destructive",
+        });
+      }
     },
   });
 

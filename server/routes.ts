@@ -243,6 +243,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Product not found" });
       }
 
+      // Check inventory availability
+      const isStockAvailable = await storage.checkStockAvailability(saleData.productId, saleData.quantity);
+      if (!isStockAvailable) {
+        return res.status(400).json({ 
+          message: `Insufficient stock. Available: ${product.stock}, Required: ${saleData.quantity}`,
+          availableStock: product.stock,
+          requestedQuantity: saleData.quantity
+        });
+      }
+
       // Calculate totals and profit with discount
       const unitPrice = parseFloat(saleData.unitPrice);
       const discountAmount = parseFloat(saleData.discountAmount || "0.00");
@@ -260,8 +270,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
       };
 
       const sale = await storage.createSale(finalSaleData);
+      
+      // Update product stock (decrease by quantity sold)
+      await storage.updateProductStock(saleData.productId, -saleData.quantity);
+      
       const saleWithDetails = await storage.getSaleWithDetails(sale.id);
-      res.status(201).json(saleWithDetails);
+      
+      // Get updated product info to check for low stock warning
+      const updatedProduct = await storage.getProduct(saleData.productId);
+      const lowStockThreshold = 10; // You can make this configurable
+      let stockWarning = null;
+      
+      if (updatedProduct && updatedProduct.stock <= lowStockThreshold) {
+        stockWarning = {
+          message: `Low stock warning: ${updatedProduct.name} now has only ${updatedProduct.stock} units remaining`,
+          productName: updatedProduct.name,
+          remainingStock: updatedProduct.stock
+        };
+      }
+      
+      res.status(201).json({
+        ...saleWithDetails,
+        stockWarning
+      });
     } catch (error) {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Invalid data", errors: error.errors });
@@ -332,14 +363,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
-      // Delete existing sales in the group (except the main one, we'll update it)
+      // Restore inventory for existing sales in the group before deletion
       for (const sale of salesInGroup) {
         if (sale.id !== id) {
           try {
+            // Restore inventory before deleting sale
+            await storage.updateProductStock(sale.productId, sale.quantity);
             await storage.deleteSale(sale.id);
           } catch (error) {
             console.warn(`Failed to delete sale ${sale.id}:`, error);
           }
+        }
+      }
+
+      // Check stock availability for all products first
+      for (const productItem of products) {
+        const isStockAvailable = await storage.checkStockAvailability(productItem.productId, productItem.quantity);
+        if (!isStockAvailable) {
+          const product = await storage.getProduct(productItem.productId);
+          return res.status(400).json({ 
+            message: `Insufficient stock for ${product?.name || 'product'}. Available: ${product?.stock || 0}, Required: ${productItem.quantity}`,
+            availableStock: product?.stock || 0,
+            requestedQuantity: productItem.quantity,
+            productName: product?.name || 'Unknown'
+          });
         }
       }
 
@@ -361,6 +408,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const totalAmount = ((unitPrice - discountAmount) * quantity).toFixed(2);
       const profit = ((unitPrice - discountAmount - costPrice) * quantity).toFixed(2);
+
+      // Update inventory for the first product (main sale)
+      await storage.updateProductStock(firstProduct.productId, -firstProduct.quantity);
 
       const updatedMainSale = await storage.updateSale(id, {
         customerId,
@@ -395,6 +445,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         const totalAmount = ((unitPrice - discountAmount) * quantity).toFixed(2);
         const profit = ((unitPrice - discountAmount - costPrice) * quantity).toFixed(2);
+
+        // Update inventory for additional products
+        await storage.updateProductStock(productItem.productId, -productItem.quantity);
 
         const newSale = await storage.createSale({
           userId,
@@ -458,12 +511,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.warn("Failed to update related invoices:", invoiceError);
       }
 
+      // Check for low stock warnings
+      const stockWarnings = [];
+      const lowStockThreshold = 10;
+      
+      for (const productItem of products) {
+        const updatedProduct = await storage.getProduct(productItem.productId);
+        if (updatedProduct && updatedProduct.stock <= lowStockThreshold) {
+          stockWarnings.push({
+            message: `Low stock warning: ${updatedProduct.name} now has only ${updatedProduct.stock} units remaining`,
+            productName: updatedProduct.name,
+            remainingStock: updatedProduct.stock
+          });
+        }
+      }
+
       res.json({ 
         message: "Multi-product sale updated successfully",
         sales: createdSales,
         groupId: newGroupId,
         deletedInvoicesCount,
-        deletedInvoiceNumbers
+        deletedInvoiceNumbers,
+        stockWarnings: stockWarnings.length > 0 ? stockWarnings : null
       });
     } catch (error) {
       console.error("Error updating multi-product sale:", error);
@@ -478,13 +547,74 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const updateData = insertSaleSchema.partial().parse(req.body);
       console.log(`Parsed update data:`, updateData);
       
-      // If unitPrice, discount, quantity, or product is being updated, recalculate totals and profit
-      if (updateData.unitPrice || updateData.discountAmount !== undefined || updateData.quantity || updateData.productId) {
-        const existingSale = await storage.getSale(req.params.id);
-        if (!existingSale) {
-          return res.status(404).json({ message: "Sale not found" });
+      const existingSale = await storage.getSale(req.params.id);
+      if (!existingSale) {
+        return res.status(404).json({ message: "Sale not found" });
+      }
+
+      let stockWarning = null;
+      
+      // If quantity or product is being updated, handle inventory changes
+      if (updateData.quantity !== undefined || updateData.productId) {
+        const oldProductId = existingSale.productId;
+        const oldQuantity = existingSale.quantity;
+        const newProductId = updateData.productId || existingSale.productId;
+        const newQuantity = updateData.quantity !== undefined ? updateData.quantity : existingSale.quantity;
+        
+        // If product changed, restore stock to old product and check new product stock
+        if (updateData.productId && updateData.productId !== oldProductId) {
+          // Restore stock to old product
+          await storage.updateProductStock(oldProductId, oldQuantity);
+          
+          // Check availability for new product
+          const isStockAvailable = await storage.checkStockAvailability(newProductId, newQuantity);
+          if (!isStockAvailable) {
+            const newProduct = await storage.getProduct(newProductId);
+            return res.status(400).json({ 
+              message: `Insufficient stock for new product. Available: ${newProduct?.stock || 0}, Required: ${newQuantity}`,
+              availableStock: newProduct?.stock || 0,
+              requestedQuantity: newQuantity
+            });
+          }
+          
+          // Deduct stock from new product
+          await storage.updateProductStock(newProductId, -newQuantity);
+        } else if (updateData.quantity !== undefined) {
+          // Same product, different quantity - adjust the difference
+          const quantityDifference = newQuantity - oldQuantity;
+          
+          if (quantityDifference > 0) {
+            // Increasing quantity - check if we have enough stock
+            const isStockAvailable = await storage.checkStockAvailability(newProductId, quantityDifference);
+            if (!isStockAvailable) {
+              const product = await storage.getProduct(newProductId);
+              return res.status(400).json({ 
+                message: `Insufficient stock for quantity increase. Available: ${product?.stock || 0}, Additional Required: ${quantityDifference}`,
+                availableStock: product?.stock || 0,
+                requestedQuantity: quantityDifference
+              });
+            }
+          }
+          
+          // Update stock (negative for increase, positive for decrease)
+          await storage.updateProductStock(newProductId, -quantityDifference);
         }
         
+        // Check for low stock warning
+        const updatedProduct = await storage.getProduct(newProductId);
+        const lowStockThreshold = 10;
+        
+        if (updatedProduct && updatedProduct.stock <= lowStockThreshold) {
+          stockWarning = {
+            message: `Low stock warning: ${updatedProduct.name} now has only ${updatedProduct.stock} units remaining`,
+            productName: updatedProduct.name,
+            remainingStock: updatedProduct.stock
+          };
+        }
+      }
+      
+      // If unitPrice, discount, quantity, or product is being updated, recalculate totals and profit
+      if (updateData.unitPrice || updateData.discountAmount !== undefined || updateData.quantity || updateData.productId) {
         const productId = updateData.productId || existingSale.productId;
         const product = await storage.getProduct(productId);
         if (!product) {
@@ -571,9 +701,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const saleWithDetails = await storage.getSaleWithDetails(sale.id);
       
-      // Return response with potential deleted invoice information (same format as multi-product route)
+      // Return response with stock warning if applicable
       res.json({
         ...saleWithDetails,
+        stockWarning,
         deletedInvoicesCount: 0, // Regular updates don't delete invoices, they update them
         deletedInvoiceNumbers: []
       });
@@ -593,6 +724,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       console.log("Attempting to delete sale:", req.params.id);
       
+      // Get sale details before deletion for inventory restoration
+      const saleToDelete = await storage.getSale(req.params.id);
+      if (!saleToDelete) {
+        return res.status(404).json({ message: "Sale not found" });
+      }
+      
       // Check if sale has any related invoices
       const relatedInvoices = await storage.getInvoicesBySaleId(req.params.id);
       if (relatedInvoices.length > 0) {
@@ -601,6 +738,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           invoiceCount: relatedInvoices.length
         });
       }
+      
+      // Restore inventory before deleting sale
+      await storage.updateProductStock(saleToDelete.productId, saleToDelete.quantity);
       
       const deleted = await storage.deleteSale(req.params.id);
       console.log("Delete result:", deleted);
@@ -927,14 +1067,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
           businessPhone: "Your Phone",
           businessEmail: "your@email.com",
           businessWebsite: "",
-          logoUrl: null,
+          logoUrl: "",
           bankDetails: "",
           invoicePrefix: "INV",
           nextInvoiceNumber: 1,
           currency: "MYR",
           taxRate: 0,
           paymentTerms: "Payment due within 30 days",
-          footerText: null,
+          footerText: "",
           footerNotes: "",
         };
         userSettings = await storage.createUserSettings(defaultSettings);
@@ -1011,14 +1151,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
           businessPhone: "Your Phone",
           businessEmail: "your@email.com",
           businessWebsite: "",
-          logoUrl: null,
+          logoUrl: "",
           bankDetails: "",
           invoicePrefix: "INV",
           nextInvoiceNumber: 1,
           currency: "MYR",
           taxRate: 0,
           paymentTerms: "Payment due within 30 days",
-          footerText: null,
+          footerText: "",
           footerNotes: "",
         };
         userSettings = await storage.createUserSettings(defaultSettings);
