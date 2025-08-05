@@ -86,9 +86,9 @@ export function InvoicePreviewModal({ open, onOpenChange, invoice }: InvoicePrev
         (dialogHeader as HTMLElement).style.display = 'none';
       }
       
-      // Capture the invoice content as canvas with maximum quality
+      // Capture the invoice content as canvas with ultra-high quality
       const canvas = await html2canvas(invoiceElement, {
-        scale: 3, // Higher scale for sharper text
+        scale: 10, // Ultra-high resolution for maximum sharpness
         useCORS: true,
         allowTaint: false,
         backgroundColor: '#ffffff',
@@ -119,9 +119,9 @@ export function InvoicePreviewModal({ open, onOpenChange, invoice }: InvoicePrev
       const availableWidth = pdfWidth - (margin * 2);
       const availableHeight = pdfHeight - (margin * 2);
       
-      // Get actual canvas dimensions (accounting for 3x scale now)
-      const actualCanvasWidth = canvas.width / 3;
-      const actualCanvasHeight = canvas.height / 3;
+      // Get actual canvas dimensions (accounting for 10x scale now)
+      const actualCanvasWidth = canvas.width / 10;
+      const actualCanvasHeight = canvas.height / 10;
       
       // Convert pixels to mm more accurately
       const pixelToMM = 0.26458333; // 1 pixel = 0.26458333 mm at 96 DPI
@@ -139,8 +139,8 @@ export function InvoicePreviewModal({ open, onOpenChange, invoice }: InvoicePrev
       const finalWidth = contentWidthMM * scale;
       const finalHeight = contentHeightMM * scale;
       
-      // Adjust positioning - move slightly to the right for better visual centering
-      const x = (pdfWidth - finalWidth) / 2 + 3; // Move 3mm to the right
+      // Adjust positioning - move to the right for optimal visual centering
+      const x = (pdfWidth - finalWidth) / 2 + 8; // Move 8mm total to the right (3+5)
       const y = (pdfHeight - finalHeight) / 2;
       
       pdf.addImage(imgData, 'PNG', x, y, finalWidth, finalHeight);
