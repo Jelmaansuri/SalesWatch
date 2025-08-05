@@ -757,9 +757,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         totalAmount: subtotal,
         currency: userSettings.currency,
         paymentTerms: userSettings.paymentTerms,
-        notes: groupId 
-          ? `Generated from ${groupedSales.length} products transaction on ${sale.saleDate ? new Date(sale.saleDate).toLocaleDateString() : new Date(sale.createdAt).toLocaleDateString()}`
-          : `Generated from sale on ${sale.saleDate ? new Date(sale.saleDate).toLocaleDateString() : new Date(sale.createdAt).toLocaleDateString()}`,
+        notes: "This is computer generated document. No signature required.",
       };
 
       // Create the invoice
