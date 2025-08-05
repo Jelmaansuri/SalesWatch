@@ -86,9 +86,9 @@ export function InvoicePreviewModal({ open, onOpenChange, invoice }: InvoicePrev
         (dialogHeader as HTMLElement).style.display = 'none';
       }
       
-      // Capture the invoice content as canvas with better options
+      // Capture the invoice content as canvas with maximum quality
       const canvas = await html2canvas(invoiceElement, {
-        scale: 2,
+        scale: 3, // Higher scale for sharper text
         useCORS: true,
         allowTaint: false,
         backgroundColor: '#ffffff',
@@ -97,6 +97,9 @@ export function InvoicePreviewModal({ open, onOpenChange, invoice }: InvoicePrev
         height: invoiceElement.offsetHeight,
         windowWidth: invoiceElement.offsetWidth,
         windowHeight: invoiceElement.offsetHeight,
+        foreignObjectRendering: false, // Better text rendering
+        imageTimeout: 0,
+        removeContainer: true,
       });
       
       // Restore dialog header
@@ -104,34 +107,39 @@ export function InvoicePreviewModal({ open, onOpenChange, invoice }: InvoicePrev
         (dialogHeader as HTMLElement).style.display = originalHeaderDisplay;
       }
       
-      // Create PDF from canvas
-      const imgData = canvas.toDataURL('image/png', 1.0);
+      // Create high-quality PDF from canvas
+      const imgData = canvas.toDataURL('image/png', 1.0); // Maximum quality
       const pdf = new jsPDF('p', 'mm', 'a4');
       
       const pdfWidth = pdf.internal.pageSize.getWidth();
       const pdfHeight = pdf.internal.pageSize.getHeight();
       
-      // Calculate optimal scaling to maximize page fill
-      const margin = 10; // Smaller margin for maximum fill
+      // Maximize page usage with minimal margins
+      const margin = 5; // Very small margin for maximum fill
       const availableWidth = pdfWidth - (margin * 2);
       const availableHeight = pdfHeight - (margin * 2);
       
-      // Get actual canvas dimensions (accounting for 2x scale)
-      const actualCanvasWidth = canvas.width / 2;
-      const actualCanvasHeight = canvas.height / 2;
+      // Get actual canvas dimensions (accounting for 3x scale now)
+      const actualCanvasWidth = canvas.width / 3;
+      const actualCanvasHeight = canvas.height / 3;
       
-      // Calculate ratios to fit within available space
-      const widthRatio = availableWidth / (actualCanvasWidth * 0.264583); // pixels to mm conversion
-      const heightRatio = availableHeight / (actualCanvasHeight * 0.264583);
+      // Convert pixels to mm more accurately
+      const pixelToMM = 0.26458333; // 1 pixel = 0.26458333 mm at 96 DPI
+      const contentWidthMM = actualCanvasWidth * pixelToMM;
+      const contentHeightMM = actualCanvasHeight * pixelToMM;
       
-      // Use the smaller ratio to ensure content fits, but allow scaling up for maximum fill
-      const optimalRatio = Math.min(widthRatio, heightRatio);
+      // Calculate scaling ratios to fit within available space
+      const widthScale = availableWidth / contentWidthMM;
+      const heightScale = availableHeight / contentHeightMM;
       
-      // Final dimensions in mm
-      const finalWidth = actualCanvasWidth * 0.264583 * optimalRatio;
-      const finalHeight = actualCanvasHeight * 0.264583 * optimalRatio;
+      // Use the smaller ratio but ensure we're maximizing the page
+      const scale = Math.min(widthScale, heightScale);
       
-      // Perfect centering calculations
+      // Final dimensions for maximum page fill
+      const finalWidth = contentWidthMM * scale;
+      const finalHeight = contentHeightMM * scale;
+      
+      // Precise centering calculations
       const x = (pdfWidth - finalWidth) / 2;
       const y = (pdfHeight - finalHeight) / 2;
       
