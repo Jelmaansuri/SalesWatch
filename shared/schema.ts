@@ -197,6 +197,16 @@ export const insertUserSettingsSchema = createInsertSchema(userSettings).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
+}).extend({
+  businessRegistration: z.string().nullable().transform(val => val || ""),
+  businessWebsite: z.string().nullable().transform(val => val || ""),
+  logoUrl: z.string().nullable().transform(val => val || ""),
+  invoicePrefix: z.string().nullable().transform(val => val || "INV"),
+  currency: z.string().nullable().transform(val => val || "MYR"),
+  taxRate: z.string().nullable().transform(val => val || "0.00"),
+  paymentTerms: z.string().nullable().transform(val => val || "Payment due within 30 days"),
+  bankDetails: z.string().nullable().transform(val => val || ""),
+  footerNotes: z.string().nullable().transform(val => val || ""),
 });
 
 // Invoice insert schemas

@@ -51,7 +51,7 @@ export default function SettingsPage() {
   // Update form when settings are loaded
   useEffect(() => {
     if (settings) {
-      form.reset({
+      const formData = {
         businessName: settings.businessName || "",
         businessRegistration: settings.businessRegistration || "",
         businessAddress: settings.businessAddress || "",
@@ -66,7 +66,10 @@ export default function SettingsPage() {
         paymentTerms: settings.paymentTerms || "Payment due within 30 days",
         bankDetails: settings.bankDetails || "",
         footerNotes: settings.footerNotes || "",
-      });
+      };
+      
+      console.log("Resetting form with:", formData);
+      form.reset(formData);
       
       if (settings.logoUrl) {
         setLogoPreview(settings.logoUrl);
@@ -494,15 +497,38 @@ export default function SettingsPage() {
             <Button 
               type="button"
               disabled={saveSettingsMutation.isPending}
-              onClick={(e) => {
+              onClick={async (e) => {
                 e.preventDefault();
-                console.log("Save button clicked", e);
-                console.log("Button disabled?", saveSettingsMutation.isPending);
+                console.log("Save button clicked");
                 
-                // Manually trigger form submission
-                const formData = form.getValues();
-                console.log("Manual form data:", formData);
-                onSubmit(formData);
+                try {
+                  // Get clean form data
+                  const formData = form.getValues();
+                  console.log("Form data:", formData);
+                  
+                  // Clean the data to ensure no null values
+                  const cleanData = {
+                    businessName: formData.businessName || "",
+                    businessRegistration: formData.businessRegistration || "",
+                    businessAddress: formData.businessAddress || "",
+                    businessPhone: formData.businessPhone || "",
+                    businessEmail: formData.businessEmail || "",
+                    businessWebsite: formData.businessWebsite || "",
+                    logoUrl: formData.logoUrl || "",
+                    invoicePrefix: formData.invoicePrefix || "INV",
+                    nextInvoiceNumber: formData.nextInvoiceNumber || 1,
+                    currency: formData.currency || "MYR",
+                    taxRate: formData.taxRate || "0.00",
+                    paymentTerms: formData.paymentTerms || "Payment due within 30 days",
+                    bankDetails: formData.bankDetails || "",
+                    footerNotes: formData.footerNotes || "",
+                  };
+                  
+                  console.log("Clean data to submit:", cleanData);
+                  saveSettingsMutation.mutate(cleanData);
+                } catch (error) {
+                  console.error("Button click error:", error);
+                }
               }}
               data-testid="button-save-settings"
             >
