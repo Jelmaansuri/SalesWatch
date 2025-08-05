@@ -71,6 +71,10 @@ export function InvoicePreviewModal({ open, onOpenChange, invoice }: InvoicePrev
                   <p className="font-semibold text-lg">{invoice.invoiceNumber}</p>
                   <p>Date: {format(new Date(invoice.invoiceDate), "MMMM dd, yyyy")}</p>
                   <p>Due Date: {format(new Date(invoice.dueDate), "MMMM dd, yyyy")}</p>
+                  <div className="mt-2">
+                    <span className="text-sm text-gray-500">Status: </span>
+                    {getStatusBadge(invoice.status)}
+                  </div>
                 </div>
               </div>
               <div className="text-right">

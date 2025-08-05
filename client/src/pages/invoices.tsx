@@ -94,14 +94,17 @@ export default function InvoicesPage() {
       doc.text(`Invoice #: ${invoice.invoiceNumber}`, 20, 60);
       doc.text(`Date: ${new Date(invoice.invoiceDate).toLocaleDateString()}`, 20, 70);
       doc.text(`Due Date: ${new Date(invoice.dueDate).toLocaleDateString()}`, 20, 80);
+      doc.text(`Status: ${invoice.status.charAt(0).toUpperCase() + invoice.status.slice(1)}`, 20, 90);
       
       // Customer details
       doc.text('Bill To:', 120, 60);
       doc.text(invoice.customer.name, 120, 70);
       if (invoice.customer.company) {
         doc.text(invoice.customer.company, 120, 80);
+        doc.text(invoice.customer.email, 120, 90);
+      } else {
+        doc.text(invoice.customer.email, 120, 80);
       }
-      doc.text(invoice.customer.email, 120, 90);
       
       // Items table
       const tableData = invoice.items.map((item: any) => [
@@ -113,7 +116,7 @@ export default function InvoicesPage() {
       ]);
       
       autoTable(doc, {
-        startY: 110,
+        startY: 115,
         head: [['Product', 'Qty', 'Unit Price', 'Discount', 'Total']],
         body: tableData,
       });
