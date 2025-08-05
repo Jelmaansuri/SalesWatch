@@ -528,14 +528,28 @@ export default function Sales() {
                                 type="number"
                                 min="1"
                                 className="h-8 text-xs"
-                                value={item.quantity}
+                                value={item.quantity.toString()}
                                 onChange={(e) => {
+                                  const value = e.target.value;
+                                  // Allow empty string during editing, but default to 1 if empty
+                                  const newQuantity = value === '' ? 1 : Math.max(1, parseInt(value) || 1);
                                   const updated = [...editProductItems];
                                   updated[index] = { 
                                     ...updated[index], 
-                                    quantity: parseInt(e.target.value) || 1
+                                    quantity: newQuantity
                                   };
                                   setEditProductItems(updated);
+                                }}
+                                onBlur={(e) => {
+                                  // Ensure we have at least 1 when user finishes editing
+                                  if (e.target.value === '' || parseInt(e.target.value) < 1) {
+                                    const updated = [...editProductItems];
+                                    updated[index] = { 
+                                      ...updated[index], 
+                                      quantity: 1
+                                    };
+                                    setEditProductItems(updated);
+                                  }
                                 }}
                               />
                             </div>

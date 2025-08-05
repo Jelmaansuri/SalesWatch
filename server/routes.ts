@@ -350,7 +350,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         status,
         platformSource,
         notes: groupNotes,
-        saleDate: saleDate || existingSale.saleDate,
+        saleDate: saleDate ? new Date(saleDate) : existingSale.saleDate,
         updatedAt: new Date(),
       });
 
@@ -385,7 +385,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           status,
           platformSource,
           notes: groupNotes,
-          saleDate: saleDate || existingSale.saleDate,
+          saleDate: saleDate ? new Date(saleDate) : existingSale.saleDate,
         });
 
         createdSales.push(newSale);
@@ -405,7 +405,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               };
               
               if (saleDate) {
-                invoiceUpdates.invoiceDate = saleDate;
+                invoiceUpdates.invoiceDate = new Date(saleDate);
                 const newDueDate = new Date(saleDate);
                 newDueDate.setDate(newDueDate.getDate() + 30);
                 invoiceUpdates.dueDate = newDueDate;
