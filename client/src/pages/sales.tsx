@@ -30,7 +30,7 @@ import { useToast } from "@/hooks/use-toast";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { formatCurrency } from "@/lib/currency";
 import { ORDER_STATUS_LABELS, ORDER_STATUS_COLORS, PLATFORM_SOURCE_LABELS } from "@/lib/types";
-import { Plus, Edit, Trash2, ShoppingCart, User, Package, FileText, CalendarIcon } from "lucide-react";
+import { Plus, Edit, Trash2, ShoppingCart, User, Package, FileText, CalendarIcon, X } from "lucide-react";
 import AddSaleModal from "@/components/modals/add-sale-modal";
 import type { SaleWithDetails, Customer, Product } from "@shared/schema";
 import { z } from "zod";
@@ -50,6 +50,12 @@ type FormData = z.infer<typeof formSchema>;
 export default function Sales() {
   const { toast } = useToast();
   const [editingSale, setEditingSale] = useState<SaleWithDetails | null>(null);
+  const [editProductItems, setEditProductItems] = useState<{
+    productId: string;
+    quantity: number;
+    unitPrice: string;
+    discountAmount: string;
+  }[]>([]);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [showInvoicePreview, setShowInvoicePreview] = useState(false);
@@ -242,16 +248,36 @@ export default function Sales() {
 
   const handleEdit = (sale: SaleWithDetails) => {
     setEditingSale(sale);
+    
+    // Check if this sale is part of a group
+    const groupMatch = sale.notes?.match(/\[GROUP:([^\]]+)\]/);
+    const groupId = groupMatch ? groupMatch[1] : null;
+    
+    // If it's part of a group, find all sales in the group
+    let groupedSales = [sale];
+    if (groupId && sales) {
+      groupedSales = sales.filter((s: SaleWithDetails) => 
+        s.notes?.includes(`[GROUP:${groupId}]`) && s.customerId === sale.customerId
+      );
+    }
+    
+    // Convert grouped sales to product items format
+    const productItems = groupedSales.map(s => ({
+      productId: s.productId,
+      quantity: s.quantity,
+      unitPrice: s.unitPrice,
+      discountAmount: s.discountAmount || "0.00"
+    }));
+    
+    setEditProductItems(productItems);
+    
+    // Set form values from the main sale
     form.reset({
       customerId: sale.customerId,
-      productId: sale.productId,
-      quantity: sale.quantity,
-      unitPrice: typeof sale.unitPrice === 'string' ? sale.unitPrice : String(sale.unitPrice),
-      discountAmount: typeof sale.discountAmount === 'string' ? sale.discountAmount : String(sale.discountAmount || 0),
       status: sale.status,
       platformSource: sale.platformSource,
       notes: sale.notes ? sale.notes.replace(/\s*\[GROUP:[^\]]+\]/g, '').trim() : "",
-      saleDate: new Date(sale.saleDate), // Include saleDate from existing sale
+      saleDate: new Date(sale.saleDate),
     });
     setIsEditDialogOpen(true);
   };
@@ -260,6 +286,7 @@ export default function Sales() {
     console.log("=== EDIT FORM SUBMITTED ===");
     console.log("Form submitted with data:", data);
     console.log("Editing sale:", editingSale);
+    console.log("Product items:", editProductItems);
     
     if (!editingSale) {
       console.error("No sale being edited!");
@@ -271,13 +298,33 @@ export default function Sales() {
       return;
     }
     
-    // Remove undefined/null fields and prepare clean data, preserve saleDate
-    const cleanData: Record<string, any> = {};
-    Object.entries(data).forEach(([key, value]) => {
-      if (value !== undefined && value !== null && value !== "") {
-        cleanData[key] = value;
-      }
-    });
+    // Validate product items
+    const validItems = editProductItems.filter(item => 
+      item.productId && item.unitPrice && parseFloat(item.unitPrice) > 0
+    );
+    
+    if (validItems.length === 0) {
+      toast({
+        title: "Missing Products",
+        description: "Please add at least one valid product.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    // For now, update just the first item (later we'll implement full multi-product edit)
+    const firstItem = validItems[0];
+    const cleanData: Record<string, any> = {
+      customerId: data.customerId,
+      productId: firstItem.productId,
+      quantity: firstItem.quantity,
+      unitPrice: firstItem.unitPrice,
+      discountAmount: firstItem.discountAmount,
+      status: data.status,
+      platformSource: data.platformSource,
+      notes: data.notes,
+      saleDate: data.saleDate,
+    };
     
     console.log("Clean data for API:", cleanData);
     updateSaleMutation.mutate({ id: editingSale.id, data: cleanData });
@@ -355,104 +402,145 @@ export default function Sales() {
                   )}
                 />
 
-                {/* Product Item Card */}
+                {/* Product Items Section */}
                 <Card>
-                  <CardContent className="p-4">
-                    <div className="mb-4">
-                      <h4 className="text-sm font-medium">Item 1</h4>
-                    </div>
-                    
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                      {/* Product Selection */}
-                      <div className="space-y-2">
-                        <Label className="text-xs font-medium">Product *</Label>
-                        <FormField
-                          control={form.control}
-                          name="productId"
-                          render={({ field }) => (
-                            <Select 
-                              onValueChange={(productId) => {
-                                field.onChange(productId);
-                                // Auto-update unit price when product changes
-                                const selectedProduct = products.find(p => p.id === productId);
-                                if (selectedProduct) {
-                                  console.log('Sales Edit - Product changed to:', selectedProduct.name, 'Price:', selectedProduct.sellingPrice);
-                                  form.setValue('unitPrice', selectedProduct.sellingPrice);
-                                }
-                              }} 
-                              value={field.value}
-                            >
-                              <SelectTrigger className="h-8 text-xs">
-                                <SelectValue placeholder="Select..." />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {products.map((product) => (
-                                  <SelectItem key={product.id} value={product.id}>
-                                    {product.name}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          )}
-                        />
-                      </div>
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+                    <CardTitle className="text-base font-medium">Sale Items</CardTitle>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setEditProductItems([...editProductItems, {
+                          productId: "",
+                          quantity: 1,
+                          unitPrice: "",
+                          discountAmount: "0.00"
+                        }]);
+                      }}
+                      className="flex items-center gap-2"
+                    >
+                      <Plus className="h-4 w-4" />
+                      Add Item
+                    </Button>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    {editProductItems.map((item, index) => (
+                      <Card key={`edit-product-item-${index}-${item.productId}`} className="border border-gray-200 dark:border-gray-700">
+                        <CardContent className="p-4">
+                          <div className="flex justify-between items-start mb-4">
+                            <h4 className="text-sm font-medium">Item {index + 1}</h4>
+                            {editProductItems.length > 1 && (
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                  if (editProductItems.length > 1) {
+                                    setEditProductItems(editProductItems.filter((_, i) => i !== index));
+                                  }
+                                }}
+                                className="h-6 w-6 p-0 text-red-600 hover:text-red-700"
+                              >
+                                <X className="h-4 w-4" />
+                              </Button>
+                            )}
+                          </div>
+                          
+                          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                            {/* Product Selection */}
+                            <div className="space-y-2">
+                              <Label className="text-xs font-medium">Product *</Label>
+                              <Select
+                                value={item.productId || undefined}
+                                onValueChange={(value) => {
+                                  const product = products.find(p => p.id === value);
+                                  const updated = [...editProductItems];
+                                  updated[index] = { 
+                                    ...updated[index], 
+                                    productId: value,
+                                    unitPrice: product ? product.sellingPrice : updated[index].unitPrice
+                                  };
+                                  setEditProductItems(updated);
+                                }}
+                              >
+                                <SelectTrigger className="h-8 text-xs">
+                                  <SelectValue placeholder="Select..." />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {products.map((product) => (
+                                    <SelectItem key={product.id} value={product.id}>
+                                      {product.name}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
 
-                      {/* Quantity */}
-                      <div className="space-y-2">
-                        <Label className="text-xs font-medium">Quantity *</Label>
-                        <FormField
-                          control={form.control}
-                          name="quantity"
-                          render={({ field }) => (
-                            <Input
-                              type="number"
-                              min="1"
-                              className="h-8 text-xs"
-                              {...field}
-                              onChange={(e) => field.onChange(parseInt(e.target.value))}
-                            />
-                          )}
-                        />
-                      </div>
+                            {/* Quantity */}
+                            <div className="space-y-2">
+                              <Label className="text-xs font-medium">Quantity *</Label>
+                              <Input
+                                type="number"
+                                min="1"
+                                className="h-8 text-xs"
+                                value={item.quantity}
+                                onChange={(e) => {
+                                  const updated = [...editProductItems];
+                                  updated[index] = { 
+                                    ...updated[index], 
+                                    quantity: parseInt(e.target.value) || 1
+                                  };
+                                  setEditProductItems(updated);
+                                }}
+                              />
+                            </div>
 
-                      {/* Unit Price */}
-                      <div className="space-y-2">
-                        <Label className="text-xs font-medium">Unit Price (RM) *</Label>
-                        <FormField
-                          control={form.control}
-                          name="unitPrice"
-                          render={({ field }) => (
-                            <Input
-                              type="number"
-                              step="0.01"
-                              min="0"
-                              className="h-8 text-xs"
-                              placeholder="0.00"
-                              {...field}
-                            />
-                          )}
-                        />
-                      </div>
+                            {/* Unit Price */}
+                            <div className="space-y-2">
+                              <Label className="text-xs font-medium">Unit Price (RM) *</Label>
+                              <Input
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                className="h-8 text-xs"
+                                placeholder="0.00"
+                                value={item.unitPrice}
+                                onChange={(e) => {
+                                  const updated = [...editProductItems];
+                                  updated[index] = { 
+                                    ...updated[index], 
+                                    unitPrice: e.target.value
+                                  };
+                                  setEditProductItems(updated);
+                                }}
+                              />
+                            </div>
 
-                      {/* Discount */}
-                      <div className="space-y-2">
-                        <Label className="text-xs font-medium">Discount (RM)</Label>
-                        <FormField
-                          control={form.control}
-                          name="discountAmount"
-                          render={({ field }) => (
-                            <Input
-                              type="number"
-                              step="0.01"
-                              min="0"
-                              className="h-8 text-xs"
-                              placeholder="0.00"
-                              {...field}
-                            />
-                          )}
-                        />
-                      </div>
-                    </div>
+                            {/* Discount */}
+                            <div className="space-y-2">
+                              <Label className="text-xs font-medium">Discount (RM)</Label>
+                              <Input
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                className="h-8 text-xs"
+                                placeholder="0.00"
+                                value={item.discountAmount}
+                                onChange={(e) => {
+                                  const updated = [...editProductItems];
+                                  updated[index] = { 
+                                    ...updated[index], 
+                                    discountAmount: e.target.value || "0.00"
+                                  };
+                                  setEditProductItems(updated);
+                                }}
+                              />
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
                   </CardContent>
                 </Card>
 
