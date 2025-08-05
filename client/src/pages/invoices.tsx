@@ -7,7 +7,7 @@ import {
   Eye, 
   Edit2, 
   Trash2, 
-
+  Download,
   Filter,
   Search,
   DollarSign,
@@ -136,6 +136,12 @@ export default function InvoicesPage() {
 
   const handleDelete = (invoiceId: string) => {
     deleteInvoiceMutation.mutate(invoiceId);
+  };
+
+  const handlePDFDownload = (invoice: InvoiceWithDetails) => {
+    setSelectedInvoice(invoice);
+    setPreviewModalOpen(true);
+    // The PDF download will be handled by the preview modal
   };
 
 
@@ -344,6 +350,14 @@ export default function InvoicesPage() {
                             data-testid={`button-preview-${invoice.id}`}
                           >
                             <Eye className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handlePDFDownload(invoice)}
+                            data-testid={`button-pdf-${invoice.id}`}
+                          >
+                            <Download className="h-4 w-4" />
                           </Button>
                           <Button
                             variant="ghost"

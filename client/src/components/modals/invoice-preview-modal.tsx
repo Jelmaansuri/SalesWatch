@@ -34,7 +34,7 @@ export function InvoicePreviewModal({ open, onOpenChange, invoice }: InvoicePrev
         email: "",
         website: "",
         bankDetails: "Bank: Maybank\nAccount Name: PROGENY AGROTECH SDN BHD\nAccount Number: 5642 1234 5678",
-        footerNotes: "Thank you for your business!\nFor questions about this invoice, please contact us."
+        footerNotes: "This is computer generated document. No signature required"
       };
     }
     
@@ -46,7 +46,7 @@ export function InvoicePreviewModal({ open, onOpenChange, invoice }: InvoicePrev
       email: userSettings.businessEmail,
       website: userSettings.businessWebsite || "",
       bankDetails: userSettings.bankDetails || "Bank: Maybank\nAccount Name: PROGENY AGROTECH SDN BHD\nAccount Number: 5642 1234 5678",
-      footerNotes: userSettings.footerNotes || "Thank you for your business!\nFor questions about this invoice, please contact us."
+      footerNotes: "This is computer generated document. No signature required"
     };
   };
 
@@ -86,9 +86,9 @@ export function InvoicePreviewModal({ open, onOpenChange, invoice }: InvoicePrev
         (dialogHeader as HTMLElement).style.display = 'none';
       }
       
-      // Capture the invoice content as canvas with high resolution
+      // Capture the invoice content as canvas with balanced resolution
       const canvas = await html2canvas(invoiceElement, {
-        scale: 10, // High resolution for sharp text
+        scale: 5, // Balanced resolution for quality and file size
         useCORS: true,
         allowTaint: false,
         backgroundColor: '#ffffff',
@@ -119,9 +119,9 @@ export function InvoicePreviewModal({ open, onOpenChange, invoice }: InvoicePrev
       const availableWidth = pdfWidth - (margin * 2);
       const availableHeight = pdfHeight - (margin * 2);
       
-      // Get actual canvas dimensions (10x scale)
-      const actualCanvasWidth = canvas.width / 10;
-      const actualCanvasHeight = canvas.height / 10;
+      // Get actual canvas dimensions (5x scale)
+      const actualCanvasWidth = canvas.width / 5;
+      const actualCanvasHeight = canvas.height / 5;
       
       // Convert pixels to mm more accurately
       const pixelToMM = 0.26458333; // 1 pixel = 0.26458333 mm at 96 DPI
