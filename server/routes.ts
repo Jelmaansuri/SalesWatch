@@ -694,6 +694,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Sale not found" });
       }
 
+      // Extract group identifier from the sale notes
+      const groupMatch = sale.notes?.match(/\[GROUP:([^\]]+)\]/);
+      const groupId = groupMatch ? groupMatch[1] : null;
+
+      // If this sale is part of a group, get all sales in the group
+      let groupedSales = [sale];
+      if (groupId) {
+        // Get all sales with the same group ID
+        const allSales = await storage.getSalesWithDetails();
+        groupedSales = allSales.filter((s: any) => 
+          s.notes?.includes(`[GROUP:${groupId}]`) && s.customerId === sale.customerId && s.userId === userId
+        );
+      }
+
+      // Check if any sale in the group already has an invoice
+      for (const groupSale of groupedSales) {
+        const existingInvoices = await storage.getInvoicesBySaleId(groupSale.id);
+        if (existingInvoices.length > 0) {
+          return res.status(400).json({ 
+            message: `Invoice already exists for this ${groupId ? 'transaction group' : 'sale'}. Invoice number: ${existingInvoices[0].invoiceNumber}` 
+          });
+        }
+      }
+
       // Get user settings for invoice generation or create default
       let userSettings = await storage.getUserSettings(userId);
       if (!userSettings) {
@@ -715,37 +739,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Generate invoice number
       const invoiceNumber = `${userSettings.invoicePrefix}-${String(userSettings.nextInvoiceNumber).padStart(4, '0')}`;
 
-      // Create invoice data from sale (convert strings to numbers)
+      // Calculate total amounts for all grouped sales
+      const subtotal = groupedSales.reduce((sum, s) => sum + parseFloat(s.totalAmount), 0);
+      const totalProfit = groupedSales.reduce((sum, s) => sum + parseFloat(s.profit), 0);
+
+      // Create invoice data from sale group
       const invoiceData = {
         userId,
         customerId: sale.customerId,
-        saleId: sale.id, // Link to the originating sale
+        saleId: sale.id, // Link to the primary sale (first sale in group)
         invoiceNumber,
         invoiceDate: new Date(),
         dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days from now
         status: "draft",
-        subtotal: parseFloat(sale.totalAmount),
-        taxAmount: 0, // Could be calculated based on userSettings.taxRate
-        totalAmount: parseFloat(sale.totalAmount),
+        subtotal: subtotal,
+        taxAmount: 0,
+        totalAmount: subtotal,
         currency: userSettings.currency,
         paymentTerms: userSettings.paymentTerms,
-        notes: `Generated from sale on ${sale.saleDate ? new Date(sale.saleDate).toLocaleDateString() : new Date(sale.createdAt).toLocaleDateString()}`,
+        notes: groupId 
+          ? `Generated from ${groupedSales.length} products transaction on ${sale.saleDate ? new Date(sale.saleDate).toLocaleDateString() : new Date(sale.createdAt).toLocaleDateString()}`
+          : `Generated from sale on ${sale.saleDate ? new Date(sale.saleDate).toLocaleDateString() : new Date(sale.createdAt).toLocaleDateString()}`,
       };
 
       // Create the invoice
       const invoice = await storage.createInvoice(invoiceData);
 
-      // Create invoice items from sale data
-      const invoiceItemData = {
-        invoiceId: invoice.id,
-        productId: sale.productId,
-        quantity: sale.quantity,
-        unitPrice: parseFloat(sale.unitPrice),
-        discount: parseFloat(sale.discountAmount || "0"),
-        lineTotal: parseFloat(sale.totalAmount),
-      };
-
-      await storage.createInvoiceItem(invoiceItemData);
+      // Create invoice items from all grouped sales
+      for (const groupSale of groupedSales) {
+        const invoiceItemData = {
+          invoiceId: invoice.id,
+          productId: groupSale.productId,
+          quantity: groupSale.quantity,
+          unitPrice: parseFloat(groupSale.unitPrice),
+          discount: parseFloat(groupSale.discountAmount || "0"),
+          lineTotal: parseFloat(groupSale.totalAmount),
+        };
+        await storage.createInvoiceItem(invoiceItemData);
+      }
 
       // Update the next invoice number
       await storage.updateUserSettings(userId, {
