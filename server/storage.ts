@@ -1252,6 +1252,53 @@ export class DatabaseStorage implements IStorage {
     return updatedInvoice || undefined;
   }
 
+  async updateInvoiceFromSale(saleId: string): Promise<void> {
+    // Get all invoices linked to this sale
+    const relatedInvoices = await this.getInvoicesBySaleId(saleId);
+    
+    for (const invoice of relatedInvoices) {
+      // Get updated sale details
+      const sale = await this.getSaleWithDetails(saleId);
+      if (!sale) continue;
+      
+      // Get grouped sales if applicable
+      const groupMatch = sale.notes?.match(/\[GROUP:([^\]]+)\]/);
+      const groupId = groupMatch ? groupMatch[1] : null;
+      
+      let groupedSales = [sale];
+      if (groupId) {
+        const allSales = await this.getSalesWithDetails();
+        groupedSales = allSales.filter((s: any) => 
+          s.notes?.includes(`[GROUP:${groupId}]`) && s.customerId === sale.customerId
+        );
+      }
+      
+      // Recalculate totals
+      const newSubtotal = groupedSales.reduce((sum, s) => sum + parseFloat(s.totalAmount), 0);
+      
+      // Update the invoice
+      await this.updateInvoice(invoice.id, {
+        subtotal: newSubtotal.toString(),
+        totalAmount: newSubtotal.toString(),
+        invoiceDate: sale.saleDate,
+      });
+      
+      // Update invoice items
+      await this.deleteInvoiceItems(invoice.id);
+      
+      for (const groupSale of groupedSales) {
+        await this.createInvoiceItem({
+          invoiceId: invoice.id,
+          productId: groupSale.productId,
+          quantity: groupSale.quantity,
+          unitPrice: parseFloat(groupSale.unitPrice) - parseFloat(groupSale.discountAmount || "0"),
+          discount: parseFloat(groupSale.discountAmount || "0"),
+          lineTotal: parseFloat(groupSale.totalAmount),
+        });
+      }
+    }
+  }
+
   async deleteInvoice(id: string): Promise<boolean> {
     const result = await db.delete(invoices).where(eq(invoices.id, id));
     return result.rowCount! > 0;

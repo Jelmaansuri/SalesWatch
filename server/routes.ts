@@ -314,6 +314,61 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       console.log(`Updated sale:`, sale);
       
+      // Check if there are invoices linked to this sale and update them accordingly
+      const relatedInvoices = await storage.getInvoicesBySaleId(req.params.id);
+      if (relatedInvoices.length > 0) {
+        console.log(`Found ${relatedInvoices.length} related invoices to update`);
+        
+        for (const invoice of relatedInvoices) {
+          // Get all sales in the same group (if applicable) to recalculate invoice totals
+          const groupMatch = sale.notes?.match(/\[GROUP:([^\]]+)\]/);
+          const groupId = groupMatch ? groupMatch[1] : null;
+          
+          let groupedSales = [sale];
+          if (groupId) {
+            const allSales = await storage.getSalesWithDetails();
+            groupedSales = allSales.filter((s: any) => 
+              s.notes?.includes(`[GROUP:${groupId}]`) && s.customerId === sale.customerId
+            );
+          }
+          
+          // Recalculate invoice totals based on updated sales data
+          const newSubtotal = groupedSales.reduce((sum, s) => sum + parseFloat(s.totalAmount), 0);
+          const newTotalAmount = newSubtotal; // No tax for now
+          
+          // Update invoice date if sale date changed
+          const invoiceUpdates: any = {
+            subtotal: newSubtotal.toString(),
+            totalAmount: newTotalAmount.toString(),
+          };
+          
+          // If sale date changed, update invoice date to match
+          if (updateData.saleDate) {
+            invoiceUpdates.invoiceDate = updateData.saleDate;
+          }
+          
+          await storage.updateInvoice(invoice.id, invoiceUpdates);
+          
+          // Update invoice items based on updated sales
+          await storage.deleteInvoiceItems(invoice.id);
+          
+          // Recreate invoice items from grouped sales
+          for (const groupSale of groupedSales) {
+            const lineTotal = parseFloat(groupSale.totalAmount);
+            await storage.createInvoiceItem({
+              invoiceId: invoice.id,
+              productId: groupSale.productId,
+              quantity: groupSale.quantity,
+              unitPrice: parseFloat(groupSale.unitPrice) - parseFloat(groupSale.discountAmount || "0"),
+              discount: parseFloat(groupSale.discountAmount || "0"),
+              lineTotal: lineTotal,
+            });
+          }
+        }
+        
+        console.log(`Updated ${relatedInvoices.length} related invoices`);
+      }
+      
       const saleWithDetails = await storage.getSaleWithDetails(sale.id);
       res.json(saleWithDetails);
     } catch (error) {
