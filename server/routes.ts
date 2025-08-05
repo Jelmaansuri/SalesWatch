@@ -313,22 +313,55 @@ export async function registerRoutes(app: Express): Promise<Server> {
         );
       }
 
-      // Auto-delete all invoices linked to the sales group before updating
-      let deletedInvoicesCount = 0;
-      let deletedInvoiceNumbers = [];
+      // Create revisions for all invoices linked to the sales group before updating
+      let revisedInvoicesCount = 0;
+      let revisedInvoiceNumbers = [];
       for (const sale of salesInGroup) {
         try {
           const relatedInvoices = await storage.getInvoicesBySaleId(sale.id);
           for (const invoice of relatedInvoices) {
-            deletedInvoiceNumbers.push(invoice.invoiceNumber);
-            // Add the invoice number to reusable pool before deleting
-            await storage.addReusableInvoiceNumber(userId, invoice.invoiceNumber);
-            await storage.deleteInvoiceItems(invoice.id);
-            await storage.deleteInvoice(invoice.id);
-            deletedInvoicesCount++;
+            // Calculate new totals based on updated products
+            const newSubtotal = products.reduce((sum, p) => {
+              const productTotal = (parseFloat(p.unitPrice) - parseFloat(p.discountAmount || "0")) * p.quantity;
+              return sum + productTotal;
+            }, 0);
+
+            // Prepare revision data
+            const revisionData: any = {
+              userId: invoice.userId,
+              customerId: invoice.customerId,
+              saleId: invoice.saleId,
+              invoiceNumber: invoice.invoiceNumber,
+              invoiceDate: saleDate ? new Date(saleDate) : invoice.invoiceDate,
+              dueDate: saleDate ? (() => {
+                const dueDate = new Date(saleDate);
+                dueDate.setDate(dueDate.getDate() + 30);
+                return dueDate;
+              })() : invoice.dueDate,
+              status: invoice.status,
+              subtotal: newSubtotal.toString(),
+              taxAmount: invoice.taxAmount,
+              totalAmount: newSubtotal.toString(),
+              currency: invoice.currency,
+              notes: invoice.notes,
+              paymentTerms: invoice.paymentTerms,
+            };
+
+            // Create revision
+            const revisedInvoice = await storage.createInvoiceRevision(
+              invoice.id,
+              revisionData,
+              "Multi-product sales updated",
+              userId
+            );
+
+            revisedInvoiceNumbers.push(invoice.invoiceNumber);
+            revisedInvoicesCount++;
+
+            // We'll add the new invoice items after creating all sales
           }
         } catch (error) {
-          console.warn(`Failed to delete invoices for sale ${sale.id}:`, error);
+          console.warn(`Failed to create revision for invoices of sale ${sale.id}:`, error);
         }
       }
 
@@ -462,8 +495,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         message: "Multi-product sale updated successfully",
         sales: createdSales,
         groupId: newGroupId,
-        deletedInvoicesCount,
-        deletedInvoiceNumbers
+        revisedInvoicesCount,
+        revisedInvoiceNumbers
       });
     } catch (error) {
       console.error("Error updating multi-product sale:", error);
@@ -510,10 +543,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       console.log(`Updated sale:`, sale);
       
-      // Check if there are invoices linked to this sale and update them accordingly
+      // Check if there are invoices linked to this sale and create revisions if needed
       const relatedInvoices = await storage.getInvoicesBySaleId(req.params.id);
       if (relatedInvoices.length > 0) {
-        console.log(`Found ${relatedInvoices.length} related invoices to update`);
+        console.log(`Found ${relatedInvoices.length} related invoices to create revisions for`);
+        
+        const userId = req.user?.claims?.sub;
         
         for (const invoice of relatedInvoices) {
           // Get all sales in the same group (if applicable) to recalculate invoice totals
@@ -532,31 +567,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const newSubtotal = groupedSales.reduce((sum, s) => sum + parseFloat(s.totalAmount), 0);
           const newTotalAmount = newSubtotal; // No tax for now
           
-          // Update invoice date if sale date changed
-          const invoiceUpdates: any = {
+          // Prepare revision data
+          const revisionData: any = {
+            userId: invoice.userId,
+            customerId: invoice.customerId,
+            saleId: invoice.saleId,
+            invoiceNumber: invoice.invoiceNumber,
+            invoiceDate: updateData.saleDate ? new Date(updateData.saleDate) : invoice.invoiceDate,
+            dueDate: updateData.saleDate ? (() => {
+              const dueDate = new Date(updateData.saleDate);
+              dueDate.setDate(dueDate.getDate() + 30);
+              return dueDate;
+            })() : invoice.dueDate,
+            status: invoice.status,
             subtotal: newSubtotal.toString(),
+            taxAmount: invoice.taxAmount,
             totalAmount: newTotalAmount.toString(),
+            currency: invoice.currency,
+            notes: invoice.notes,
+            paymentTerms: invoice.paymentTerms,
           };
-          
-          // If sale date changed, update invoice date and due date to match
-          if (updateData.saleDate) {
-            invoiceUpdates.invoiceDate = updateData.saleDate;
-            // Calculate new due date (30 days from sale date)
-            const newDueDate = new Date(updateData.saleDate);
-            newDueDate.setDate(newDueDate.getDate() + 30);
-            invoiceUpdates.dueDate = newDueDate;
+
+          // Create revision with appropriate reason
+          let revisionReason = "Sales data updated";
+          if (updateData.quantity !== undefined || updateData.unitPrice || updateData.discountAmount !== undefined) {
+            revisionReason = "Quantity, price, or discount updated";
+          } else if (updateData.saleDate) {
+            revisionReason = "Sale date updated";
+          } else if (updateData.productId) {
+            revisionReason = "Product changed";
           }
+
+          const revisedInvoice = await storage.createInvoiceRevision(
+            invoice.id,
+            revisionData,
+            revisionReason,
+            userId
+          );
           
-          await storage.updateInvoice(invoice.id, invoiceUpdates);
-          
-          // Update invoice items based on updated sales
-          await storage.deleteInvoiceItems(invoice.id);
-          
-          // Recreate invoice items from grouped sales
+          // Create invoice items for the revision
           for (const groupSale of groupedSales) {
             const lineTotal = parseFloat(groupSale.totalAmount);
             await storage.createInvoiceItem({
-              invoiceId: invoice.id,
+              invoiceId: revisedInvoice.id,
               productId: groupSale.productId,
               quantity: groupSale.quantity,
               unitPrice: parseFloat(groupSale.unitPrice) - parseFloat(groupSale.discountAmount || "0"),
@@ -564,9 +617,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
               lineTotal: lineTotal,
             });
           }
+          
+          console.log(`Created revision ${revisedInvoice.revisionNumber} for invoice ${invoice.invoiceNumber}`);
         }
         
-        console.log(`Updated ${relatedInvoices.length} related invoices`);
+        console.log(`Created revisions for ${relatedInvoices.length} related invoices`);
       }
       
       const saleWithDetails = await storage.getSaleWithDetails(sale.id);
