@@ -60,7 +60,18 @@ function InvoicesContent() {
   // Delete invoice mutation
   const deleteInvoiceMutation = useMutation({
     mutationFn: async (invoiceId: string) => {
-      await apiRequest(`/api/invoices/${invoiceId}`, "DELETE");
+      const response = await fetch(`/api/invoices/${invoiceId}`, { 
+        method: "DELETE",
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`${response.status}: ${errorText}`);
+      }
+      // Don't try to parse JSON for 204 responses
+      return response.status === 204 ? null : response.json();
     },
     onSuccess: () => {
       // Force refetch all related data

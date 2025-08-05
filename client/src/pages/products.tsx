@@ -82,7 +82,18 @@ export default function Products() {
 
   const deleteProductMutation = useMutation({
     mutationFn: async (id: string) => {
-      await apiRequest(`/api/products/${id}`, "DELETE");
+      const response = await fetch(`/api/products/${id}`, { 
+        method: "DELETE",
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`${response.status}: ${errorText}`);
+      }
+      // Don't try to parse JSON for 204 responses
+      return response.status === 204 ? null : response.json();
     },
     onSuccess: () => {
       // Force refetch all related data

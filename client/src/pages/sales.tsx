@@ -288,7 +288,18 @@ export default function Sales() {
 
   const deleteSaleMutation = useMutation({
     mutationFn: async (id: string) => {
-      await apiRequest(`/api/sales/${id}`, "DELETE");
+      const response = await fetch(`/api/sales/${id}`, { 
+        method: "DELETE",
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`${response.status}: ${errorText}`);
+      }
+      // Don't try to parse JSON for 204 responses
+      return response.status === 204 ? null : response.json();
     },
     onSuccess: (data, variables, context: any) => {
       // Force refetch all related data

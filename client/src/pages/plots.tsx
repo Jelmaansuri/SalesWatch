@@ -1497,11 +1497,18 @@ export default function Plots() {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      const response = await fetch(`/api/plots/${id}`, { method: "DELETE" });
+      const response = await fetch(`/api/plots/${id}`, { 
+        method: "DELETE",
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
       if (!response.ok) {
         const errorText = await response.text();
         throw new Error(`${response.status}: ${errorText}`);
       }
+      // Don't try to parse JSON for 204 responses
+      return response.status === 204 ? null : response.json();
     },
     onSuccess: () => {
       // Force refetch all related data
