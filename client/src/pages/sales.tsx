@@ -279,9 +279,11 @@ export default function Sales() {
     }),
     onSuccess: (data) => {
       console.log("Invoice generation response:", data);
+      // The response is the full invoice object, so invoiceNumber is a direct property
+      const invoiceNumber = data?.invoiceNumber || 'N/A';
       toast({
         title: "Success",
-        description: `Invoice ${data.invoiceNumber || data.invoice?.invoiceNumber || 'N/A'} generated successfully`,
+        description: `Invoice ${invoiceNumber} generated successfully`,
       });
       queryClient.invalidateQueries({ queryKey: ["/api/invoices"] });
       setShowInvoicePreview(false);
