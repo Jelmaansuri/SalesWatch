@@ -363,13 +363,16 @@ export default function AddSaleModal({ open, onOpenChange, onSaleAdded }: AddSal
                             if (value === "add-new-product") {
                               setShowQuickAddProduct(true);
                             } else {
-                              updateProductItem(index, "productId", value);
-                              // Auto-fill unit price
+                              // Find the product and update both productId and unitPrice in one state update
                               const product = products.find(p => p.id === value);
-                              if (product) {
-                                console.log("Auto-filling unit price:", product.sellingPrice);
-                                updateProductItem(index, "unitPrice", product.sellingPrice);
-                              }
+                              const updated = [...productItems];
+                              updated[index] = { 
+                                ...updated[index], 
+                                productId: value,
+                                unitPrice: product ? product.sellingPrice : updated[index].unitPrice
+                              };
+                              console.log("Updated item with both productId and unitPrice:", updated[index]);
+                              setProductItems(updated);
                             }
                           }}
                         >
