@@ -77,40 +77,70 @@ export default function SettingsPage() {
   // Save settings mutation
   const saveSettingsMutation = useMutation({
     mutationFn: async (data: InsertUserSettings) => {
-      if (settings) {
-        return await apiRequest("/api/user-settings", "PUT", data);
-      } else {
-        return await apiRequest("/api/user-settings", "POST", data);
+      try {
+        console.log("Attempting to save settings:", data);
+        let response;
+        if (settings) {
+          response = await apiRequest("/api/user-settings", "PUT", data);
+        } else {
+          response = await apiRequest("/api/user-settings", "POST", data);
+        }
+        return await response.json();
+      } catch (error: any) {
+        console.error("Error in mutation:", error);
+        throw error;
       }
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      console.log("Settings saved successfully:", data);
       queryClient.invalidateQueries({ queryKey: ["/api/user-settings"] });
       toast({
         title: "Success",
         description: "Business settings saved successfully",
       });
     },
-    onError: (error) => {
+    onError: (error: any) => {
+      console.error("Mutation error:", error);
       toast({
         title: "Error",
-        description: error.message,
+        description: error?.message || "Failed to save settings",
         variant: "destructive",
       });
     },
   });
 
-  const onSubmit = (data: InsertUserSettings) => {
-    console.log("Form submitted with data:", data);
-    console.log("Form errors:", form.formState.errors);
-    console.log("Form is valid:", form.formState.isValid);
-    
-    // Check if form is valid before submitting
-    if (!form.formState.isValid) {
-      console.log("Form validation failed, not submitting");
-      return;
+  const onSubmit = async (data: InsertUserSettings) => {
+    try {
+      console.log("Form submitted with data:", data);
+      console.log("Form errors:", form.formState.errors);
+      console.log("Form is valid:", form.formState.isValid);
+      
+      // Check if form is valid before submitting
+      if (!form.formState.isValid) {
+        console.log("Form validation failed, not submitting");
+        return;
+      }
+      
+      // Validate required fields manually to prevent API errors
+      if (!data.businessName || !data.businessAddress || !data.businessPhone || !data.businessEmail) {
+        toast({
+          title: "Validation Error",
+          description: "Please fill in all required fields",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      console.log("Calling mutation with valid data");
+      saveSettingsMutation.mutate(data);
+    } catch (error) {
+      console.error("Submit error:", error);
+      toast({
+        title: "Error",
+        description: "An unexpected error occurred",
+        variant: "destructive",
+      });
     }
-    
-    saveSettingsMutation.mutate(data);
   };
 
   return (
@@ -462,11 +492,17 @@ export default function SettingsPage() {
           {/* Submit Button */}
           <div className="flex justify-end">
             <Button 
-              type="submit" 
+              type="button"
               disabled={saveSettingsMutation.isPending}
               onClick={(e) => {
+                e.preventDefault();
                 console.log("Save button clicked", e);
                 console.log("Button disabled?", saveSettingsMutation.isPending);
+                
+                // Manually trigger form submission
+                const formData = form.getValues();
+                console.log("Manual form data:", formData);
+                onSubmit(formData);
               }}
               data-testid="button-save-settings"
             >
