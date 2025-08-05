@@ -29,10 +29,11 @@ export function InvoicePreviewModal({ open, onOpenChange, invoice }: InvoicePrev
       return {
         name: "PROGENY AGROTECH",
         description: ["Malaysian Fresh Young Ginger Farming", "& Distribution"],
-        address: "",
-        phone: "",
-        email: "",
+        address: "Kuala Lumpur, Malaysia",
+        phone: "+60 12-345 6789",
+        email: "info@progenyagrotech.com",
         website: "",
+        registration: "",
         bankDetails: "Bank: Maybank\nAccount Name: PROGENY AGROTECH SDN BHD\nAccount Number: 5642 1234 5678",
         footerNotes: "This is computer generated document. No signature required"
       };
@@ -40,13 +41,14 @@ export function InvoicePreviewModal({ open, onOpenChange, invoice }: InvoicePrev
     
     return {
       name: userSettings.businessName,
-      description: [userSettings.businessName], // Could be expanded based on business type
+      description: ["Malaysian Fresh Young Ginger Farming", "& Distribution"],
       address: userSettings.businessAddress,
       phone: userSettings.businessPhone,
       email: userSettings.businessEmail,
       website: userSettings.businessWebsite || "",
+      registration: userSettings.businessRegistration || "",
       bankDetails: userSettings.bankDetails || "Bank: Maybank\nAccount Name: PROGENY AGROTECH SDN BHD\nAccount Number: 5642 1234 5678",
-      footerNotes: "This is computer generated document. No signature required"
+      footerNotes: userSettings.footerNotes || "This is computer generated document. No signature required"
     };
   };
 
@@ -218,6 +220,23 @@ export function InvoicePreviewModal({ open, onOpenChange, invoice }: InvoicePrev
                   {getBusinessInfo().description.map((line, index) => (
                     <p key={index} className="text-sm text-gray-600">{line}</p>
                   ))}
+                  <div className="mt-3 text-sm text-gray-600 space-y-1">
+                    {getBusinessInfo().address && (
+                      <p>{getBusinessInfo().address}</p>
+                    )}
+                    {getBusinessInfo().phone && (
+                      <p>Tel: {getBusinessInfo().phone}</p>
+                    )}
+                    {getBusinessInfo().email && (
+                      <p>Email: {getBusinessInfo().email}</p>
+                    )}
+                    {getBusinessInfo().registration && (
+                      <p>SSM No: {getBusinessInfo().registration}</p>
+                    )}
+                    {getBusinessInfo().website && (
+                      <p>Web: {getBusinessInfo().website}</p>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
