@@ -151,6 +151,14 @@ export const invoiceItems = pgTable("invoice_items", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// Reusable invoice numbers table (for reusing deleted invoice numbers)
+export const reusableInvoiceNumbers = pgTable("reusable_invoice_numbers", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  invoiceNumber: varchar("invoice_number").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 // Insert schemas
 export const insertCustomerSchema = createInsertSchema(customers).omit({
   id: true,

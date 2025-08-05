@@ -315,10 +315,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Auto-delete all invoices linked to the sales group before updating
       let deletedInvoicesCount = 0;
+      let deletedInvoiceNumbers = [];
       for (const sale of salesInGroup) {
         try {
           const relatedInvoices = await storage.getInvoicesBySaleId(sale.id);
           for (const invoice of relatedInvoices) {
+            deletedInvoiceNumbers.push(invoice.invoiceNumber);
+            // Add the invoice number to reusable pool before deleting
+            await storage.addReusableInvoiceNumber(userId, invoice.invoiceNumber);
             await storage.deleteInvoiceItems(invoice.id);
             await storage.deleteInvoice(invoice.id);
             deletedInvoicesCount++;
@@ -458,7 +462,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         message: "Multi-product sale updated successfully",
         sales: createdSales,
         groupId: newGroupId,
-        deletedInvoicesCount
+        deletedInvoicesCount,
+        deletedInvoiceNumbers
       });
     } catch (error) {
       console.error("Error updating multi-product sale:", error);
@@ -990,8 +995,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         userSettings = await storage.createUserSettings(defaultSettings);
       }
 
-      // Generate invoice number
-      const invoiceNumber = `${userSettings.invoicePrefix}-${String(userSettings.nextInvoiceNumber).padStart(4, '0')}`;
+      // Try to get a reusable invoice number first, otherwise generate new one
+      let invoiceNumber = await storage.getNextReusableInvoiceNumber(userId);
+      let shouldIncrementCounter = false;
+      
+      if (!invoiceNumber) {
+        // No reusable number available, generate new one
+        invoiceNumber = `${userSettings.invoicePrefix}-${String(userSettings.nextInvoiceNumber).padStart(4, '0')}`;
+        shouldIncrementCounter = true;
+      }
 
       // Calculate total amounts for all grouped sales
       const subtotal = groupedSales.reduce((sum, s) => sum + parseFloat(s.totalAmount), 0);
@@ -1035,10 +1047,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         await storage.createInvoiceItem(invoiceItemData);
       }
 
-      // Update the next invoice number
-      await storage.updateUserSettings(userId, {
-        nextInvoiceNumber: (userSettings.nextInvoiceNumber || 1) + 1,
-      });
+      // Update the next invoice number only if we used a new number
+      if (shouldIncrementCounter) {
+        await storage.updateUserSettings(userId, {
+          nextInvoiceNumber: (userSettings.nextInvoiceNumber || 1) + 1,
+        });
+      }
 
       // Return the complete invoice with details
       const invoiceWithDetails = await storage.getInvoiceWithDetails(invoice.id);

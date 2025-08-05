@@ -1,7 +1,7 @@
 import { type Customer, type InsertCustomer, type Product, type InsertProduct, type Sale, type InsertSale, type SaleWithDetails, type DashboardMetrics, type User, type UpsertUser, type Plot, type InsertPlot, type UserSettings, type InsertUserSettings, type Invoice, type InsertInvoice, type InvoiceItem, type InsertInvoiceItem, type InvoiceWithDetails } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { db } from "./db";
-import { customers, products, sales, users, plots, userSettings, invoices, invoiceItems } from "@shared/schema";
+import { customers, products, sales, users, plots, userSettings, invoices, invoiceItems, reusableInvoiceNumbers } from "@shared/schema";
 import { eq, desc, sql, and } from "drizzle-orm";
 
 export interface IStorage {
@@ -73,6 +73,10 @@ export interface IStorage {
   updateInvoiceItem(id: string, updates: Partial<InvoiceItem>): Promise<InvoiceItem | undefined>;
   deleteInvoiceItem(id: string): Promise<boolean>;
   deleteInvoiceItems(invoiceId: string): Promise<boolean>;
+  
+  // Reusable invoice numbers
+  addReusableInvoiceNumber(userId: string, invoiceNumber: string): Promise<void>;
+  getNextReusableInvoiceNumber(userId: string): Promise<string | null>;
 }
 
 export class MemStorage implements IStorage {
@@ -1363,6 +1367,31 @@ export class DatabaseStorage implements IStorage {
   async deleteInvoiceItems(invoiceId: string): Promise<boolean> {
     const result = await db.delete(invoiceItems).where(eq(invoiceItems.invoiceId, invoiceId));
     return result.rowCount! > 0;
+  }
+
+  // Reusable invoice numbers functionality
+  async addReusableInvoiceNumber(userId: string, invoiceNumber: string): Promise<void> {
+    await db.insert(reusableInvoiceNumbers).values({
+      userId,
+      invoiceNumber,
+    });
+  }
+
+  async getNextReusableInvoiceNumber(userId: string): Promise<string | null> {
+    const [reusableNumber] = await db
+      .select()
+      .from(reusableInvoiceNumbers)
+      .where(eq(reusableInvoiceNumbers.userId, userId))
+      .orderBy(reusableInvoiceNumbers.createdAt)
+      .limit(1);
+
+    if (reusableNumber) {
+      // Remove it from the reusable list since we're using it
+      await db.delete(reusableInvoiceNumbers).where(eq(reusableInvoiceNumbers.id, reusableNumber.id));
+      return reusableNumber.invoiceNumber;
+    }
+
+    return null;
   }
 }
 

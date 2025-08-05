@@ -186,11 +186,15 @@ export default function Sales() {
       form.reset();
       
       const deletedInvoicesCount = data?.deletedInvoicesCount || 0;
+      const deletedInvoiceNumbers = data?.deletedInvoiceNumbers || [];
       
       if (deletedInvoicesCount > 0) {
+        const invoiceNumbersText = deletedInvoiceNumbers.length > 0 
+          ? deletedInvoiceNumbers.join(", ") 
+          : "N/A";
         toast({
           title: "Sale Updated Successfully", 
-          description: `${deletedInvoicesCount} related invoice(s) were automatically deleted. Please generate a new invoice to reflect the updated data.`,
+          description: `Invoice(s) ${invoiceNumbersText} were automatically deleted. Please generate a new invoice to reflect the updated data.`,
           duration: 6000,
         });
       } else {
