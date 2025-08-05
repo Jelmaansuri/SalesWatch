@@ -342,9 +342,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
             totalAmount: newTotalAmount.toString(),
           };
           
-          // If sale date changed, update invoice date to match
+          // If sale date changed, update invoice date and due date to match
           if (updateData.saleDate) {
             invoiceUpdates.invoiceDate = updateData.saleDate;
+            // Calculate new due date (30 days from sale date)
+            const newDueDate = new Date(updateData.saleDate);
+            newDueDate.setDate(newDueDate.getDate() + 30);
+            invoiceUpdates.dueDate = newDueDate;
           }
           
           await storage.updateInvoice(invoice.id, invoiceUpdates);

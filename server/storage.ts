@@ -1276,11 +1276,16 @@ export class DatabaseStorage implements IStorage {
       // Recalculate totals
       const newSubtotal = groupedSales.reduce((sum, s) => sum + parseFloat(s.totalAmount), 0);
       
+      // Calculate new due date (30 days from sale date)
+      const newDueDate = new Date(sale.saleDate);
+      newDueDate.setDate(newDueDate.getDate() + 30);
+      
       // Update the invoice
       await this.updateInvoice(invoice.id, {
         subtotal: newSubtotal.toString(),
         totalAmount: newSubtotal.toString(),
         invoiceDate: sale.saleDate,
+        dueDate: newDueDate,
       });
       
       // Update invoice items
