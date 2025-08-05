@@ -121,7 +121,7 @@ export default function AddSaleModal({ open, onOpenChange, onSaleAdded }: AddSal
           status: data.status,
           saleDate: data.saleDate.toISOString(),
           platformSource: data.platformSource,
-          notes: data.notes || "", // Clean notes without group identifier
+          notes: `${data.notes || ""}[GROUP:${groupId}]`, // Add group identifier to link multi-product sales
         };
         
         console.log("Sending sale data to API:", saleData);
@@ -251,29 +251,29 @@ export default function AddSaleModal({ open, onOpenChange, onSaleAdded }: AddSal
     const product = products.find((p: Product) => p.id === productId);
     console.log("Found product:", product);
     setSelectedProduct(product || null);
-    if (product) {
-      console.log("Setting unit price to:", product.sellingPrice);
-      form.setValue("unitPrice", product.sellingPrice);
-    } else {
-      console.log("Product not found in current products list");
-    }
   };
 
-  const watchedQuantity = form.watch("quantity");
-  const watchedUnitPrice = form.watch("unitPrice");
-  const watchedDiscountAmount = form.watch("discountAmount");
+  // Calculate totals from product items
+  const totalAmount = productItems.reduce((total, item) => {
+    if (!item.productId || !item.unitPrice) return total;
+    const unitPrice = parseFloat(item.unitPrice);
+    const discountAmount = parseFloat(item.discountAmount || "0.00");
+    const discountedUnitPrice = unitPrice - discountAmount;
+    return total + (discountedUnitPrice * item.quantity);
+  }, 0);
 
-  const discountAmount = parseFloat(watchedDiscountAmount || "0.00");
-  const unitPrice = parseFloat(watchedUnitPrice || "0");
-  const discountedUnitPrice = unitPrice - discountAmount;
-  
-  const totalAmount = watchedQuantity && watchedUnitPrice 
-    ? discountedUnitPrice * watchedQuantity 
-    : 0;
-
-  const profit = selectedProduct && watchedQuantity && watchedUnitPrice
-    ? calculateProfit(discountedUnitPrice, parseFloat(selectedProduct.costPrice), watchedQuantity)
-    : 0;
+  const profit = productItems.reduce((total, item) => {
+    if (!item.productId || !item.unitPrice) return total;
+    const product = products.find(p => p.id === item.productId);
+    if (!product) return total;
+    
+    const unitPrice = parseFloat(item.unitPrice);
+    const discountAmount = parseFloat(item.discountAmount || "0.00");
+    const discountedUnitPrice = unitPrice - discountAmount;
+    const costPrice = parseFloat(product.costPrice);
+    
+    return total + calculateProfit(discountedUnitPrice, costPrice, item.quantity);
+  }, 0);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -668,23 +668,16 @@ export default function AddSaleModal({ open, onOpenChange, onSaleAdded }: AddSal
         open={showQuickAddProduct}
         onOpenChange={(open) => {
           setShowQuickAddProduct(open);
-          // Reset selection if modal is closed without adding
-          if (!open && !form.watch("productId")) {
-            form.setValue("productId", "");
-          }
         }}
         onProductAdded={(productId, productData) => {
           console.log("New product added with ID:", productId, "and data:", productData);
           setShowQuickAddProduct(false);
           
-          // Immediately set the form values and product data
-          form.setValue("productId", productId, { shouldValidate: true });
-          form.setValue("unitPrice", productData.sellingPrice);
-          form.trigger("productId");
-          setSelectedProduct(productData);
-          
-          console.log("Product form value set to:", productId);
-          console.log("Unit price set to:", productData.sellingPrice);
+          // Add to first product item if empty
+          if (productItems.length > 0 && !productItems[0].productId) {
+            updateProductItem(0, "productId", productId);
+            updateProductItem(0, "unitPrice", productData.sellingPrice);
+          }
           
           // Also invalidate queries to refresh the products list
           queryClient.invalidateQueries({ queryKey: ['/api/products'] });
