@@ -46,8 +46,8 @@ export default function QuickAddProductModal({ open, onOpenChange, onProductAdde
 
   const createProductMutation = useMutation({
     mutationFn: async (data: FormData) => {
-      const response = await apiRequest("POST", "/api/products", data);
-      return response.json();
+      const response = await apiRequest("/api/products", "POST", data);
+      return response;
     },
     onSuccess: (newProduct) => {
       queryClient.invalidateQueries({ queryKey: ["/api/products"] });

@@ -52,7 +52,7 @@ export default function AddProductModal({ open, onOpenChange, onProductAdded }: 
     mutationFn: async (data: FormData) => {
       const productData = { ...data, imageUrl: productImageUrl };
       const response = await apiRequest("/api/products", "POST", productData);
-      return response.json();
+      return response;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/products"] });
@@ -74,8 +74,7 @@ export default function AddProductModal({ open, onOpenChange, onProductAdded }: 
   });
 
   const handleGetUploadParameters = async () => {
-    const response = await apiRequest("/api/objects/upload", "POST", {});
-    const data = await response.json();
+    const data = await apiRequest("/api/objects/upload", "POST", {});
     return {
       method: "PUT" as const,
       url: data.uploadURL,
@@ -88,10 +87,9 @@ export default function AddProductModal({ open, onOpenChange, onProductAdded }: 
       
       // Normalize the upload URL to the object path format
       try {
-        const response = await apiRequest("/api/objects/normalize", "POST", { 
+        const data = await apiRequest("/api/objects/normalize", "POST", { 
           uploadURL: uploadURL 
         });
-        const data = await response.json();
         setProductImageUrl(data.objectPath);
       } catch (error) {
         // Fallback to the upload URL if normalization fails

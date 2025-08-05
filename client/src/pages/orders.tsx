@@ -80,8 +80,8 @@ export default function Orders() {
 
   const updateOrderMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: FormData }) => {
-      const response = await apiRequest("PUT", `/api/sales/${id}`, data);
-      return response.json();
+      const response = await apiRequest(`/api/sales/${id}`, "PUT", data);
+      return response;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/sales"] });

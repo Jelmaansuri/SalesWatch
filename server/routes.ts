@@ -928,12 +928,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
           businessEmail: "your@email.com",
           businessWebsite: "",
           logoUrl: null,
+          bankDetails: "",
           invoicePrefix: "INV",
           nextInvoiceNumber: 1,
           currency: "MYR",
           taxRate: 0,
           paymentTerms: "Payment due within 30 days",
           footerText: null,
+          footerNotes: "",
         };
         userSettings = await storage.createUserSettings(defaultSettings);
       }
@@ -1010,12 +1012,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
           businessEmail: "your@email.com",
           businessWebsite: "",
           logoUrl: null,
+          bankDetails: "",
           invoicePrefix: "INV",
           nextInvoiceNumber: 1,
           currency: "MYR",
           taxRate: 0,
           paymentTerms: "Payment due within 30 days",
           footerText: null,
+          footerNotes: "",
         };
         userSettings = await storage.createUserSettings(defaultSettings);
       }
