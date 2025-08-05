@@ -71,19 +71,92 @@ export default function InvoicesPage() {
   // Generate PDF mutation
   const generatePDFMutation = useMutation({
     mutationFn: async (invoiceId: string) => {
-      return await apiRequest(`/api/invoices/${invoiceId}/generate-pdf`, "POST");
+      const response = await apiRequest(`/api/invoices/${invoiceId}/generate-pdf`, "POST");
+      return await response.json();
     },
-    onSuccess: (data) => {
-      // Handle PDF generation - for now just show success
+    onSuccess: async (data) => {
+      // Generate and download PDF using jsPDF
+      const { jsPDF } = await import('jspdf');
+      const autoTable = (await import('jspdf-autotable')).default;
+      
+      const { invoice, businessSettings } = data;
+      
+      // Create PDF
+      const doc = new jsPDF();
+      
+      // Header
+      doc.setFontSize(20);
+      doc.text(businessSettings?.businessName || 'PROGENY AGROTECH', 20, 30);
+      doc.setFontSize(12);
+      doc.text('INVOICE', 20, 45);
+      
+      // Invoice details
+      doc.text(`Invoice #: ${invoice.invoiceNumber}`, 20, 60);
+      doc.text(`Date: ${new Date(invoice.invoiceDate).toLocaleDateString()}`, 20, 70);
+      doc.text(`Due Date: ${new Date(invoice.dueDate).toLocaleDateString()}`, 20, 80);
+      
+      // Customer details
+      doc.text('Bill To:', 120, 60);
+      doc.text(invoice.customer.name, 120, 70);
+      if (invoice.customer.company) {
+        doc.text(invoice.customer.company, 120, 80);
+      }
+      doc.text(invoice.customer.email, 120, 90);
+      
+      // Items table
+      const tableData = invoice.items.map((item: any) => [
+        item.product.name,
+        item.quantity.toString(),
+        `RM ${parseFloat(item.unitPrice).toFixed(2)}`,
+        `RM ${(parseFloat(item.discount) || 0).toFixed(2)}`,
+        `RM ${parseFloat(item.lineTotal).toFixed(2)}`
+      ]);
+      
+      autoTable(doc, {
+        startY: 110,
+        head: [['Product', 'Qty', 'Unit Price', 'Discount', 'Total']],
+        body: tableData,
+      });
+      
+      // Total
+      const finalY = (doc as any).lastAutoTable.finalY + 20;
+      doc.text(`Subtotal: RM ${parseFloat(invoice.subtotal).toFixed(2)}`, 120, finalY);
+      doc.text(`Tax: RM ${(parseFloat(invoice.taxAmount) || 0).toFixed(2)}`, 120, finalY + 10);
+      doc.text(`Total: RM ${parseFloat(invoice.totalAmount).toFixed(2)}`, 120, finalY + 20);
+      
+      // Download
+      doc.save(`invoice-${invoice.invoiceNumber}.pdf`);
+      
       toast({
-        title: "PDF Generated",
-        description: "Invoice PDF has been generated successfully",
+        title: "PDF Downloaded",
+        description: "Invoice PDF has been downloaded successfully",
       });
     },
     onError: (error) => {
       toast({
         title: "Error",
         description: "Failed to generate PDF",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Update status mutation
+  const updateStatusMutation = useMutation({
+    mutationFn: async ({ invoiceId, status }: { invoiceId: string; status: string }) => {
+      return await apiRequest(`/api/invoices/${invoiceId}`, "PUT", { status });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/invoices"] });
+      toast({
+        title: "Success",
+        description: "Invoice status updated successfully",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: "Failed to update invoice status",
         variant: "destructive",
       });
     },
@@ -138,6 +211,10 @@ export default function InvoicesPage() {
 
   const handleGeneratePDF = (invoiceId: string) => {
     generatePDFMutation.mutate(invoiceId);
+  };
+
+  const handleStatusChange = (invoiceId: string, status: string) => {
+    updateStatusMutation.mutate({ invoiceId, status });
   };
 
   return (
@@ -314,7 +391,22 @@ export default function InvoicesPage() {
                         RM {parseFloat(invoice.totalAmount).toFixed(2)}
                       </TableCell>
                       <TableCell>
-                        {getStatusBadge(invoice.status)}
+                        <Select 
+                          value={invoice.status} 
+                          onValueChange={(status) => handleStatusChange(invoice.id, status)}
+                          disabled={updateStatusMutation.isPending}
+                        >
+                          <SelectTrigger className="w-[120px]">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="draft">Draft</SelectItem>
+                            <SelectItem value="sent">Sent</SelectItem>
+                            <SelectItem value="paid">Paid</SelectItem>
+                            <SelectItem value="overdue">Overdue</SelectItem>
+                            <SelectItem value="cancelled">Cancelled</SelectItem>
+                          </SelectContent>
+                        </Select>
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-2">

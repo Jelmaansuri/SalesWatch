@@ -628,14 +628,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.put("/api/invoices/:id", isAuthenticated, async (req, res) => {
     try {
-      // Update invoice
-      const updatedInvoice = await storage.updateInvoice(req.params.id, req.body);
+      // Handle partial updates (like status changes) vs full updates
+      const isPartialUpdate = Object.keys(req.body).length === 1;
+      
+      // Update invoice - for partial updates, don't validate full schema
+      let updateData = req.body;
+      if (!isPartialUpdate) {
+        // Only validate dates if they're provided
+        if (req.body.invoiceDate) {
+          updateData.invoiceDate = new Date(req.body.invoiceDate);
+        }
+        if (req.body.dueDate) {
+          updateData.dueDate = new Date(req.body.dueDate);
+        }
+      }
+      
+      const updatedInvoice = await storage.updateInvoice(req.params.id, updateData);
       if (!updatedInvoice) {
         return res.status(404).json({ message: "Invoice not found" });
       }
       
-      // Update invoice items if provided
-      if (req.body.items && Array.isArray(req.body.items)) {
+      // Update invoice items if provided (only for full updates)
+      if (!isPartialUpdate && req.body.items && Array.isArray(req.body.items)) {
         // Delete existing items
         await storage.deleteInvoiceItems(req.params.id);
         
