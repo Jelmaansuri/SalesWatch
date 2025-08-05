@@ -626,6 +626,75 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Generate invoice from sale
+  app.post("/api/invoices/generate-from-sale", isAuthenticated, async (req: any, res) => {
+    try {
+      const { saleId } = req.body;
+      const userId = req.user.claims.sub;
+
+      if (!saleId) {
+        return res.status(400).json({ message: "Sale ID is required" });
+      }
+
+      // Get the sale details
+      const sale = await storage.getSale(saleId);
+      if (!sale) {
+        return res.status(404).json({ message: "Sale not found" });
+      }
+
+      // Get user settings for invoice generation
+      const userSettings = await storage.getUserSettings(userId);
+      if (!userSettings) {
+        return res.status(400).json({ message: "User settings not configured. Please complete business setup first." });
+      }
+
+      // Generate invoice number
+      const invoiceNumber = `${userSettings.invoicePrefix}-${String(userSettings.nextInvoiceNumber).padStart(4, '0')}`;
+
+      // Create invoice data from sale
+      const invoiceData = {
+        userId,
+        customerId: sale.customerId,
+        saleId: sale.id, // Link to the originating sale
+        invoiceNumber,
+        invoiceDate: new Date(),
+        dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days from now
+        status: "draft",
+        subtotal: sale.totalAmount,
+        taxAmount: "0.00", // Could be calculated based on userSettings.taxRate
+        totalAmount: sale.totalAmount,
+        currency: userSettings.currency,
+        paymentTerms: userSettings.paymentTerms,
+        notes: `Generated from sale on ${sale.saleDate ? new Date(sale.saleDate).toLocaleDateString() : new Date(sale.createdAt).toLocaleDateString()}`,
+      };
+
+      // Create the invoice
+      const invoice = await storage.createInvoice(invoiceData);
+
+      // Create invoice items from sale data
+      const invoiceItemData = {
+        invoiceId: invoice.id,
+        productId: sale.productId,
+        quantity: sale.quantity,
+        unitPrice: sale.unitPrice,
+        discount: sale.discountAmount || "0.00",
+        lineTotal: sale.totalAmount,
+      };
+
+      await storage.createInvoiceItem(invoiceItemData);
+
+      // Update the next invoice number
+      await storage.updateUserSettings(userId, {
+        nextInvoiceNumber: userSettings.nextInvoiceNumber + 1,
+      });
+
+      res.json(invoice);
+    } catch (error) {
+      console.error("Error generating invoice from sale:", error);
+      res.status(500).json({ message: "Failed to generate invoice" });
+    }
+  });
+
   app.put("/api/invoices/:id", isAuthenticated, async (req, res) => {
     try {
       // Handle partial updates (like status changes) vs full updates

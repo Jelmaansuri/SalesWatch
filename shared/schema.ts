@@ -125,6 +125,7 @@ export const invoices = pgTable("invoices", {
   userId: varchar("user_id").notNull(),
   invoiceNumber: varchar("invoice_number").notNull().unique(),
   customerId: varchar("customer_id").notNull().references(() => customers.id),
+  saleId: varchar("sale_id").references(() => sales.id), // Link to the originating sale
   invoiceDate: timestamp("invoice_date").notNull().defaultNow(),
   dueDate: timestamp("due_date").notNull(),
   status: varchar("status").notNull().default("draft"), // draft, sent, paid, overdue, cancelled

@@ -27,7 +27,7 @@ import { useToast } from "@/hooks/use-toast";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { formatCurrency } from "@/lib/currency";
 import { ORDER_STATUS_LABELS, ORDER_STATUS_COLORS, PLATFORM_SOURCE_LABELS } from "@/lib/types";
-import { Plus, Edit, Trash2, ShoppingCart, User, Package } from "lucide-react";
+import { Plus, Edit, Trash2, ShoppingCart, User, Package, FileText } from "lucide-react";
 import AddSaleModal from "@/components/modals/add-sale-modal";
 import type { SaleWithDetails, Customer, Product } from "@shared/schema";
 import { z } from "zod";
@@ -144,6 +144,32 @@ export default function Sales() {
       });
     },
   });
+
+  // Generate invoice from sale mutation
+  const generateInvoiceMutation = useMutation({
+    mutationFn: (sale: SaleWithDetails) => apiRequest("/api/invoices/generate-from-sale", "POST", {
+      saleId: sale.id,
+    }),
+    onSuccess: (data) => {
+      toast({
+        title: "Success",
+        description: `Invoice ${data.invoiceNumber} generated successfully`,
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/invoices"] });
+    },
+    onError: (error) => {
+      console.error("Error generating invoice:", error);
+      toast({
+        title: "Error",
+        description: "Failed to generate invoice",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleGenerateInvoice = (sale: SaleWithDetails) => {
+    generateInvoiceMutation.mutate(sale);
+  };
 
   const handleEdit = (sale: SaleWithDetails) => {
     setEditingSale(sale);
@@ -541,6 +567,15 @@ export default function Sales() {
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center space-x-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleGenerateInvoice(sale)}
+                            disabled={generateInvoiceMutation.isPending}
+                            title="Generate Invoice"
+                          >
+                            <FileText className="h-4 w-4" />
+                          </Button>
                           <Button
                             variant="outline"
                             size="sm"
