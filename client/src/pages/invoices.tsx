@@ -58,64 +58,51 @@ function InvoicesContent() {
   });
 
   // Fetch sales to get group information
-  const { data: sales = [] } = useQuery({
+  const { data: sales = [] } = useQuery<any[]>({
     queryKey: ["/api/sales"],
   });
 
-  // Group invoices by linked sales group information
-  const groupedInvoices = useMemo(() => {
-    if (!sales.length || !invoices.length) {
-      return invoices.map(invoice => ({
-        groupKey: 'ungrouped',
-        customer: invoice.customer,
-        items: [invoice],
-        totalAmount: parseFloat(invoice.totalAmount),
-        status: invoice.status,
-        invoiceDate: invoice.invoiceDate,
-        createdAt: invoice.createdAt,
-        id: invoice.id,
-        isGroup: false
-      }));
+  // Instead of grouping invoices, show grouped sales data directly
+  // This ensures Orders module syncs with Sales Tracking module
+  const groupedSalesData = useMemo(() => {
+    if (!sales.length) {
+      return [];
     }
 
-    const groups: { [key: string]: InvoiceWithDetails[] } = {};
+    // Use the same grouping logic as sales tracking
+    const groups: { [key: string]: any[] } = {};
     
-    invoices.forEach(invoice => {
-      // Find the linked sale to get group information
-      const linkedSale = sales.find((sale: any) => sale.id === invoice.saleId);
+    sales.forEach((sale: any) => {
+      // Extract group ID from notes if it exists
+      const groupMatch = sale.notes?.match(/\[GROUP:([^\]]+)\]/);
+      const groupKey = groupMatch 
+        ? groupMatch[1] 
+        : `${sale.customerId}_${new Date(sale.createdAt).toDateString()}_${sale.id}`;
       
-      if (linkedSale && linkedSale.notes) {
-        // Extract group ID from linked sale's notes if it exists
-        const groupMatch = linkedSale.notes.match(/\[GROUP:([^\]]+)\]/);
-        if (groupMatch) {
-          const groupKey = groupMatch[1];
-          if (!groups[groupKey]) {
-            groups[groupKey] = [];
-          }
-          groups[groupKey].push(invoice);
-          return;
-        }
+      if (!groups[groupKey]) {
+        groups[groupKey] = [];
       }
-      
-      // If no group found, create individual group
-      const individualKey = `individual_${invoice.id}`;
-      groups[individualKey] = [invoice];
+      groups[groupKey].push(sale);
     });
 
     return Object.values(groups).map(group => ({
-      groupKey: group.length > 1 ? 
-        sales.find((sale: any) => sale.id === group[0].saleId)?.notes?.match(/\[GROUP:([^\]]+)\]/)?.[1] || 'ungrouped' : 
-        'ungrouped',
+      groupKey: group[0].notes?.match(/\[GROUP:([^\]]+)\]/)?.[1] || 'ungrouped',
       customer: group[0].customer,
       items: group,
-      totalAmount: group.reduce((sum, invoice) => sum + parseFloat(invoice.totalAmount), 0),
-      status: group[0].status, // Use first invoice's status as group status
-      invoiceDate: group[0].invoiceDate,
+      totalAmount: group.reduce((sum: number, sale: any) => sum + parseFloat(sale.totalAmount), 0),
+      totalProfit: group.reduce((sum: number, sale: any) => sum + parseFloat(sale.profit), 0),
+      status: group[0].status,
+      platformSource: group[0].platformSource,
+      saleDate: group[0].saleDate,
       createdAt: group[0].createdAt,
-      id: group[0].id, // Use first invoice's ID for operations
-      isGroup: group.length > 1
+      id: group[0].id, // Use first sale's ID for operations
+      isGroup: group.length > 1,
+      // Find linked invoices for each sale in the group
+      invoices: group.map((sale: any) => 
+        invoices.find(invoice => invoice.saleId === sale.id)
+      ).filter(Boolean)
     }));
-  }, [invoices, sales]);
+  }, [sales, invoices]);
 
   // Delete invoice mutation
   const deleteInvoiceMutation = useMutation({
