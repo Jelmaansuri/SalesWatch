@@ -12,10 +12,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import MainLayout from "@/components/layout/main-layout";
+import { ObjectUploader } from "@/components/ObjectUploader";
 
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { insertUserSettingsSchema, type UserSettings, type InsertUserSettings } from "@shared/schema";
+import type { UploadResult } from "@uppy/core";
+import { isUnauthorizedError } from "@/lib/authUtils";
 
 export default function Settings() {
   return (
@@ -29,6 +32,7 @@ function SettingsContent() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [logoPreview, setLogoPreview] = useState<string>("");
+  const [isUploadingLogo, setIsUploadingLogo] = useState(false);
 
   // Fetch user settings
   const { data: settings, isLoading } = useQuery<UserSettings>({
@@ -118,6 +122,103 @@ function SettingsContent() {
       });
     },
   });
+
+  // Logo upload handlers
+  const handleLogoGetUploadParameters = async () => {
+    console.log("Getting upload parameters for logo...");
+    setIsUploadingLogo(true);
+    try {
+      const data = await apiRequest("/api/objects/upload", "POST", {});
+      console.log("Got upload URL for logo:", data.uploadURL);
+      return {
+        method: "PUT" as const,
+        url: data.uploadURL,
+      };
+    } catch (error) {
+      console.error("Failed to get upload parameters for logo:", error);
+      setIsUploadingLogo(false);
+      if (isUnauthorizedError(error as Error)) {
+        toast({
+          title: "Unauthorized",
+          description: "You are logged out. Logging in again...",
+          variant: "destructive",
+        });
+        setTimeout(() => {
+          window.location.href = "/api/login";
+        }, 500);
+        return;
+      }
+      toast({
+        title: "Upload Error",
+        description: "Failed to get upload URL. Please try again.",
+        variant: "destructive",
+      });
+      throw error;
+    }
+  };
+
+  const handleLogoUploadComplete = async (result: UploadResult<Record<string, unknown>, Record<string, unknown>>) => {
+    try {
+      if (result.successful && result.successful.length > 0) {
+        const uploadURL = result.successful[0].uploadURL;
+        console.log("Logo upload successful, URL:", uploadURL);
+        
+        // Normalize the upload URL to the object path format
+        try {
+          const data = await apiRequest("/api/objects/normalize", "POST", { 
+            uploadURL: uploadURL 
+          });
+          console.log("Logo normalized path:", data.objectPath);
+          const objectPath = data.objectPath;
+          
+          // Update both preview and form
+          setLogoPreview(objectPath.startsWith('/objects/') ? objectPath : `/objects/${objectPath}`);
+          form.setValue("logoUrl", objectPath);
+          
+          toast({
+            title: "Success",
+            description: "Logo uploaded successfully!",
+          });
+        } catch (error) {
+          console.error("Logo normalization failed:", error);
+          // Fallback to the upload URL if normalization fails
+          setLogoPreview(uploadURL || "");
+          form.setValue("logoUrl", uploadURL || "");
+          
+          toast({
+            title: "Success",
+            description: "Logo uploaded successfully!",
+          });
+        }
+      } else {
+        toast({
+          title: "Upload Failed",
+          description: "No files were uploaded successfully.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error("Logo upload completion error:", error);
+      if (isUnauthorizedError(error as Error)) {
+        toast({
+          title: "Unauthorized", 
+          description: "You are logged out. Logging in again...",
+          variant: "destructive",
+        });
+        setTimeout(() => {
+          window.location.href = "/api/login";
+        }, 500);
+        return;
+      }
+      toast({
+        title: "Upload Error",
+        description: "Failed to process uploaded logo.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsUploadingLogo(false);
+    }
+  };
 
   const onSubmit = async (data: InsertUserSettings) => {
     try {
@@ -299,25 +400,47 @@ function SettingsContent() {
                 <FormLabel>Business Logo</FormLabel>
                 <div className="flex items-center gap-4">
                   <Avatar className="h-16 w-16">
-                    <AvatarImage src={logoPreview} alt="Business logo" />
+                    <AvatarImage 
+                      src={logoPreview.startsWith('/objects/') ? logoPreview : `/objects/${logoPreview}`} 
+                      alt="Business logo"
+                      onError={(e) => {
+                        console.error("Logo failed to load:", logoPreview);
+                        (e.target as HTMLImageElement).style.display = 'none';
+                      }}
+                    />
                     <AvatarFallback>
                       <Image className="h-8 w-8" />
                     </AvatarFallback>
                   </Avatar>
                   <div className="space-y-2">
-                    <Button 
-                      type="button" 
-                      variant="outline" 
-                      size="sm"
-                      onClick={() => console.log("Upload logo button clicked")}
-                      data-testid="button-upload-logo"
+                    <ObjectUploader
+                      key="logo-uploader"
+                      maxNumberOfFiles={1}
+                      maxFileSize={2097152} // 2MB
+                      onGetUploadParameters={handleLogoGetUploadParameters}
+                      onComplete={handleLogoUploadComplete}
+                      buttonClassName="bg-my-blue hover:bg-my-blue/90 text-white"
                     >
                       <Upload className="h-4 w-4 mr-2" />
-                      Upload Logo
-                    </Button>
+                      {logoPreview ? "Change Logo" : "Upload Logo"}
+                    </ObjectUploader>
                     <p className="text-sm text-muted-foreground">
-                      Recommended: 200x200px, PNG or JPG
+                      Recommended: 200x200px, PNG or JPG, max 2MB
                     </p>
+                    {logoPreview && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setLogoPreview("");
+                          form.setValue("logoUrl", "");
+                        }}
+                        className="text-red-600 hover:text-red-700"
+                      >
+                        Remove Logo
+                      </Button>
+                    )}
                   </div>
                 </div>
               </div>
@@ -370,6 +493,7 @@ function SettingsContent() {
                           min="1"
                           data-testid="input-next-invoice-number"
                           {...field}
+                          value={field.value || 1}
                           onChange={(e) => field.onChange(parseInt(e.target.value) || 1)}
                         />
                       </FormControl>
