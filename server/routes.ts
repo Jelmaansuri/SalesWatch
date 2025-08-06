@@ -1179,11 +1179,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Check for reusable invoice numbers first using the correct user ID for shared business
       const reusableNumbers = await storage.getReusableInvoiceNumbers(settingsUserId);
+      console.log("Invoice preview - Reusable numbers found:", reusableNumbers.length, reusableNumbers.map(r => r.invoiceNumber));
       let invoiceNumber;
       
       if (reusableNumbers.length > 0) {
         // Use the oldest reusable number
         invoiceNumber = reusableNumbers[0].invoiceNumber;
+        console.log("Invoice preview - Using reusable number:", invoiceNumber);
       } else {
         // Generate new invoice number using the shared business settings
         invoiceNumber = `${userSettings.invoicePrefix}-${String(userSettings.nextInvoiceNumber).padStart(4, '0')}`;
