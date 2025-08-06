@@ -1230,13 +1230,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
-      // Get user settings for invoice generation or create default
-      let userSettings = await storage.getUserSettings(userId);
+      // Import whitelist functions for shared business settings
+      const { hasBusinessAccess, getPrimaryUserId } = await import("./userWhitelist");
+
+      // Get settings from primary user for whitelisted users (shared business settings)
+      const settingsUserId = hasBusinessAccess(userId) ? getPrimaryUserId() : userId;
+      let userSettings = await storage.getUserSettings(settingsUserId);
+      
       if (!userSettings) {
         // Create default PROGENY AGROTECH business settings for whitelisted users
-        const { hasBusinessAccess } = await import("./userWhitelist");
         const defaultSettings = {
-          userId,
+          userId: settingsUserId, // Use the correct settings user ID
           businessName: hasBusinessAccess(userId) ? "PROGENY AGROTECH" : "Your Business",
           businessRegistration: hasBusinessAccess(userId) ? "SSM Registration Number" : "",
           businessAddress: hasBusinessAccess(userId) ? "Kuala Lumpur, Malaysia" : "Your Business Address",
@@ -1257,11 +1261,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Try to get a reusable invoice number first, otherwise generate new one
-      let invoiceNumber = await storage.getNextReusableInvoiceNumber(userId);
+      let invoiceNumber = await storage.getNextReusableInvoiceNumber(settingsUserId);
       let shouldIncrementCounter = false;
       
       if (!invoiceNumber) {
-        // No reusable number available, generate new one
+        // No reusable number available, generate new one using shared business settings
         invoiceNumber = `${userSettings.invoicePrefix}-${String(userSettings.nextInvoiceNumber).padStart(4, '0')}`;
         shouldIncrementCounter = true;
       }
@@ -1308,9 +1312,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         await storage.createInvoiceItem(invoiceItemData);
       }
 
-      // Update the next invoice number only if we used a new number
+      // Update the next invoice number only if we used a new number (use shared business settings)
       if (shouldIncrementCounter) {
-        await storage.updateUserSettings(userId, {
+        await storage.updateUserSettings(settingsUserId, {
           nextInvoiceNumber: (userSettings.nextInvoiceNumber || 1) + 1,
         });
       }
