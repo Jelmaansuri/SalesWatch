@@ -400,10 +400,23 @@ export default function Sales() {
     },
     onError: (error) => {
       console.error("Error generating invoice:", error);
+      
+      // Extract the specific error message from the backend
+      let errorMessage = "Failed to generate invoice";
+      if (error instanceof Error && error.message) {
+        // Handle specific API error messages
+        if (error.message.includes("Invoice already exists")) {
+          errorMessage = error.message.replace(/^\d+:\s*/, ""); // Remove status code prefix
+        } else {
+          errorMessage = error.message.replace(/^\d+:\s*/, ""); // Remove status code prefix for any error
+        }
+      }
+      
       toast({
-        title: "Error",
-        description: "Failed to generate invoice",
-        variant: "destructive",
+        title: "Invoice Generation",
+        description: errorMessage,
+        variant: errorMessage.includes("already exists") ? "default" : "destructive",
+        duration: 6000,
       });
       setShowInvoicePreview(false);
     },
