@@ -150,10 +150,22 @@ export default function Sales() {
   const updateSaleStatusMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: FormData }) => {
       // Use status-only endpoint to preserve invoices
+      console.log("Calling status-only endpoint:", `/api/sales/${id}/status`);
       const response = await apiRequest(`/api/sales/${id}/status`, "PUT", data);
-      return response.json();
+      console.log("Status-only response received:", response.status);
+      
+      if (!response.ok) {
+        const errorData = await response.text();
+        console.error("Status update failed:", errorData);
+        throw new Error(`Failed to update status: ${response.status} ${errorData}`);
+      }
+      
+      const result = await response.json();
+      console.log("Status update successful:", result);
+      return result;
     },
     onSuccess: (data) => {
+      console.log("Status update mutation onSuccess called:", data);
       queryClient.invalidateQueries({ queryKey: ["/api/sales"] });
       queryClient.invalidateQueries({ queryKey: ["/api/products"] });
       queryClient.invalidateQueries({ queryKey: ["/api/analytics"] });
@@ -170,6 +182,7 @@ export default function Sales() {
       });
     },
     onError: (error) => {
+      console.error("Status update mutation onError called:", error);
       if (isUnauthorizedError(error)) {
         toast({
           title: "Session Expired",
@@ -180,10 +193,9 @@ export default function Sales() {
         return;
       }
       
-      console.error("Sale status update error:", error);
       toast({
         title: "Error",
-        description: "Failed to update sale status",
+        description: `Failed to update sale status: ${error.message}`,
         variant: "destructive",
       });
     },
@@ -456,6 +468,7 @@ export default function Sales() {
   const handleSubmit = async (data: FormData) => {
     console.log("=== EDIT FORM SUBMITTED ===");
     console.log("Form submitted with data:", data);
+    console.log("Form validation passed!");
     console.log("Editing sale:", editingSale);
     console.log("Product items:", editProductItems);
     
