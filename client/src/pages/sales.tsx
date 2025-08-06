@@ -537,18 +537,60 @@ export default function Sales() {
       }
     }
     
-    // Prepare multi-product update data
-    const updateData = {
-      customerId: data.customerId,
-      status: data.status,
-      platformSource: data.platformSource,
-      notes: data.notes,
-      saleDate: data.saleDate,
-      products: validItems
-    };
+    // Check if this is a status-only update (no product changes)
+    const originalProductItems = editingSale ? [{
+      productId: editingSale.productId,
+      quantity: editingSale.quantity,
+      unitPrice: editingSale.unitPrice,
+      discountAmount: editingSale.discountAmount || "0.00"
+    }] : [];
     
-    console.log("Multi-product update data:", updateData);
-    updateMultiProductSaleMutation.mutate({ id: editingSale.id, data: updateData });
+    const hasProductChanges = validItems.length !== originalProductItems.length ||
+      validItems.some((item, index) => {
+        const original = originalProductItems[index];
+        return !original || 
+          item.productId !== original.productId ||
+          item.quantity !== original.quantity ||
+          parseFloat(item.unitPrice) !== parseFloat(original.unitPrice) ||
+          parseFloat(item.discountAmount) !== parseFloat(original.discountAmount);
+      });
+    
+    if (!hasProductChanges) {
+      // Status-only update - preserve invoices
+      console.log("Detected status-only update - using preserve invoices endpoint");
+      const statusUpdateData = {
+        status: data.status,
+        platformSource: data.platformSource,
+        notes: data.notes,
+        saleDate: data.saleDate
+      };
+      
+      updateSaleMutation.mutate({
+        id: editingSale.id,
+        data: statusUpdateData
+      });
+    } else {
+      // Product changes detected - use multi-product endpoint
+      console.log("Detected product changes - using multi-product endpoint");
+      const updateData = {
+        customerId: data.customerId,
+        status: data.status,
+        platformSource: data.platformSource,
+        notes: data.notes,
+        saleDate: data.saleDate,
+        products: validItems.map(item => ({
+          productId: item.productId,
+          quantity: item.quantity,
+          unitPrice: item.unitPrice,
+          discountAmount: item.discountAmount || "0.00"
+        }))
+      };
+      
+      updateMultiProductSaleMutation.mutate({
+        id: editingSale.id,
+        data: updateData
+      });
+    }
   };
 
   if (error && isUnauthorizedError(error)) {
