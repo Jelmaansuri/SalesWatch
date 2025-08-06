@@ -162,12 +162,16 @@ export default function Orders() {
 
   const deleteOrderMutation = useMutation({
     mutationFn: async (id: string) => {
-      await apiRequest("DELETE", `/api/sales/${id}`);
+      await apiRequest(`/api/sales/${id}`, "DELETE");
     },
     onSuccess: () => {
+      // Invalidate all related queries to refresh the UI immediately
       queryClient.invalidateQueries({ queryKey: ["/api/sales"] });
       queryClient.invalidateQueries({ queryKey: ["/api/products"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/analytics"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/analytics/dashboard"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/analytics/revenue-by-month"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/analytics/top-products"] });
+      
       toast({
         title: "Success",
         description: "Order deleted successfully",
