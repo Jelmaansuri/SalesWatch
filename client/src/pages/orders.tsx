@@ -26,7 +26,7 @@ import { useToast } from "@/hooks/use-toast";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { formatCurrency } from "@/lib/currency";
 import { ORDER_STATUS_LABELS, ORDER_STATUS_COLORS, PLATFORM_SOURCE_LABELS } from "@/lib/types";
-import { Package, User, Edit, Trash2, Search, Filter, Calendar, Truck, CheckCircle, Clock, DollarSign } from "lucide-react";
+import { Package, User, Edit, Trash2, Search, Filter, Calendar, Truck, CheckCircle, Clock, DollarSign, ChevronDown, ChevronRight } from "lucide-react";
 import type { SaleWithDetails, Customer, Product } from "@shared/schema";
 import { z } from "zod";
 
@@ -48,6 +48,20 @@ export default function Orders() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [searchTerm, setSearchTerm] = useState("");
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+
+  // Toggle group expansion
+  const toggleGroupExpansion = (groupKey: string) => {
+    setExpandedGroups(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(groupKey)) {
+        newSet.delete(groupKey);
+      } else {
+        newSet.add(groupKey);
+      }
+      return newSet;
+    });
+  };
 
   const { data: orders = [], isLoading, error } = useQuery<SaleWithDetails[]>({
     queryKey: ["/api/sales"],
@@ -649,12 +663,25 @@ export default function Orders() {
                     <React.Fragment key={group.id}>
                       {/* Group Header Row */}
                       <TableRow 
-                        className={`${group.isGroup ? 'bg-muted/50 hover:bg-muted/70' : ''}`}
+                        className={`${group.isGroup ? 'bg-muted/50 hover:bg-muted/70 cursor-pointer' : ''}`}
                         data-testid={`row-order-group-${group.id}`}
+                        onClick={() => group.isGroup && toggleGroupExpansion(group.groupKey)}
                       >
                         <TableCell className="font-mono text-sm">
                           {group.isGroup ? (
                             <div className="flex items-center gap-2">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => toggleGroupExpansion(group.groupKey)}
+                                className="h-6 w-6 p-0"
+                              >
+                                {expandedGroups.has(group.groupKey) ? (
+                                  <ChevronDown className="h-4 w-4" />
+                                ) : (
+                                  <ChevronRight className="h-4 w-4" />
+                                )}
+                              </Button>
                               <span className="text-xs bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-100 px-2 py-1 rounded">
                                 GROUP: {group.groupKey}
                               </span>
@@ -784,8 +811,8 @@ export default function Orders() {
                         </TableCell>
                       </TableRow>
 
-                      {/* Individual Items in Group */}
-                      {group.isGroup && group.items.map((order, index) => (
+                      {/* Individual Items in Group - Only show when expanded */}
+                      {group.isGroup && expandedGroups.has(group.groupKey) && group.items.map((order, index) => (
                         <TableRow 
                           key={`${group.id}-item-${index}`}
                           className="bg-background border-l-4 border-l-blue-200 dark:border-l-blue-800"
