@@ -2,7 +2,8 @@ import { type Customer, type InsertCustomer, type Product, type InsertProduct, t
 import { randomUUID } from "crypto";
 import { db } from "./db";
 import { customers, products, sales, users, plots, userSettings, invoices, invoiceItems, reusableInvoiceNumbers } from "@shared/schema";
-import { eq, desc, sql, and } from "drizzle-orm";
+import { eq, desc, sql, and, inArray } from "drizzle-orm";
+import { hasBusinessAccess, getAuthorizedUserIds } from "./userWhitelist";
 
 export interface IStorage {
   // User operations (required for Replit Auth)
@@ -26,7 +27,7 @@ export interface IStorage {
 
   // Sales
   getSales(): Promise<Sale[]>;
-  getSalesWithDetails(): Promise<SaleWithDetails[]>;
+  getSalesWithDetails(userId?: string): Promise<SaleWithDetails[]>;
   getSale(id: string): Promise<Sale | undefined>;
   getSaleWithDetails(id: string): Promise<SaleWithDetails | undefined>;
   getSalesByCustomerId(customerId: string): Promise<Sale[]>;
@@ -62,6 +63,7 @@ export interface IStorage {
   getInvoice(id: string): Promise<Invoice | undefined>;
   getInvoiceWithDetails(id: string): Promise<InvoiceWithDetails | undefined>;
   getInvoicesBySaleId(saleId: string): Promise<Invoice[]>;
+  getInvoicesBySaleIdAndUser(saleId: string, userId: string): Promise<Invoice[]>;
   createInvoice(invoice: InsertInvoice): Promise<Invoice>;
   updateInvoice(id: string, updates: Partial<Invoice>): Promise<Invoice | undefined>;
   deleteInvoice(id: string): Promise<boolean>;
@@ -181,8 +183,9 @@ export class DatabaseStorage implements IStorage {
     return await db.select().from(sales).orderBy(desc(sales.createdAt));
   }
 
-  async getSalesWithDetails(): Promise<SaleWithDetails[]> {
-    const result = await db
+  async getSalesWithDetails(userId?: string): Promise<SaleWithDetails[]> {
+    // Build the base query
+    let query = db
       .select({
         id: sales.id,
         userId: sales.userId,
@@ -223,8 +226,21 @@ export class DatabaseStorage implements IStorage {
       })
       .from(sales)
       .leftJoin(customers, eq(sales.customerId, customers.id))
-      .leftJoin(products, eq(sales.productId, products.id))
-      .orderBy(desc(sales.createdAt));
+      .leftJoin(products, eq(sales.productId, products.id));
+
+    // Apply user filtering based on whitelist access
+    if (userId) {
+      if (hasBusinessAccess(userId)) {
+        // User has whitelist access - show all sales from authorized users
+        const authorizedUsers = getAuthorizedUserIds();
+        query = query.where(inArray(sales.userId, authorizedUsers));
+      } else {
+        // User doesn't have whitelist access - show only their own sales
+        query = query.where(eq(sales.userId, userId));
+      }
+    }
+
+    const result = await query.orderBy(desc(sales.createdAt));
     
     return result.map(row => ({
       id: row.id,
@@ -639,19 +655,37 @@ export class DatabaseStorage implements IStorage {
 
   // Invoice Management
   async getInvoices(userId: string): Promise<Invoice[]> {
-    return await db.select().from(invoices).where(eq(invoices.userId, userId)).orderBy(desc(invoices.createdAt));
+    if (hasBusinessAccess(userId)) {
+      // User has whitelist access - show all invoices from authorized users
+      const authorizedUsers = getAuthorizedUserIds();
+      return await db.select().from(invoices).where(inArray(invoices.userId, authorizedUsers)).orderBy(desc(invoices.createdAt));
+    } else {
+      // User doesn't have whitelist access - show only their own invoices
+      return await db.select().from(invoices).where(eq(invoices.userId, userId)).orderBy(desc(invoices.createdAt));
+    }
   }
 
   async getInvoicesWithDetails(userId: string): Promise<InvoiceWithDetails[]> {
-    const invoicesWithCustomers = await db
+    // Build the base query
+    let query = db
       .select({
         invoice: invoices,
         customer: customers,
       })
       .from(invoices)
-      .leftJoin(customers, eq(invoices.customerId, customers.id))
-      .where(eq(invoices.userId, userId))
-      .orderBy(desc(invoices.createdAt));
+      .leftJoin(customers, eq(invoices.customerId, customers.id));
+
+    // Apply user filtering based on whitelist access
+    if (hasBusinessAccess(userId)) {
+      // User has whitelist access - show all invoices from authorized users
+      const authorizedUsers = getAuthorizedUserIds();
+      query = query.where(inArray(invoices.userId, authorizedUsers));
+    } else {
+      // User doesn't have whitelist access - show only their own invoices
+      query = query.where(eq(invoices.userId, userId));
+    }
+
+    const invoicesWithCustomers = await query.orderBy(desc(invoices.createdAt));
 
     const invoicesWithItems = await Promise.all(
       invoicesWithCustomers.map(async ({ invoice, customer }) => {
@@ -719,9 +753,18 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getInvoicesBySaleIdAndUser(saleId: string, userId: string): Promise<Invoice[]> {
-    return await db.select().from(invoices).where(
-      and(eq(invoices.saleId, saleId), eq(invoices.userId, userId))
-    );
+    if (hasBusinessAccess(userId)) {
+      // User has whitelist access - check invoices from all authorized users for this sale
+      const authorizedUsers = getAuthorizedUserIds();
+      return await db.select().from(invoices).where(
+        and(eq(invoices.saleId, saleId), inArray(invoices.userId, authorizedUsers))
+      );
+    } else {
+      // User doesn't have whitelist access - check only their own invoices
+      return await db.select().from(invoices).where(
+        and(eq(invoices.saleId, saleId), eq(invoices.userId, userId))
+      );
+    }
   }
 
   async createInvoice(invoiceData: any): Promise<Invoice> {

@@ -204,9 +204,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Sales routes (protected)
-  app.get("/api/sales", isAuthenticated, async (req, res) => {
+  app.get("/api/sales", isAuthenticated, async (req: any, res) => {
     try {
-      const salesWithDetails = await storage.getSalesWithDetails();
+      const userId = req.user.claims.sub;
+      const salesWithDetails = await storage.getSalesWithDetails(userId);
       res.json(salesWithDetails);
     } catch (error) {
       console.error("Error fetching sales:", error);
@@ -1175,9 +1176,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let groupedSales = [sale];
       if (groupId) {
         // Get all sales with the same group ID
-        const allSales = await storage.getSalesWithDetails();
+        const allSales = await storage.getSalesWithDetails(userId);
         groupedSales = allSales.filter((s: any) => 
-          s.notes?.includes(`[GROUP:${groupId}]`) && s.customerId === sale.customerId && s.userId === userId
+          s.notes?.includes(`[GROUP:${groupId}]`) && s.customerId === sale.customerId
         );
       }
 
