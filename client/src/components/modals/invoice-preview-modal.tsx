@@ -214,13 +214,14 @@ export function InvoicePreviewModal({ open, onOpenChange, invoice }: InvoicePrev
         {/* Invoice Preview */}
         <Card className="bg-white dark:bg-gray-50" data-testid="invoice-preview-content">
           <CardContent className="p-8">
-            {/* Logo Section - Top Center */}
+            {/* Logo Section - Top Right */}
             {getBusinessInfo().logoUrl && (
-              <div className="flex justify-center mb-8">
+              <div className="flex justify-end mb-6">
                 <img 
                   src={getBusinessInfo().logoUrl.startsWith('/objects/') ? getBusinessInfo().logoUrl : `/objects/${getBusinessInfo().logoUrl}`}
                   alt="Business Logo"
-                  className="max-w-[150px] max-h-[100px] object-contain"
+                  className="max-w-[120px] max-h-[80px] object-contain"
+                  style={{ imageRendering: 'crisp-edges', imageResolution: '300dpi' }}
                   onError={(e) => {
                     console.error("Invoice logo failed to load:", getBusinessInfo().logoUrl);
                     (e.target as HTMLImageElement).style.display = 'none';
