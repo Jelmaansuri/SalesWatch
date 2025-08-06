@@ -1293,13 +1293,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.delete("/api/invoices/:id", isAuthenticated, async (req: any, res) => {
     try {
+      const userId = req.user.claims.sub;
+      
+      // Get the invoice before deleting to store its number for reuse
+      const invoice = await storage.getInvoice(req.params.id);
+      if (!invoice) {
+        return res.status(404).json({ message: "Invoice not found" });
+      }
+
+      // Delete the invoice
       const deleted = await storage.deleteInvoice(req.params.id);
       if (!deleted) {
         return res.status(404).json({ message: "Invoice not found" });
       }
 
+      // Add the deleted invoice number to reusable numbers (only if it's not the latest number)
+      const userSettings = await storage.getUserSettings(userId);
+      const currentInvoiceNumber = userSettings?.nextInvoiceNumber || 1;
+      const deletedInvoiceNumberMatch = invoice.invoiceNumber.match(/(\d+)$/);
+      
+      if (deletedInvoiceNumberMatch) {
+        const deletedNumber = parseInt(deletedInvoiceNumberMatch[1]);
+        
+        // Only add to reusable if it's not the latest generated number
+        if (deletedNumber < currentInvoiceNumber) {
+          await storage.addReusableInvoiceNumber(userId, invoice.invoiceNumber);
+        } else if (deletedNumber === currentInvoiceNumber - 1) {
+          // If deleting the most recent invoice, decrement the counter instead
+          await storage.updateUserSettings(userId, {
+            nextInvoiceNumber: Math.max(1, currentInvoiceNumber - 1),
+          });
+        }
+      }
+
       // Check if all invoices are deleted and reset invoice numbering
-      const userId = req.user.claims.sub;
       const remainingInvoices = await storage.getInvoices(userId);
       
       if (remainingInvoices.length === 0) {
@@ -1307,6 +1334,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         await storage.updateUserSettings(userId, {
           nextInvoiceNumber: 1,
         });
+        // Clear all reusable numbers since we're resetting
+        await storage.clearReusableInvoiceNumbers(userId);
       }
       
       res.json({ message: "Invoice deleted successfully" });

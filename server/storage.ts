@@ -892,6 +892,10 @@ export class DatabaseStorage implements IStorage {
       .where(eq(reusableInvoiceNumbers.userId, userId))
       .orderBy(reusableInvoiceNumbers.createdAt);
   }
+
+  async clearReusableInvoiceNumbers(userId: string): Promise<void> {
+    await db.delete(reusableInvoiceNumbers).where(eq(reusableInvoiceNumbers.userId, userId));
+  }
 }
 
 export const storage = new DatabaseStorage();
