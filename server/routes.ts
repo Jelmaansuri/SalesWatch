@@ -1181,9 +1181,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         );
       }
 
-      // Check if any sale in the group already has an invoice
+      // Check if any sale in the group already has an invoice (filter by current user)
       for (const groupSale of groupedSales) {
-        const existingInvoices = await storage.getInvoicesBySaleId(groupSale.id);
+        const existingInvoices = await storage.getInvoicesBySaleIdAndUser(groupSale.id, userId);
         if (existingInvoices.length > 0) {
           return res.status(400).json({ 
             message: `Invoice already exists for this ${groupId ? 'transaction group' : 'sale'}. Invoice number: ${existingInvoices[0].invoiceNumber}` 

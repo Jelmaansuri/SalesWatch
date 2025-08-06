@@ -718,6 +718,12 @@ export class DatabaseStorage implements IStorage {
     return await db.select().from(invoices).where(eq(invoices.saleId, saleId));
   }
 
+  async getInvoicesBySaleIdAndUser(saleId: string, userId: string): Promise<Invoice[]> {
+    return await db.select().from(invoices).where(
+      and(eq(invoices.saleId, saleId), eq(invoices.userId, userId))
+    );
+  }
+
   async createInvoice(invoiceData: any): Promise<Invoice> {
     const [newInvoice] = await db.insert(invoices).values({
       id: randomUUID(),
