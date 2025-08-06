@@ -149,7 +149,8 @@ export default function Sales() {
 
   const updateSaleMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: FormData }) => {
-      const response = await apiRequest(`/api/sales/${id}`, "PUT", data);
+      // Use status-only endpoint for simple status updates to preserve invoices
+      const response = await apiRequest(`/api/sales/${id}/status`, "PUT", data);
       return response.json();
     },
     onSuccess: (data) => {
@@ -161,8 +162,7 @@ export default function Sales() {
       setEditingSale(null);
       form.reset();
       
-      const deletedInvoicesCount = data?.deletedInvoicesCount || 0;
-      const deletedInvoiceNumbers = data?.deletedInvoiceNumbers || [];
+      const preservedInvoices = data?.preservedInvoices;
       const stockWarning = data?.stockWarning;
       
       if (stockWarning) {
@@ -172,14 +172,11 @@ export default function Sales() {
           variant: "destructive",
           duration: 6000,
         });
-      } else if (deletedInvoicesCount > 0) {
-        const invoiceNumbersText = deletedInvoiceNumbers.length > 0 
-          ? deletedInvoiceNumbers.join(", ") 
-          : "N/A";
+      } else if (preservedInvoices) {
         toast({
-          title: "Sale Updated Successfully", 
-          description: `Invoice(s) ${invoiceNumbersText} were automatically deleted. Please generate a new invoice to reflect the updated data.`,
-          duration: 6000,
+          title: "Sale Status Updated",
+          description: "Sale status updated successfully. All linked invoices have been preserved.",
+          duration: 4000,
         });
       } else {
         toast({

@@ -549,6 +549,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Simple sale status update (preserves invoices)
+  app.put("/api/sales/:id/status", isAuthenticated, async (req, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { id } = req.params;
+      const { status, platformSource, notes, saleDate } = req.body;
+
+      console.log(`Updating sale status ${id} with:`, { status, platformSource, notes, saleDate });
+      
+      const existingSale = await storage.getSale(id);
+      if (!existingSale) {
+        return res.status(404).json({ message: "Sale not found" });
+      }
+
+      if (existingSale.userId !== userId) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      // Update only status-related fields - preserve all invoices
+      const updatedSale = await storage.updateSale(id, {
+        status,
+        platformSource,
+        notes,
+        saleDate: saleDate ? new Date(saleDate) : existingSale.saleDate
+      });
+
+      console.log("Sale status updated successfully - invoices preserved");
+      
+      res.json({
+        ...updatedSale,
+        preservedInvoices: true
+      });
+    } catch (error) {
+      console.error("Error updating sale status:", error);
+      res.status(500).json({ message: "Failed to update sale status" });
+    }
+  });
+
   app.put("/api/sales/:id", isAuthenticated, async (req, res) => {
     try {
       console.log(`Updating sale ${req.params.id} with data:`, req.body);
