@@ -13,12 +13,14 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertProductSchema } from "@shared/schema";
 import AddProductModal from "@/components/modals/add-product-modal";
+import { ObjectUploader } from "@/components/ObjectUploader";
 import { formatCurrency } from "@/lib/currency";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { isUnauthorizedError } from "@/lib/authUtils";
-import { Package, ImageIcon, Plus, Edit, Trash2 } from "lucide-react";
+import { Package, ImageIcon, Plus, Edit, Trash2, Upload } from "lucide-react";
 import type { Product } from "@shared/schema";
+import type { UploadResult } from "@uppy/core";
 import { z } from "zod";
 
 type FormData = z.infer<typeof insertProductSchema>;
@@ -28,6 +30,8 @@ export default function Products() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [editProductImageUrl, setEditProductImageUrl] = useState<string>("");
+  const [isUploadingEditImage, setIsUploadingEditImage] = useState(false);
   
   const { data: products, isLoading, refetch } = useQuery<Product[]>({
     queryKey: ["/api/products"],
@@ -56,6 +60,7 @@ export default function Products() {
       queryClient.invalidateQueries({ queryKey: ["/api/analytics"] });
       setIsEditDialogOpen(false);
       setEditingProduct(null);
+      setEditProductImageUrl("");
       form.reset();
       toast({
         title: "Success",
@@ -152,6 +157,7 @@ export default function Products() {
 
   const handleEdit = (product: Product) => {
     setEditingProduct(product);
+    setEditProductImageUrl(product.imageUrl || "");
     form.reset({
       name: product.name,
       description: product.description || "",
@@ -166,7 +172,69 @@ export default function Products() {
 
   const handleSubmit = (data: FormData) => {
     if (editingProduct) {
-      updateProductMutation.mutate({ id: editingProduct.id, data });
+      const productData = { ...data, imageUrl: editProductImageUrl };
+      updateProductMutation.mutate({ id: editingProduct.id, data: productData });
+    }
+  };
+
+  const handleEditGetUploadParameters = async () => {
+    setIsUploadingEditImage(true);
+    try {
+      const data = await apiRequest("/api/objects/upload", "POST", {});
+      return {
+        method: "PUT" as const,
+        url: data.uploadURL,
+      };
+    } catch (error) {
+      setIsUploadingEditImage(false);
+      toast({
+        title: "Upload Error",
+        description: "Failed to get upload URL. Please try again.",
+        variant: "destructive",
+      });
+      throw error;
+    }
+  };
+
+  const handleEditUploadComplete = async (result: UploadResult<Record<string, unknown>, Record<string, unknown>>) => {
+    try {
+      if (result.successful && result.successful.length > 0) {
+        const uploadURL = result.successful[0].uploadURL;
+        console.log("Edit image upload successful, URL:", uploadURL);
+        
+        // Normalize the upload URL to the object path format
+        try {
+          const data = await apiRequest("/api/objects/normalize", "POST", { 
+            uploadURL: uploadURL 
+          });
+          console.log("Edit image normalized path:", data.objectPath);
+          setEditProductImageUrl(data.objectPath);
+        } catch (error) {
+          console.error("Edit image normalization failed:", error);
+          // Fallback to the upload URL if normalization fails
+          setEditProductImageUrl(uploadURL || "");
+        }
+        
+        toast({
+          title: "Success",
+          description: "Image uploaded successfully!",
+        });
+      } else {
+        toast({
+          title: "Upload Failed",
+          description: "No files were uploaded successfully.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error("Edit upload completion error:", error);
+      toast({
+        title: "Upload Error",
+        description: "Failed to process uploaded image.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsUploadingEditImage(false);
     }
   };
 
@@ -434,6 +502,53 @@ export default function Products() {
                   <p className="text-sm text-red-600">{form.formState.errors.stock.message}</p>
                 )}
               </div>
+            </div>
+
+            {/* Product Image Upload for Edit */}
+            <div className="space-y-2">
+              <Label>Product Image</Label>
+              <div className="flex items-center space-x-4">
+                {editProductImageUrl ? (
+                  <div className="relative">
+                    <img 
+                      src={editProductImageUrl.startsWith('/objects/') ? editProductImageUrl : `/objects/${editProductImageUrl}`} 
+                      alt="Product preview" 
+                      className="w-20 h-20 object-cover rounded-lg border"
+                      onError={(e) => {
+                        console.error("Edit image failed to load:", editProductImageUrl);
+                        (e.target as HTMLImageElement).style.display = 'none';
+                      }}
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="absolute -top-2 -right-2 h-6 w-6 p-0 rounded-full"
+                      onClick={() => setEditProductImageUrl("")}
+                    >
+                      ×
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="w-20 h-20 bg-gray-100 dark:bg-gray-800 border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center">
+                    <ImageIcon className="h-8 w-8 text-gray-400" />
+                  </div>
+                )}
+                
+                <ObjectUploader
+                  maxNumberOfFiles={1}
+                  maxFileSize={5242880} // 5MB
+                  onGetUploadParameters={handleEditGetUploadParameters}
+                  onComplete={handleEditUploadComplete}
+                  buttonClassName="bg-my-blue hover:bg-my-blue/90 text-white"
+                >
+                  <Upload className="mr-2 h-4 w-4" />
+                  {editProductImageUrl ? "Change Image" : "Upload Image"}
+                </ObjectUploader>
+              </div>
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                Upload a product image (JPG, PNG, max 5MB)
+              </p>
             </div>
 
             <div className="flex justify-end space-x-2">
