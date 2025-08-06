@@ -245,9 +245,13 @@ export default function Products() {
                     <div className="mb-4">
                       {product.imageUrl ? (
                         <img
-                          src={product.imageUrl}
+                          src={product.imageUrl.startsWith('/objects/') ? product.imageUrl : `/objects/${product.imageUrl}`}
                           alt={product.name}
                           className="w-full h-32 object-cover rounded-lg border"
+                          onError={(e) => {
+                            // Hide broken images
+                            (e.target as HTMLImageElement).style.display = 'none';
+                          }}
                         />
                       ) : (
                         <div className="w-full h-32 bg-gray-100 dark:bg-gray-800 border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center">

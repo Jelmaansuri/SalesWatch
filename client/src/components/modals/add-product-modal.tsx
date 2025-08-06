@@ -74,33 +74,63 @@ export default function AddProductModal({ open, onOpenChange, onProductAdded }: 
   });
 
   const handleGetUploadParameters = async () => {
-    const data = await apiRequest("/api/objects/upload", "POST", {});
-    return {
-      method: "PUT" as const,
-      url: data.uploadURL,
-    };
+    setIsUploading(true);
+    try {
+      const data = await apiRequest("/api/objects/upload", "POST", {});
+      return {
+        method: "PUT" as const,
+        url: data.uploadURL,
+      };
+    } catch (error) {
+      setIsUploading(false);
+      toast({
+        title: "Upload Error",
+        description: "Failed to get upload URL. Please try again.",
+        variant: "destructive",
+      });
+      throw error;
+    }
   };
 
   const handleUploadComplete = async (result: UploadResult<Record<string, unknown>, Record<string, unknown>>) => {
-    if (result.successful && result.successful.length > 0) {
-      const uploadURL = result.successful[0].uploadURL;
-      
-      // Normalize the upload URL to the object path format
-      try {
-        const data = await apiRequest("/api/objects/normalize", "POST", { 
-          uploadURL: uploadURL 
+    try {
+      if (result.successful && result.successful.length > 0) {
+        const uploadURL = result.successful[0].uploadURL;
+        console.log("Upload successful, URL:", uploadURL);
+        
+        // Normalize the upload URL to the object path format
+        try {
+          const data = await apiRequest("/api/objects/normalize", "POST", { 
+            uploadURL: uploadURL 
+          });
+          console.log("Normalized path:", data.objectPath);
+          setProductImageUrl(data.objectPath);
+        } catch (error) {
+          console.error("Normalization failed:", error);
+          // Fallback to the upload URL if normalization fails
+          setProductImageUrl(uploadURL || "");
+        }
+        
+        toast({
+          title: "Success",
+          description: "Image uploaded successfully!",
         });
-        setProductImageUrl(data.objectPath);
-      } catch (error) {
-        // Fallback to the upload URL if normalization fails
-        setProductImageUrl(uploadURL || "");
+      } else {
+        toast({
+          title: "Upload Failed",
+          description: "No files were uploaded successfully.",
+          variant: "destructive",
+        });
       }
-      
-      setIsUploading(false);
+    } catch (error) {
+      console.error("Upload completion error:", error);
       toast({
-        title: "Success",
-        description: "Image uploaded successfully.",
+        title: "Upload Error",
+        description: "Failed to process uploaded image.",
+        variant: "destructive",
       });
+    } finally {
+      setIsUploading(false);
     }
   };
 
@@ -227,9 +257,13 @@ export default function AddProductModal({ open, onOpenChange, onProductAdded }: 
               {productImageUrl ? (
                 <div className="relative">
                   <img 
-                    src={productImageUrl} 
+                    src={productImageUrl.startsWith('/objects/') ? productImageUrl : `/objects/${productImageUrl}`} 
                     alt="Product preview" 
                     className="w-20 h-20 object-cover rounded-lg border"
+                    onError={(e) => {
+                      console.error("Image failed to load:", productImageUrl);
+                      (e.target as HTMLImageElement).style.display = 'none';
+                    }}
                   />
                   <Button
                     type="button"
