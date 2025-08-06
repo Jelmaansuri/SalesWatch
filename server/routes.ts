@@ -1140,14 +1140,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/invoices/preview-number", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
+      
+      // Import whitelist functions for shared business settings
+      const { hasBusinessAccess, getPrimaryUserId } = await import("./userWhitelist");
 
-      // Get user settings for invoice generation or create default
-      let userSettings = await storage.getUserSettings(userId);
+      // Get settings from primary user for whitelisted users (shared business settings)
+      const settingsUserId = hasBusinessAccess(userId) ? getPrimaryUserId() : userId;
+      let userSettings = await storage.getUserSettings(settingsUserId);
+      
       if (!userSettings) {
         // Create default PROGENY AGROTECH business settings for whitelisted users
-        const { hasBusinessAccess } = await import("./userWhitelist");
         const defaultSettings = {
-          userId,
+          userId: settingsUserId, // Use the correct settings user ID
           businessName: hasBusinessAccess(userId) ? "PROGENY AGROTECH" : "Your Business",
           businessRegistration: hasBusinessAccess(userId) ? "SSM Registration Number" : "",
           businessAddress: hasBusinessAccess(userId) ? "Kuala Lumpur, Malaysia" : "Your Business Address",
@@ -1167,15 +1171,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         userSettings = await storage.createUserSettings(defaultSettings);
       }
 
-      // Check for reusable invoice numbers first
-      const reusableNumbers = await storage.getReusableInvoiceNumbers(userId);
+      // Check for reusable invoice numbers first using the correct user ID for shared business
+      const reusableNumbers = await storage.getReusableInvoiceNumbers(settingsUserId);
       let invoiceNumber;
       
       if (reusableNumbers.length > 0) {
         // Use the oldest reusable number
         invoiceNumber = reusableNumbers[0].invoiceNumber;
       } else {
-        // Generate new invoice number
+        // Generate new invoice number using the shared business settings
         invoiceNumber = `${userSettings.invoicePrefix}-${String(userSettings.nextInvoiceNumber).padStart(4, '0')}`;
       }
 
