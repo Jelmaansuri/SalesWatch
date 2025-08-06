@@ -28,7 +28,7 @@ export const users = pgTable("users", {
 export const customers = pgTable("customers", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   name: text("name").notNull(),
-  email: text("email").notNull().unique(),
+  email: text("email"),
   phone: text("phone"),
   company: text("company"),
   address: text("address"),
@@ -163,6 +163,8 @@ export const reusableInvoiceNumbers = pgTable("reusable_invoice_numbers", {
 export const insertCustomerSchema = createInsertSchema(customers).omit({
   id: true,
   createdAt: true,
+}).extend({
+  email: z.string().email("Please enter a valid email").or(z.literal("")).optional(),
 });
 
 export const insertProductSchema = createInsertSchema(products).omit({

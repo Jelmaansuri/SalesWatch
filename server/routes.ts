@@ -48,10 +48,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const validatedData = insertCustomerSchema.parse(req.body);
       
-      // Check if email already exists
-      const existingCustomer = await storage.getCustomerByEmail(validatedData.email);
-      if (existingCustomer) {
-        return res.status(400).json({ message: "Customer with this email already exists" });
+      // Check if email already exists (only if email is provided)
+      if (validatedData.email && validatedData.email.trim() !== "") {
+        const existingCustomer = await storage.getCustomerByEmail(validatedData.email);
+        if (existingCustomer) {
+          return res.status(400).json({ message: "Customer with this email already exists" });
+        }
       }
 
       const customer = await storage.createCustomer(validatedData);
@@ -67,6 +69,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.put("/api/customers/:id", isAuthenticated, async (req, res) => {
     try {
       const updateData = insertCustomerSchema.partial().parse(req.body);
+      
+      // Check if email already exists (only if email is provided and changing)
+      if (updateData.email && updateData.email.trim() !== "") {
+        const existingCustomer = await storage.getCustomerByEmail(updateData.email);
+        if (existingCustomer && existingCustomer.id !== req.params.id) {
+          return res.status(400).json({ message: "Customer with this email already exists" });
+        }
+      }
+      
       const customer = await storage.updateCustomer(req.params.id, updateData);
       if (!customer) {
         return res.status(404).json({ message: "Customer not found" });

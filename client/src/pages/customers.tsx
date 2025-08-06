@@ -184,7 +184,7 @@ export default function Customers() {
     setEditingCustomer(customer);
     form.reset({
       name: customer.name,
-      email: customer.email,
+      email: customer.email || "",
       phone: customer.phone || "",
       company: customer.company || "",
       address: customer.address || "",
@@ -244,7 +244,7 @@ export default function Customers() {
                   )}
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="email">Email *</Label>
+                  <Label htmlFor="email">Email</Label>
                   <Input
                     id="email"
                     type="email"
@@ -315,7 +315,7 @@ export default function Customers() {
                 )}
               </div>
               <div className="space-y-2">
-                <Label htmlFor="edit-email">Email *</Label>
+                <Label htmlFor="edit-email">Email</Label>
                 <Input
                   id="edit-email"
                   type="email"
