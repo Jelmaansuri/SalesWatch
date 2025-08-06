@@ -736,10 +736,10 @@ export class DatabaseStorage implements IStorage {
     if (hasBusinessAccess(userId)) {
       // User has whitelist access - show all invoices from authorized users
       const authorizedUsers = getAuthorizedUserIds();
-      return await db.select().from(invoices).where(inArray(invoices.userId, authorizedUsers)).orderBy(desc(invoices.createdAt));
+      return await db.select().from(invoices).where(inArray(invoices.userId, authorizedUsers)).orderBy(invoices.invoiceNumber);
     } else {
       // User doesn't have whitelist access - show only their own invoices
-      return await db.select().from(invoices).where(eq(invoices.userId, userId)).orderBy(desc(invoices.createdAt));
+      return await db.select().from(invoices).where(eq(invoices.userId, userId)).orderBy(invoices.invoiceNumber);
     }
   }
 
@@ -763,7 +763,7 @@ export class DatabaseStorage implements IStorage {
       query = query.where(eq(invoices.userId, userId));
     }
 
-    const invoicesWithCustomers = await query.orderBy(desc(invoices.createdAt));
+    const invoicesWithCustomers = await query.orderBy(invoices.invoiceNumber);
 
     const invoicesWithItems = await Promise.all(
       invoicesWithCustomers.map(async ({ invoice, customer }) => {
