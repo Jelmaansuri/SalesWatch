@@ -71,7 +71,20 @@ export default function Sales() {
 
   // Helper function to get invoice status for a sale
   const getInvoiceStatus = (saleId: string) => {
-    const invoice = invoicesData.find((inv: any) => inv.saleId === saleId);
+    // Try both camelCase and snake_case field names for compatibility
+    const invoice = invoicesData.find((inv: any) => inv.saleId === saleId || inv.sale_id === saleId);
+    
+    // Debug logging to understand the data structure
+    console.log(`Looking for invoice for sale ${saleId}`);
+    console.log('Available invoices:', invoicesData.map((inv: any) => ({ 
+      id: inv.id, 
+      invoiceNumber: inv.invoiceNumber, 
+      saleId: inv.saleId, 
+      sale_id: inv.sale_id,
+      status: inv.status 
+    })));
+    console.log('Found invoice:', invoice);
+    
     if (!invoice) {
       return { status: "Not Generated", badge: "secondary", color: "text-gray-600" };
     }
