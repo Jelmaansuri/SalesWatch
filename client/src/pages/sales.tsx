@@ -64,6 +64,34 @@ export default function Sales() {
     queryKey: ["/api/sales"],
   });
 
+  // Fetch invoices to check invoice status for each sale
+  const { data: invoicesData = [] } = useQuery({
+    queryKey: ["/api/invoices"],
+  });
+
+  // Helper function to get invoice status for a sale
+  const getInvoiceStatus = (saleId: string) => {
+    const invoice = invoicesData.find((inv: any) => inv.saleId === saleId);
+    if (!invoice) {
+      return { status: "Not Generated", badge: "secondary", color: "text-gray-600" };
+    }
+    
+    switch (invoice.status) {
+      case "draft":
+        return { status: "Draft", badge: "outline", color: "text-blue-600" };
+      case "sent":
+        return { status: "Sent", badge: "default", color: "text-green-600" };
+      case "paid":
+        return { status: "Paid", badge: "default", color: "text-green-700" };
+      case "overdue":
+        return { status: "Overdue", badge: "destructive", color: "text-red-600" };
+      case "cancelled":
+        return { status: "Cancelled", badge: "secondary", color: "text-gray-500" };
+      default:
+        return { status: "Generated", badge: "default", color: "text-blue-600" };
+    }
+  };
+
   // Group sales by customer and date (same notes with GROUP: identifier)
   const groupedSales = useMemo(() => {
     const groups: { [key: string]: SaleWithDetails[] } = {};
@@ -390,6 +418,7 @@ export default function Sales() {
         description: `Invoice ${invoiceNumber} generated successfully`,
       });
       queryClient.invalidateQueries({ queryKey: ["/api/invoices"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/sales"] });
       setShowInvoicePreview(false);
       setPendingSale(null);
     },
@@ -946,6 +975,7 @@ export default function Sales() {
                       <TableHead className="min-w-[80px]">Status</TableHead>
                       <TableHead className="min-w-[80px]">Platform</TableHead>
                       <TableHead className="min-w-[90px]">Date</TableHead>
+                      <TableHead className="min-w-[100px]">Invoice Status</TableHead>
                       <TableHead className="min-w-[100px]">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -1016,6 +1046,16 @@ export default function Sales() {
                       </TableCell>
                       <TableCell>
                         {saleGroup.saleDate ? new Date(saleGroup.saleDate).toLocaleDateString() : new Date(saleGroup.createdAt).toLocaleDateString()}
+                      </TableCell>
+                      <TableCell>
+                        {(() => {
+                          const invoiceStatus = getInvoiceStatus(saleGroup.items[0].id);
+                          return (
+                            <span className={`text-sm font-medium ${invoiceStatus.color}`}>
+                              {invoiceStatus.status}
+                            </span>
+                          );
+                        })()}
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center space-x-2">
