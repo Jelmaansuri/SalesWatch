@@ -20,6 +20,18 @@ export async function apiRequest(
   });
 
   await throwIfResNotOk(res);
+  
+  // Handle 204 No Content responses (like DELETE operations)
+  if (res.status === 204) {
+    return null;
+  }
+  
+  // Only parse JSON if response has content
+  const contentLength = res.headers.get('content-length');
+  if (contentLength === '0' || !res.headers.get('content-type')?.includes('json')) {
+    return null;
+  }
+  
   return await res.json();
 }
 

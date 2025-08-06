@@ -164,9 +164,18 @@ export default function Orders() {
 
   const deleteOrderMutation = useMutation({
     mutationFn: async (id: string) => {
-      await apiRequest(`/api/sales/${id}`, "DELETE");
+      console.log("DELETE ORDER - Attempting to delete order ID:", id);
+      try {
+        const response = await apiRequest(`/api/sales/${id}`, "DELETE");
+        console.log("DELETE ORDER - Success response:", response);
+        return response;
+      } catch (error) {
+        console.error("DELETE ORDER - Error:", error);
+        throw error;
+      }
     },
     onSuccess: () => {
+      console.log("DELETE ORDER - onSuccess triggered");
       // Clear cache completely and force fresh fetch
       queryClient.removeQueries({ queryKey: ["/api/sales"] });
       queryClient.refetchQueries({ queryKey: ["/api/sales"] });
@@ -181,6 +190,7 @@ export default function Orders() {
       });
     },
     onError: (error) => {
+      console.error("DELETE ORDER - onError triggered:", error);
       if (isUnauthorizedError(error)) {
         toast({
           title: "Session Expired",
@@ -190,9 +200,26 @@ export default function Orders() {
         setTimeout(() => window.location.href = "/api/login", 1000);
         return;
       }
+      
+      // Extract specific error message
+      let errorMessage = "Failed to delete order";
+      if (error instanceof Error) {
+        if (error.message.includes("404")) {
+          errorMessage = "Order not found or already deleted";
+        } else if (error.message.includes("400")) {
+          // Extract the actual error message from the API
+          const match = error.message.match(/400: (.+)/);
+          errorMessage = match ? match[1] : "Cannot delete order - check for related records";
+        } else if (error.message.includes("500")) {
+          errorMessage = "Server error occurred while deleting order";
+        } else {
+          errorMessage = error.message || errorMessage;
+        }
+      }
+      
       toast({
         title: "Error",
-        description: "Failed to delete order",
+        description: errorMessage,
         variant: "destructive",
       });
     },
