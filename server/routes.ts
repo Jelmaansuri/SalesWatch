@@ -1146,7 +1146,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Get settings from primary user for whitelisted users (shared business settings)
       const settingsUserId = hasBusinessAccess(userId) ? getPrimaryUserId() : userId;
+      console.log("Invoice preview - userId:", userId, "hasBusinessAccess:", hasBusinessAccess(userId), "settingsUserId:", settingsUserId);
+      
       let userSettings = await storage.getUserSettings(settingsUserId);
+      console.log("Invoice preview - userSettings:", userSettings ? { 
+        invoicePrefix: userSettings.invoicePrefix, 
+        nextInvoiceNumber: userSettings.nextInvoiceNumber 
+      } : null);
       
       if (!userSettings) {
         // Create default PROGENY AGROTECH business settings for whitelisted users
@@ -1181,8 +1187,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } else {
         // Generate new invoice number using the shared business settings
         invoiceNumber = `${userSettings.invoicePrefix}-${String(userSettings.nextInvoiceNumber).padStart(4, '0')}`;
+        console.log("Invoice preview - Generated invoice number:", invoiceNumber, "from prefix:", userSettings.invoicePrefix, "number:", userSettings.nextInvoiceNumber);
       }
 
+      console.log("Invoice preview - Final response:", { invoiceNumber });
       res.json({ invoiceNumber });
     } catch (error) {
       console.error("Error previewing invoice number:", error);
