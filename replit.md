@@ -3,6 +3,8 @@
 ## Overview
 PROGENY AGROTECH Management System is a comprehensive business management platform for PROGENY AGROTECH, a Malaysian agricultural company specializing in premium fresh young ginger farming and distribution. The application provides solutions for tracking sales, managing ginger products and customers, analyzing farm performance, and generating agricultural business insights. It features a modern, responsive web interface with dark/light theme support, designed for Malaysian agricultural practices, including MYR currency formatting. Key capabilities include full CRUD operations for customer, product, and sales management, advanced order tracking, comprehensive business intelligence dashboards with detailed Excel export, and a dedicated Plot Management System for agricultural land tracking and harvest accumulation.
 
+**UNIFIED BUSINESS ACCESS**: The system operates as a single business account where two whitelisted users (afiqsyahmifaridun@gmail.com and progenyagrotech@gmail.com) share identical access to ALL business data, settings, and functionality across every module including sales, customers, products, plots, and invoices.
+
 ## User Preferences
 Preferred communication style: Simple, everyday language.
 Company: PROGENY AGROTECH - Malaysian fresh young ginger farming and agriculture business.

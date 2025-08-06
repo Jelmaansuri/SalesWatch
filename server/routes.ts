@@ -23,9 +23,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Customers routes (protected)
-  app.get("/api/customers", isAuthenticated, async (req, res) => {
+  app.get("/api/customers", isAuthenticated, async (req: any, res) => {
     try {
-      const customers = await storage.getCustomers();
+      const userId = req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ message: "User not authenticated" });
+      }
+      const customers = await storage.getCustomers(userId);
       res.json(customers);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch customers" });
@@ -44,9 +48,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/customers", isAuthenticated, async (req, res) => {
+  app.post("/api/customers", isAuthenticated, async (req: any, res) => {
     try {
-      const validatedData = insertCustomerSchema.parse(req.body);
+      const userId = req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ message: "User not authenticated" });
+      }
+      const validatedData = insertCustomerSchema.parse({
+        ...req.body,
+        userId: userId // Associate customer with the user
+      });
       
       // Check if email already exists (only if email is provided)
       if (validatedData.email && validatedData.email.trim() !== "") {
@@ -119,9 +130,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Products routes (protected)
-  app.get("/api/products", isAuthenticated, async (req, res) => {
+  app.get("/api/products", isAuthenticated, async (req: any, res) => {
     try {
-      const products = await storage.getProducts();
+      const userId = req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ message: "User not authenticated" });
+      }
+      const products = await storage.getProducts(userId);
       res.json(products);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch products" });
@@ -140,9 +155,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/products", isAuthenticated, async (req, res) => {
+  app.post("/api/products", isAuthenticated, async (req: any, res) => {
     try {
-      const validatedData = insertProductSchema.parse(req.body);
+      const userId = req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ message: "User not authenticated" });
+      }
+      const validatedData = insertProductSchema.parse({
+        ...req.body,
+        userId: userId // Associate product with the user
+      });
       
       // Check if SKU already exists
       const existingProduct = await storage.getProductBySku(validatedData.sku);
@@ -1546,7 +1568,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Plot Management Routes (protected)
   app.get("/api/plots", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ message: "User not authenticated" });
+      }
       const plots = await storage.getPlots(userId);
       res.json(plots);
     } catch (error) {
@@ -1568,7 +1593,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/plots", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ message: "User not authenticated" });
+      }
       const plotData = { ...req.body, userId };
       
       console.log("Received plot data:", plotData);
@@ -1589,8 +1617,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/plots/:id", isAuthenticated, async (req, res) => {
+  app.put("/api/plots/:id", isAuthenticated, async (req: any, res) => {
     try {
+      const userId = req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ message: "User not authenticated" });
+      }
+      
+      // Import whitelist functions for shared access control
+      const { canEditSharedData } = await import("./userWhitelist");
+      
+      // Check if user can edit this plot (either owner or whitelisted user)
+      const existingPlot = await storage.getPlot(req.params.id);
+      if (!existingPlot) {
+        return res.status(404).json({ message: "Plot not found" });
+      }
+      
+      if (!canEditSharedData(userId, existingPlot.userId)) {
+        return res.status(403).json({ message: "Not authorized to edit this plot" });
+      }
+      
       const updateData = insertPlotSchema.partial().parse(req.body);
       
       // Filter out null values for dates that might cause issues
@@ -1613,8 +1659,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/plots/:id", isAuthenticated, async (req, res) => {
+  app.delete("/api/plots/:id", isAuthenticated, async (req: any, res) => {
     try {
+      const userId = req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ message: "User not authenticated" });
+      }
+      
+      // Import whitelist functions for shared access control
+      const { canEditSharedData } = await import("./userWhitelist");
+      
+      // Check if user can delete this plot (either owner or whitelisted user)
+      const existingPlot = await storage.getPlot(req.params.id);
+      if (!existingPlot) {
+        return res.status(404).json({ message: "Plot not found" });
+      }
+      
+      if (!canEditSharedData(userId, existingPlot.userId)) {
+        return res.status(403).json({ message: "Not authorized to delete this plot" });
+      }
+      
       const deleted = await storage.deletePlot(req.params.id);
       if (!deleted) {
         return res.status(404).json({ message: "Plot not found" });

@@ -10,7 +10,7 @@ export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
   upsertUser(user: UpsertUser): Promise<User>;
   // Customers
-  getCustomers(): Promise<Customer[]>;
+  getCustomers(userId?: string): Promise<Customer[]>;
   getCustomer(id: string): Promise<Customer | undefined>;
   getCustomerByEmail(email: string): Promise<Customer | undefined>;
   createCustomer(customer: InsertCustomer): Promise<Customer>;
@@ -18,7 +18,7 @@ export interface IStorage {
   deleteCustomer(id: string): Promise<boolean>;
 
   // Products
-  getProducts(): Promise<Product[]>;
+  getProducts(userId?: string): Promise<Product[]>;
   getProduct(id: string): Promise<Product | undefined>;
   getProductBySku(sku: string): Promise<Product | undefined>;
   createProduct(product: InsertProduct): Promise<Product>;
@@ -104,9 +104,19 @@ export class DatabaseStorage implements IStorage {
     return user;
   }
 
-  // Customer operations
-  async getCustomers(): Promise<Customer[]> {
-    return await db.select().from(customers).orderBy(desc(customers.createdAt));
+  // Customer operations with Shared Business Access
+  async getCustomers(userId?: string): Promise<Customer[]> {
+    if (userId && hasBusinessAccess(userId)) {
+      // User has whitelist access - show all customers from authorized users
+      const authorizedUsers = getAuthorizedUserIds();
+      return await db.select().from(customers).where(inArray(customers.userId, authorizedUsers)).orderBy(desc(customers.createdAt));
+    } else if (userId) {
+      // Regular user - only their own customers
+      return await db.select().from(customers).where(eq(customers.userId, userId)).orderBy(desc(customers.createdAt));
+    } else {
+      // No user filter - return all customers (for backward compatibility)
+      return await db.select().from(customers).orderBy(desc(customers.createdAt));
+    }
   }
 
   async getCustomer(id: string): Promise<Customer | undefined> {
@@ -141,9 +151,19 @@ export class DatabaseStorage implements IStorage {
     return result.rowCount! > 0;
   }
 
-  // Product operations
-  async getProducts(): Promise<Product[]> {
-    return await db.select().from(products).orderBy(desc(products.createdAt));
+  // Product operations with Shared Business Access
+  async getProducts(userId?: string): Promise<Product[]> {
+    if (userId && hasBusinessAccess(userId)) {
+      // User has whitelist access - show all products from authorized users
+      const authorizedUsers = getAuthorizedUserIds();
+      return await db.select().from(products).where(inArray(products.userId, authorizedUsers)).orderBy(desc(products.createdAt));
+    } else if (userId) {
+      // Regular user - only their own products
+      return await db.select().from(products).where(eq(products.userId, userId)).orderBy(desc(products.createdAt));
+    } else {
+      // No user filter - return all products (for backward compatibility)
+      return await db.select().from(products).orderBy(desc(products.createdAt));
+    }
   }
 
   async getProduct(id: string): Promise<Product | undefined> {
@@ -595,9 +615,16 @@ export class DatabaseStorage implements IStorage {
     }));
   }
 
-  // Plot Management
+  // Plot Management with Shared Business Access
   async getPlots(userId: string): Promise<Plot[]> {
-    return await db.select().from(plots).where(eq(plots.userId, userId)).orderBy(desc(plots.createdAt));
+    if (hasBusinessAccess(userId)) {
+      // User has whitelist access - show all plots from authorized users
+      const authorizedUsers = getAuthorizedUserIds();
+      return await db.select().from(plots).where(inArray(plots.userId, authorizedUsers)).orderBy(desc(plots.createdAt));
+    } else {
+      // Regular user - only their own plots
+      return await db.select().from(plots).where(eq(plots.userId, userId)).orderBy(desc(plots.createdAt));
+    }
   }
 
   async getPlot(id: string): Promise<Plot | undefined> {
