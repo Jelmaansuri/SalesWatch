@@ -147,9 +147,9 @@ export default function Sales() {
     },
   });
 
-  const updateSaleMutation = useMutation({
+  const updateSaleStatusMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: FormData }) => {
-      // Use status-only endpoint for simple status updates to preserve invoices
+      // Use status-only endpoint to preserve invoices
       const response = await apiRequest(`/api/sales/${id}/status`, "PUT", data);
       return response.json();
     },
@@ -160,30 +160,14 @@ export default function Sales() {
       queryClient.invalidateQueries({ queryKey: ["/api/invoices"] });
       setIsEditDialogOpen(false);
       setEditingSale(null);
+      setEditProductItems([]);
       form.reset();
       
-      const preservedInvoices = data?.preservedInvoices;
-      const stockWarning = data?.stockWarning;
-      
-      if (stockWarning) {
-        toast({
-          title: "Sale Updated with Stock Warning",
-          description: stockWarning.message,
-          variant: "destructive",
-          duration: 6000,
-        });
-      } else if (preservedInvoices) {
-        toast({
-          title: "Sale Status Updated",
-          description: "Sale status updated successfully. All linked invoices have been preserved.",
-          duration: 4000,
-        });
-      } else {
-        toast({
-          title: "Success",
-          description: "Sale updated successfully",
-        });
-      }
+      toast({
+        title: "Sale Status Updated",
+        description: "Sale status updated successfully. All linked invoices have been preserved.",
+        duration: 4000,
+      });
     },
     onError: (error) => {
       if (isUnauthorizedError(error)) {
@@ -196,20 +180,12 @@ export default function Sales() {
         return;
       }
       
-      // Handle inventory-specific errors
-      if (error.message?.includes("Insufficient stock")) {
-        toast({
-          title: "Insufficient Stock",
-          description: error.message,
-          variant: "destructive",
-        });
-      } else {
-        toast({
-          title: "Error",
-          description: "Failed to update sale",
-          variant: "destructive",
-        });
-      }
+      console.error("Sale status update error:", error);
+      toast({
+        title: "Error",
+        description: "Failed to update sale status",
+        variant: "destructive",
+      });
     },
   });
 
@@ -565,7 +541,7 @@ export default function Sales() {
         saleDate: data.saleDate
       };
       
-      updateSaleMutation.mutate({
+      updateSaleStatusMutation.mutate({
         id: editingSale.id,
         data: statusUpdateData
       });
