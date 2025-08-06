@@ -27,6 +27,7 @@ export const users = pgTable("users", {
 
 export const customers = pgTable("customers", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().default("21540079").references(() => users.id),
   name: text("name").notNull(),
   email: text("email"),
   phone: text("phone"),
@@ -37,6 +38,7 @@ export const customers = pgTable("customers", {
 
 export const products = pgTable("products", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().default("21540079").references(() => users.id),
   name: text("name").notNull(),
   sku: text("sku").notNull().unique(),
   description: text("description"),
@@ -164,12 +166,15 @@ export const insertCustomerSchema = createInsertSchema(customers).omit({
   id: true,
   createdAt: true,
 }).extend({
+  userId: z.string().optional(), // Allow userId to be set by server
   email: z.string().email("Please enter a valid email").or(z.literal("")).optional(),
 });
 
 export const insertProductSchema = createInsertSchema(products).omit({
   id: true,
   createdAt: true,
+}).extend({
+  userId: z.string().optional(), // Allow userId to be set by server
 });
 
 export const insertSaleSchema = createInsertSchema(sales).omit({
