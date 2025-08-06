@@ -84,8 +84,9 @@ export default function Orders() {
       groups[groupKey].push(order);
     });
 
-    return Object.values(groups).map(group => ({
+    return Object.values(groups).map((group, index) => ({
       groupKey: group[0].notes?.match(/\[GROUP:([^\]]+)\]/)?.[1] || 'ungrouped',
+      groupDisplayId: index + 1, // Simple numerical ID starting from 1
       customer: group[0].customer,
       items: group,
       totalAmount: group.reduce((sum, order) => sum + parseFloat(order.totalAmount), 0),
@@ -673,7 +674,10 @@ export default function Orders() {
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                onClick={() => toggleGroupExpansion(group.groupKey)}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  toggleGroupExpansion(group.groupKey);
+                                }}
                                 className="h-6 w-6 p-0"
                               >
                                 {expandedGroups.has(group.groupKey) ? (
@@ -683,7 +687,7 @@ export default function Orders() {
                                 )}
                               </Button>
                               <span className="text-xs bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-100 px-2 py-1 rounded">
-                                GROUP: {group.groupKey}
+                                ORDER GROUP #{group.groupDisplayId}
                               </span>
                               <span className="text-sm text-muted-foreground">
                                 ({group.items.length} items)
