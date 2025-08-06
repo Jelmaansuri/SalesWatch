@@ -131,9 +131,12 @@ export default function AddSaleModal({ open, onOpenChange, onSaleAdded }: AddSal
       return results;
     },
     onSuccess: (result) => {
-      queryClient.invalidateQueries({ queryKey: ["/api/sales"] });
+      // Use refetch instead of invalidate to force immediate fresh data
+      queryClient.refetchQueries({ queryKey: ["/api/sales"] });
       queryClient.invalidateQueries({ queryKey: ["/api/products"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/analytics"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/analytics/dashboard"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/analytics/revenue-by-month"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/analytics/top-products"] });
       
       const saleCount = Array.isArray(result) ? result.length : 1;
       

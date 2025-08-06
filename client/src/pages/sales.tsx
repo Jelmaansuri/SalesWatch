@@ -94,9 +94,17 @@ export default function Sales() {
 
   // Group sales by customer and date (same notes with GROUP: identifier)
   const groupedSales = useMemo(() => {
+    // Create a set to track unique sale IDs to prevent duplicates
+    const processedSaleIds = new Set<string>();
     const groups: { [key: string]: SaleWithDetails[] } = {};
     
     salesData.forEach(sale => {
+      // Skip if we've already processed this sale ID
+      if (processedSaleIds.has(sale.id)) {
+        return;
+      }
+      processedSaleIds.add(sale.id);
+      
       // Extract group ID from notes if it exists
       const groupMatch = sale.notes?.match(/\[GROUP:([^\]]+)\]/);
       const groupKey = groupMatch 
@@ -112,7 +120,7 @@ export default function Sales() {
     return Object.values(groups).map(group => ({
       groupKey: group[0].notes?.match(/\[GROUP:([^\]]+)\]/)?.[1] || 'ungrouped',
       customer: group[0].customer,
-      items: group,
+      items: group.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()), // Sort by creation time
       totalAmount: group.reduce((sum, sale) => sum + parseFloat(sale.totalAmount), 0),
       totalProfit: group.reduce((sum, sale) => sum + parseFloat(sale.profit), 0),
       status: group[0].status,
@@ -306,13 +314,12 @@ export default function Sales() {
       return response.status === 204 ? null : response.json();
     },
     onSuccess: (data, variables, context: any) => {
-      // Force refetch all related data
-      queryClient.invalidateQueries({ queryKey: ["/api/sales"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/products"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/analytics"] });
-      
-      // Also refetch immediately to ensure UI updates
+      // Force immediate refetch to get fresh data and prevent duplicates
       queryClient.refetchQueries({ queryKey: ["/api/sales"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/products"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/analytics/dashboard"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/analytics/revenue-by-month"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/analytics/top-products"] });
       
       // Only show individual success toast if not part of group deletion
       if (!context?.skipToast) {
