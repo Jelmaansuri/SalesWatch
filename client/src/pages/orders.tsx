@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import MainLayout from "@/components/layout/main-layout";
 import { Button } from "@/components/ui/button";
@@ -52,6 +52,38 @@ export default function Orders() {
   const { data: orders = [], isLoading, error } = useQuery<SaleWithDetails[]>({
     queryKey: ["/api/sales"],
   });
+
+  // Group orders by GROUP identifier to sync with Sales Tracking module
+  const groupedOrders = useMemo(() => {
+    const groups: { [key: string]: SaleWithDetails[] } = {};
+    
+    orders.forEach(order => {
+      // Extract group ID from notes if it exists
+      const groupMatch = order.notes?.match(/\[GROUP:([^\]]+)\]/);
+      const groupKey = groupMatch 
+        ? groupMatch[1] 
+        : `${order.customerId}_${new Date(order.createdAt).toDateString()}_${order.id}`;
+      
+      if (!groups[groupKey]) {
+        groups[groupKey] = [];
+      }
+      groups[groupKey].push(order);
+    });
+
+    return Object.values(groups).map(group => ({
+      groupKey: group[0].notes?.match(/\[GROUP:([^\]]+)\]/)?.[1] || 'ungrouped',
+      customer: group[0].customer,
+      items: group,
+      totalAmount: group.reduce((sum, order) => sum + parseFloat(order.totalAmount), 0),
+      totalProfit: group.reduce((sum, order) => sum + parseFloat(order.profit), 0),
+      status: group[0].status,
+      platformSource: group[0].platformSource,
+      saleDate: group[0].saleDate,
+      createdAt: group[0].createdAt,
+      id: group[0].id, // Use first order's ID for operations
+      isGroup: group.length > 1
+    }));
+  }, [orders]);
 
   const { data: customers = [] } = useQuery<Customer[]>({
     queryKey: ["/api/customers"],
@@ -188,12 +220,13 @@ export default function Orders() {
   };
 
   // Filter orders based on status and search term
-  const filteredOrders = orders.filter((order: SaleWithDetails) => {
-    const matchesStatus = statusFilter === "all" || order.status === statusFilter;
-    const matchesSearch = searchTerm === "" || 
+  const filteredOrders = groupedOrders.filter((group) => {
+    const matchesStatus = statusFilter === "all" || group.items.some(order => order.status === statusFilter);
+    const matchesSearch = searchTerm === "" || group.items.some(order =>
       order.customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       order.product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      order.id.toLowerCase().includes(searchTerm.toLowerCase());
+      order.id.toLowerCase().includes(searchTerm.toLowerCase())
+    );
     return matchesStatus && matchesSearch;
   });
 
@@ -612,81 +645,229 @@ export default function Orders() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredOrders.map((order: SaleWithDetails) => (
-                    <TableRow key={order.id}>
-                      <TableCell className="font-mono text-sm">
-                        {order.id.slice(-8).toUpperCase()}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center">
-                          <User className="h-4 w-4 mr-2 text-gray-400" />
-                          {order.customer.name}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center">
-                          <Package className="h-4 w-4 mr-2 text-gray-400" />
-                          {order.product.name}
-                        </div>
-                      </TableCell>
-                      <TableCell>{order.quantity}</TableCell>
-                      <TableCell>{formatCurrency(order.unitPrice)}</TableCell>
-                      <TableCell className="text-orange-600">
-                        {formatCurrency(order.discountAmount)}
-                      </TableCell>
-                      <TableCell className="font-medium text-blue-600">
-                        {formatCurrency((parseFloat(order.unitPrice) - parseFloat(order.discountAmount)).toString())}
-                      </TableCell>
-                      <TableCell className="font-medium">
-                        {formatCurrency(order.totalAmount)}
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="secondary" className={ORDER_STATUS_COLORS[order.status as keyof typeof ORDER_STATUS_COLORS]}>
-                          {ORDER_STATUS_LABELS[order.status as keyof typeof ORDER_STATUS_LABELS]}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center">
-                          <Calendar className="h-4 w-4 mr-2 text-gray-400" />
-                          {new Date(order.createdAt).toLocaleDateString()}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center space-x-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleEdit(order)}
-                          >
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                              <Button variant="outline" size="sm">
-                                <Trash2 className="h-4 w-4 text-red-600" />
+                  {filteredOrders.map((group) => (
+                    <React.Fragment key={group.id}>
+                      {/* Group Header Row */}
+                      <TableRow 
+                        className={`${group.isGroup ? 'bg-muted/50 hover:bg-muted/70' : ''}`}
+                        data-testid={`row-order-group-${group.id}`}
+                      >
+                        <TableCell className="font-mono text-sm">
+                          {group.isGroup ? (
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-100 px-2 py-1 rounded">
+                                GROUP: {group.groupKey}
+                              </span>
+                              <span className="text-sm text-muted-foreground">
+                                ({group.items.length} items)
+                              </span>
+                            </div>
+                          ) : (
+                            group.items[0].id.slice(-8).toUpperCase()
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center">
+                            <User className="h-4 w-4 mr-2 text-gray-400" />
+                            {group.customer.name}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          {group.isGroup ? (
+                            <div className="text-sm text-muted-foreground">
+                              Multiple products
+                            </div>
+                          ) : (
+                            <div className="flex items-center">
+                              <Package className="h-4 w-4 mr-2 text-gray-400" />
+                              {group.items[0].product.name}
+                            </div>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          {group.isGroup ? (
+                            <div className="text-sm text-muted-foreground">
+                              Combined
+                            </div>
+                          ) : (
+                            group.items[0].quantity
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          {group.isGroup ? (
+                            <div className="text-sm text-muted-foreground">
+                              Various
+                            </div>
+                          ) : (
+                            formatCurrency(group.items[0].unitPrice)
+                          )}
+                        </TableCell>
+                        <TableCell className="text-orange-600">
+                          {group.isGroup ? (
+                            <div className="text-sm text-muted-foreground">
+                              Combined
+                            </div>
+                          ) : (
+                            formatCurrency(group.items[0].discountAmount)
+                          )}
+                        </TableCell>
+                        <TableCell className="font-medium text-blue-600">
+                          {group.isGroup ? (
+                            <div className="text-sm text-muted-foreground">
+                              Combined
+                            </div>
+                          ) : (
+                            formatCurrency((parseFloat(group.items[0].unitPrice) - parseFloat(group.items[0].discountAmount)).toString())
+                          )}
+                        </TableCell>
+                        <TableCell className="font-medium">
+                          {formatCurrency(group.totalAmount.toString())}
+                          {group.isGroup && (
+                            <div className="text-xs text-muted-foreground">
+                              Combined total
+                            </div>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          {group.isGroup ? (
+                            <div className="text-sm text-muted-foreground">
+                              Mixed statuses
+                            </div>
+                          ) : (
+                            <Badge variant="secondary" className={ORDER_STATUS_COLORS[group.status as keyof typeof ORDER_STATUS_COLORS]}>
+                              {ORDER_STATUS_LABELS[group.status as keyof typeof ORDER_STATUS_LABELS]}
+                            </Badge>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center">
+                            <Calendar className="h-4 w-4 mr-2 text-gray-400" />
+                            {new Date(group.createdAt).toLocaleDateString()}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          {!group.isGroup && (
+                            <div className="flex items-center space-x-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleEdit(group.items[0])}
+                              >
+                                <Edit className="h-4 w-4" />
                               </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                              <AlertDialogHeader>
-                                <AlertDialogTitle>Delete Order</AlertDialogTitle>
-                                <AlertDialogDescription>
-                                  Are you sure you want to delete this order? This action cannot be undone.
-                                </AlertDialogDescription>
-                              </AlertDialogHeader>
-                              <AlertDialogFooter>
-                                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                <AlertDialogAction
-                                  onClick={() => deleteOrderMutation.mutate(order.id)}
-                                  className="bg-red-600 hover:bg-red-700"
-                                >
-                                  Delete
-                                </AlertDialogAction>
-                              </AlertDialogFooter>
-                            </AlertDialogContent>
-                          </AlertDialog>
-                        </div>
-                      </TableCell>
-                    </TableRow>
+                              <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                  <Button variant="outline" size="sm">
+                                    <Trash2 className="h-4 w-4 text-red-600" />
+                                  </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                  <AlertDialogHeader>
+                                    <AlertDialogTitle>Delete Order</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                      Are you sure you want to delete this order? This action cannot be undone.
+                                    </AlertDialogDescription>
+                                  </AlertDialogHeader>
+                                  <AlertDialogFooter>
+                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                    <AlertDialogAction
+                                      onClick={() => deleteOrderMutation.mutate(group.items[0].id)}
+                                      className="bg-red-600 hover:bg-red-700"
+                                    >
+                                      Delete
+                                    </AlertDialogAction>
+                                  </AlertDialogFooter>
+                                </AlertDialogContent>
+                              </AlertDialog>
+                            </div>
+                          )}
+                        </TableCell>
+                      </TableRow>
+
+                      {/* Individual Items in Group */}
+                      {group.isGroup && group.items.map((order, index) => (
+                        <TableRow 
+                          key={`${group.id}-item-${index}`}
+                          className="bg-background border-l-4 border-l-blue-200 dark:border-l-blue-800"
+                          data-testid={`row-order-${order.id}`}
+                        >
+                          <TableCell className="font-mono text-sm pl-8">
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs text-muted-foreground">└</span>
+                              <span>{order.id.slice(-8).toUpperCase()}</span>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="text-sm text-muted-foreground">
+                              Same customer
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center text-sm">
+                              <Package className="h-4 w-4 mr-2 text-gray-400" />
+                              {order.product.name}
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-sm">{order.quantity}</TableCell>
+                          <TableCell className="text-sm">{formatCurrency(order.unitPrice)}</TableCell>
+                          <TableCell className="text-sm text-orange-600">
+                            {formatCurrency(order.discountAmount)}
+                          </TableCell>
+                          <TableCell className="text-sm text-blue-600">
+                            {formatCurrency((parseFloat(order.unitPrice) - parseFloat(order.discountAmount)).toString())}
+                          </TableCell>
+                          <TableCell className="text-sm">
+                            {formatCurrency(order.totalAmount)}
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="secondary" className={ORDER_STATUS_COLORS[order.status as keyof typeof ORDER_STATUS_COLORS]}>
+                              {ORDER_STATUS_LABELS[order.status as keyof typeof ORDER_STATUS_LABELS]}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center text-sm">
+                              <Calendar className="h-4 w-4 mr-2 text-gray-400" />
+                              {new Date(order.createdAt).toLocaleDateString()}
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center space-x-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleEdit(order)}
+                              >
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                              <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                  <Button variant="outline" size="sm">
+                                    <Trash2 className="h-4 w-4 text-red-600" />
+                                  </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                  <AlertDialogHeader>
+                                    <AlertDialogTitle>Delete Order</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                      Are you sure you want to delete this order? This action cannot be undone.
+                                    </AlertDialogDescription>
+                                  </AlertDialogHeader>
+                                  <AlertDialogFooter>
+                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                    <AlertDialogAction
+                                      onClick={() => deleteOrderMutation.mutate(order.id)}
+                                      className="bg-red-600 hover:bg-red-700"
+                                    >
+                                      Delete
+                                    </AlertDialogAction>
+                                  </AlertDialogFooter>
+                                </AlertDialogContent>
+                              </AlertDialog>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </React.Fragment>
                   ))}
                 </TableBody>
               </Table>
