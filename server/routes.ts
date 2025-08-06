@@ -355,12 +355,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         );
       }
 
-      // Check if we're only updating status (preserve invoices for status-only updates)
-      const isStatusOnlyUpdate = Object.keys(req.body).length === 2 && 
+      // Check if we're only updating status and basic fields (preserve invoices for status-only updates)
+      const statusOnlyFields = ['status', 'customerId', 'platformSource', 'notes', 'saleDate'];
+      const hasProductChanges = products && products.length > 0;
+      const hasNonStatusChanges = Object.keys(req.body).some(key => 
+        !statusOnlyFields.includes(key) && req.body[key] !== undefined
+      );
+      
+      const isStatusOnlyUpdate = !hasProductChanges && !hasNonStatusChanges && 
                                  req.body.status && 
                                  req.body.customerId === existingSale.customerId;
       
-      // Only delete invoices if we're making substantial changes (not just status)
+      // Only delete invoices if we're making substantial changes (not just status/metadata)
       let deletedInvoicesCount = 0;
       let deletedInvoiceNumbers = [];
       let shouldPreserveInvoices = isStatusOnlyUpdate;
@@ -368,6 +374,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log("Update type analysis:", {
         isStatusOnlyUpdate,
         shouldPreserveInvoices,
+        hasProductChanges,
+        hasNonStatusChanges,
+        requestBodyKeys: Object.keys(req.body),
         requestBody: req.body
       });
       
