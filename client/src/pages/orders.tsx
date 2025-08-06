@@ -65,6 +65,8 @@ export default function Orders() {
 
   const { data: orders = [], isLoading, error } = useQuery<SaleWithDetails[]>({
     queryKey: ["/api/sales"],
+    staleTime: 0, // Ensure data is always considered stale
+    gcTime: 0, // Don't cache data for long
   });
 
   // Group orders by GROUP identifier to sync with Sales Tracking module
@@ -165,8 +167,9 @@ export default function Orders() {
       await apiRequest(`/api/sales/${id}`, "DELETE");
     },
     onSuccess: () => {
-      // Invalidate all related queries to refresh the UI immediately
-      queryClient.invalidateQueries({ queryKey: ["/api/sales"] });
+      // Clear cache completely and force fresh fetch
+      queryClient.removeQueries({ queryKey: ["/api/sales"] });
+      queryClient.refetchQueries({ queryKey: ["/api/sales"] });
       queryClient.invalidateQueries({ queryKey: ["/api/products"] });
       queryClient.invalidateQueries({ queryKey: ["/api/analytics/dashboard"] });
       queryClient.invalidateQueries({ queryKey: ["/api/analytics/revenue-by-month"] });

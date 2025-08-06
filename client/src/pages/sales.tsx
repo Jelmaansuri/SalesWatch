@@ -62,6 +62,8 @@ export default function Sales() {
 
   const { data: salesData = [], isLoading, error } = useQuery<SaleWithDetails[]>({
     queryKey: ["/api/sales"],
+    staleTime: 0, // Ensure data is always considered stale
+    gcTime: 0, // Don't cache data for long
   });
 
   // Fetch invoices to check invoice status for each sale
@@ -314,7 +316,8 @@ export default function Sales() {
       return response.status === 204 ? null : response.json();
     },
     onSuccess: (data, variables, context: any) => {
-      // Force immediate refetch to get fresh data and prevent duplicates
+      // Clear cache completely and force fresh fetch
+      queryClient.removeQueries({ queryKey: ["/api/sales"] });
       queryClient.refetchQueries({ queryKey: ["/api/sales"] });
       queryClient.invalidateQueries({ queryKey: ["/api/products"] });
       queryClient.invalidateQueries({ queryKey: ["/api/analytics/dashboard"] });

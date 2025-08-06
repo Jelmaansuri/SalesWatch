@@ -131,7 +131,8 @@ export default function AddSaleModal({ open, onOpenChange, onSaleAdded }: AddSal
       return results;
     },
     onSuccess: (result) => {
-      // Use refetch instead of invalidate to force immediate fresh data
+      // Clear cache completely and force fresh fetch to prevent duplicates
+      queryClient.removeQueries({ queryKey: ["/api/sales"] });
       queryClient.refetchQueries({ queryKey: ["/api/sales"] });
       queryClient.invalidateQueries({ queryKey: ["/api/products"] });
       queryClient.invalidateQueries({ queryKey: ["/api/analytics/dashboard"] });
