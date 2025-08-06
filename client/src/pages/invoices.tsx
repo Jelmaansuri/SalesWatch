@@ -62,47 +62,60 @@ function InvoicesContent() {
     queryKey: ["/api/sales"],
   });
 
-  // Instead of grouping invoices, show grouped sales data directly
-  // This ensures Orders module syncs with Sales Tracking module
-  const groupedSalesData = useMemo(() => {
-    if (!sales.length) {
-      return [];
+  // Group invoices by linked sales group information
+  const groupedInvoices = useMemo(() => {
+    if (!sales.length || !invoices.length) {
+      return invoices.map(invoice => ({
+        groupKey: 'ungrouped',
+        customer: invoice.customer,
+        items: [invoice],
+        totalAmount: parseFloat(invoice.totalAmount),
+        status: invoice.status,
+        invoiceDate: invoice.invoiceDate,
+        createdAt: invoice.createdAt,
+        id: invoice.id,
+        isGroup: false
+      }));
     }
 
-    // Use the same grouping logic as sales tracking
-    const groups: { [key: string]: any[] } = {};
+    const groups: { [key: string]: InvoiceWithDetails[] } = {};
     
-    sales.forEach((sale: any) => {
-      // Extract group ID from notes if it exists
-      const groupMatch = sale.notes?.match(/\[GROUP:([^\]]+)\]/);
-      const groupKey = groupMatch 
-        ? groupMatch[1] 
-        : `${sale.customerId}_${new Date(sale.createdAt).toDateString()}_${sale.id}`;
+    invoices.forEach(invoice => {
+      // Find the linked sale to get group information
+      const linkedSale = sales.find((sale: any) => sale.id === invoice.saleId);
       
-      if (!groups[groupKey]) {
-        groups[groupKey] = [];
+      if (linkedSale && linkedSale.notes) {
+        // Extract group ID from linked sale's notes if it exists
+        const groupMatch = linkedSale.notes.match(/\[GROUP:([^\]]+)\]/);
+        if (groupMatch) {
+          const groupKey = groupMatch[1];
+          if (!groups[groupKey]) {
+            groups[groupKey] = [];
+          }
+          groups[groupKey].push(invoice);
+          return;
+        }
       }
-      groups[groupKey].push(sale);
+      
+      // If no group found, create individual group
+      const individualKey = `individual_${invoice.id}`;
+      groups[individualKey] = [invoice];
     });
 
     return Object.values(groups).map(group => ({
-      groupKey: group[0].notes?.match(/\[GROUP:([^\]]+)\]/)?.[1] || 'ungrouped',
+      groupKey: group.length > 1 ? 
+        sales.find((sale: any) => sale.id === group[0].saleId)?.notes?.match(/\[GROUP:([^\]]+)\]/)?.[1] || 'ungrouped' : 
+        'ungrouped',
       customer: group[0].customer,
       items: group,
-      totalAmount: group.reduce((sum: number, sale: any) => sum + parseFloat(sale.totalAmount), 0),
-      totalProfit: group.reduce((sum: number, sale: any) => sum + parseFloat(sale.profit), 0),
-      status: group[0].status,
-      platformSource: group[0].platformSource,
-      saleDate: group[0].saleDate,
+      totalAmount: group.reduce((sum, invoice) => sum + parseFloat(invoice.totalAmount), 0),
+      status: group[0].status, // Use first invoice's status as group status
+      invoiceDate: group[0].invoiceDate,
       createdAt: group[0].createdAt,
-      id: group[0].id, // Use first sale's ID for operations
-      isGroup: group.length > 1,
-      // Find linked invoices for each sale in the group
-      invoices: group.map((sale: any) => 
-        invoices.find(invoice => invoice.saleId === sale.id)
-      ).filter(Boolean)
+      id: group[0].id, // Use first invoice's ID for operations
+      isGroup: group.length > 1
     }));
-  }, [sales, invoices]);
+  }, [invoices, sales]);
 
   // Delete invoice mutation
   const deleteInvoiceMutation = useMutation({
@@ -194,10 +207,10 @@ function InvoicesContent() {
 
   // Filter grouped invoices
   const filteredInvoices = groupedInvoices.filter((group) => {
-    const matchesSearch = group.items.some(invoice =>
-      invoice.invoiceNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      invoice.customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      invoice.customer.company?.toLowerCase().includes(searchTerm.toLowerCase())
+    const matchesSearch = searchTerm === "" || group.items.some(invoice =>
+      invoice.invoiceNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      invoice.customer?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      invoice.customer?.company?.toLowerCase().includes(searchTerm.toLowerCase())
     );
     
     const matchesStatus = statusFilter === "all" || group.items.some(invoice => invoice.status === statusFilter);
