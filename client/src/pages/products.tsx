@@ -178,14 +178,17 @@ export default function Products() {
   };
 
   const handleEditGetUploadParameters = async () => {
+    console.log("Getting upload parameters for edit...");
     setIsUploadingEditImage(true);
     try {
       const data = await apiRequest("/api/objects/upload", "POST", {});
+      console.log("Got upload URL for edit:", data.uploadURL);
       return {
         method: "PUT" as const,
         url: data.uploadURL,
       };
     } catch (error) {
+      console.error("Failed to get upload parameters for edit:", error);
       setIsUploadingEditImage(false);
       toast({
         title: "Upload Error",
@@ -536,6 +539,7 @@ export default function Products() {
                 )}
                 
                 <ObjectUploader
+                  key={`edit-uploader-${editingProduct?.id || 'new'}`}
                   maxNumberOfFiles={1}
                   maxFileSize={5242880} // 5MB
                   onGetUploadParameters={handleEditGetUploadParameters}

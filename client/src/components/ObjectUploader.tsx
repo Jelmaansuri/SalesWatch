@@ -20,6 +20,7 @@ interface ObjectUploaderProps {
   ) => void;
   buttonClassName?: string;
   children: ReactNode;
+  key?: string;
 }
 
 /**
@@ -59,8 +60,9 @@ export function ObjectUploader({
   children,
 }: ObjectUploaderProps) {
   const [showModal, setShowModal] = useState(false);
-  const [uppy] = useState(() =>
-    new Uppy({
+  const [uppy] = useState(() => {
+    const uppyInstance = new Uppy({
+      id: `uploader-${Math.random().toString(36).substr(2, 9)}`, // Unique ID
       restrictions: {
         maxNumberOfFiles,
         maxFileSize,
@@ -73,22 +75,45 @@ export function ObjectUploader({
         getUploadParameters: onGetUploadParameters,
       })
       .on("complete", (result) => {
+        console.log("Upload complete, result:", result);
         onComplete?.(result);
         setShowModal(false);
       })
-  );
+      .on("error", (error) => {
+        console.error("Upload error:", error);
+      });
+    
+    return uppyInstance;
+  });
+
+  const handleButtonClick = () => {
+    console.log("Upload button clicked, opening modal");
+    setShowModal(true);
+  };
+
+  const handleModalClose = () => {
+    console.log("Modal close requested");
+    setShowModal(false);
+  };
 
   return (
     <div>
-      <Button onClick={() => setShowModal(true)} className={buttonClassName}>
+      <Button 
+        type="button"
+        onClick={handleButtonClick} 
+        className={buttonClassName}
+        data-testid="button-upload-image"
+      >
         {children}
       </Button>
 
       <DashboardModal
         uppy={uppy}
         open={showModal}
-        onRequestClose={() => setShowModal(false)}
+        onRequestClose={handleModalClose}
         proudlyDisplayPoweredByUppy={false}
+        closeModalOnClickOutside
+        disablePageScrollWhenModalOpen={false}
       />
     </div>
   );
