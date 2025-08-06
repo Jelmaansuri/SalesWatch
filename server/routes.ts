@@ -338,7 +338,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Sale not found" });
       }
 
-      if (existingSale.userId !== userId) {
+      // Check if user has permission to edit this sale (allow shared data access)
+      const { canEditSharedData } = await import("./userWhitelist");
+      if (existingSale.userId !== userId && !canEditSharedData(userId, existingSale.userId)) {
         return res.status(403).json({ message: "Access denied" });
       }
 
@@ -564,7 +566,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Sale not found" });
       }
 
-      if (existingSale.userId !== userId) {
+      // Check if user has permission to edit this sale (allow shared data access)
+      const { canEditSharedData } = await import("./userWhitelist");
+      if (existingSale.userId !== userId && !canEditSharedData(userId, existingSale.userId)) {
         return res.status(403).json({ message: "Access denied" });
       }
 
@@ -598,6 +602,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const existingSale = await storage.getSale(req.params.id);
       if (!existingSale) {
         return res.status(404).json({ message: "Sale not found" });
+      }
+
+      // Check if user has permission to edit this sale (allow shared data access)
+      const userId = req.user?.claims?.sub;
+      const { canEditSharedData } = await import("./userWhitelist");
+      if (existingSale.userId !== userId && !canEditSharedData(userId, existingSale.userId)) {
+        return res.status(403).json({ message: "Access denied" });
       }
 
       let stockWarning = null;
@@ -703,7 +714,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
           let groupedSales = [sale];
           if (groupId) {
-            const allSales = await storage.getSalesWithDetails();
+            const allSales = await storage.getSalesWithDetails(userId);
             groupedSales = allSales.filter((s: any) => 
               s.notes?.includes(`[GROUP:${groupId}]`) && s.customerId === sale.customerId
             );

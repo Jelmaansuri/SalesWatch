@@ -13,13 +13,13 @@ export interface WhitelistConfig {
 
 // PROGENY AGROTECH whitelist configuration
 export const PROGENY_WHITELIST: WhitelistConfig = {
-  primaryUserId: "21540079", // afiqsyahmifaridun@gmail.com
+  primaryUserId: "21540079", // afiqsyahmifaridun@gmail.com (main data owner)
   authorizedUserIds: [
-    "21540079", // afiqsyahmifaridun@gmail.com
-    "45944294", // progenyagrotech@gmail.com (add the second user ID here)
+    "21540079", // afiqsyahmifaridun@gmail.com (full access)
+    "45944294", // progenyagrotech@gmail.com (full access)
   ],
   businessName: "PROGENY AGROTECH",
-  description: "Malaysian fresh young ginger farming and agriculture business"
+  description: "Malaysian fresh young ginger farming and agriculture business - both users have full edit access"
 };
 
 /**
@@ -49,4 +49,22 @@ export function canAccessSharedData(userId1: string, userId2: string): boolean {
  */
 export function getPrimaryUserId(): string {
   return PROGENY_WHITELIST.primaryUserId;
+}
+
+/**
+ * Check if user has full edit access to shared business data
+ * All whitelisted users have full CRUD access
+ */
+export function hasFullEditAccess(userId: string): boolean {
+  return PROGENY_WHITELIST.authorizedUserIds.includes(userId);
+}
+
+/**
+ * Check if user can edit/modify data created by another user
+ * Returns true for whitelisted users accessing shared business data
+ */
+export function canEditSharedData(currentUserId: string, dataOwnerId: string): boolean {
+  const authorizedUsers = getAuthorizedUserIds();
+  // Both users must be in the whitelist for shared access
+  return authorizedUsers.includes(currentUserId) && authorizedUsers.includes(dataOwnerId);
 }

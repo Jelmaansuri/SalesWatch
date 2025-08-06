@@ -26,7 +26,7 @@ export interface IStorage {
   deleteProduct(id: string): Promise<boolean>;
 
   // Sales
-  getSales(): Promise<Sale[]>;
+  getSales(userId?: string): Promise<Sale[]>;
   getSalesWithDetails(userId?: string): Promise<SaleWithDetails[]>;
   getSale(id: string): Promise<Sale | undefined>;
   getSaleWithDetails(id: string): Promise<SaleWithDetails | undefined>;
@@ -179,8 +179,18 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Sales operations
-  async getSales(): Promise<Sale[]> {
-    return await db.select().from(sales).orderBy(desc(sales.createdAt));
+  async getSales(userId?: string): Promise<Sale[]> {
+    if (userId && hasBusinessAccess(userId)) {
+      // User has whitelist access - show all sales from authorized users
+      const authorizedUsers = getAuthorizedUserIds();
+      return await db.select().from(sales).where(inArray(sales.userId, authorizedUsers)).orderBy(desc(sales.createdAt));
+    } else if (userId) {
+      // User doesn't have whitelist access - show only their own sales
+      return await db.select().from(sales).where(eq(sales.userId, userId)).orderBy(desc(sales.createdAt));
+    } else {
+      // No user filter - return all sales (for backward compatibility)
+      return await db.select().from(sales).orderBy(desc(sales.createdAt));
+    }
   }
 
   async getSalesWithDetails(userId?: string): Promise<SaleWithDetails[]> {
