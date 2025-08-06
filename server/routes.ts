@@ -355,22 +355,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
         );
       }
 
-      // Auto-delete all invoices linked to the sales group before updating
+      // Check if we're only updating status (preserve invoices for status-only updates)
+      const isStatusOnlyUpdate = Object.keys(req.body).length === 2 && 
+                                 req.body.status && 
+                                 req.body.customerId === existingSale.customerId;
+      
+      // Only delete invoices if we're making substantial changes (not just status)
       let deletedInvoicesCount = 0;
       let deletedInvoiceNumbers = [];
-      for (const sale of salesInGroup) {
-        try {
-          const relatedInvoices = await storage.getInvoicesBySaleId(sale.id);
-          for (const invoice of relatedInvoices) {
-            deletedInvoiceNumbers.push(invoice.invoiceNumber);
-            // Add the invoice number to reusable pool before deleting
-            await storage.addReusableInvoiceNumber(userId, invoice.invoiceNumber);
-            await storage.deleteInvoiceItems(invoice.id);
-            await storage.deleteInvoice(invoice.id);
-            deletedInvoicesCount++;
+      let shouldPreserveInvoices = isStatusOnlyUpdate;
+      
+      console.log("Update type analysis:", {
+        isStatusOnlyUpdate,
+        shouldPreserveInvoices,
+        requestBody: req.body
+      });
+      
+      if (!shouldPreserveInvoices) {
+        // Auto-delete all invoices linked to the sales group before updating
+        for (const sale of salesInGroup) {
+          try {
+            const relatedInvoices = await storage.getInvoicesBySaleId(sale.id);
+            for (const invoice of relatedInvoices) {
+              deletedInvoiceNumbers.push(invoice.invoiceNumber);
+              // Add the invoice number to reusable pool before deleting
+              await storage.addReusableInvoiceNumber(userId, invoice.invoiceNumber);
+              await storage.deleteInvoiceItems(invoice.id);
+              await storage.deleteInvoice(invoice.id);
+              deletedInvoicesCount++;
+            }
+          } catch (error) {
+            console.warn(`Failed to delete invoices for sale ${sale.id}:`, error);
           }
-        } catch (error) {
-          console.warn(`Failed to delete invoices for sale ${sale.id}:`, error);
         }
       }
 
@@ -478,48 +494,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         createdSales.push(newSale);
       }
 
-      // Update related invoices for all sales in the group
-      try {
-        for (const sale of createdSales) {
-          if (!sale) continue;
-          const relatedInvoices = await storage.getInvoicesBySaleId(sale.id);
-          if (relatedInvoices.length > 0) {
-            for (const invoice of relatedInvoices) {
-              // Update invoice based on all sales in the group
-              const newSubtotal = createdSales.reduce((sum, s) => s ? sum + parseFloat(s.totalAmount) : sum, 0);
-              const invoiceUpdates: any = {
-                subtotal: newSubtotal.toString(),
-                totalAmount: newSubtotal.toString(),
-              };
-              
-              if (saleDate) {
-                invoiceUpdates.invoiceDate = new Date(saleDate);
-                const newDueDate = new Date(saleDate);
-                newDueDate.setDate(newDueDate.getDate() + 30);
-                invoiceUpdates.dueDate = newDueDate;
-              }
-              
-              await storage.updateInvoice(invoice.id, invoiceUpdates);
-              
-              // Update invoice items
-              await storage.deleteInvoiceItems(invoice.id);
-              for (const groupSale of createdSales) {
-                if (!groupSale) continue;
-                const lineTotal = parseFloat(groupSale.totalAmount);
-                await storage.createInvoiceItem({
-                  invoiceId: invoice.id,
-                  productId: groupSale.productId,
-                  quantity: groupSale.quantity,
-                  unitPrice: parseFloat(groupSale.unitPrice) - parseFloat(groupSale.discountAmount || "0"),
-                  discount: parseFloat(groupSale.discountAmount || "0"),
-                  lineTotal: lineTotal,
-                });
-              }
+      // Update related invoices only if we preserved them (status-only updates)
+      if (shouldPreserveInvoices) {
+        try {
+          for (const sale of createdSales) {
+            if (!sale) continue;
+            const relatedInvoices = await storage.getInvoicesBySaleId(sale.id);
+            if (relatedInvoices.length > 0) {
+              console.log(`Preserving ${relatedInvoices.length} existing invoices for status-only update`);
+              // For status-only updates, we don't need to recalculate invoice totals
+              // since product quantities, prices, and customers haven't changed
             }
           }
+        } catch (invoiceError) {
+          console.warn("Failed to check existing invoices:", invoiceError);
         }
-      } catch (invoiceError) {
-        console.warn("Failed to update related invoices:", invoiceError);
       }
 
       // Check for low stock warnings
@@ -651,9 +640,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       console.log(`Updated sale:`, sale);
       
+      // Check if this is a status-only update to preserve invoices
+      const isStatusOnlyUpdate = Object.keys(updateData).length === 1 && updateData.status;
+      
       // Check if there are invoices linked to this sale and update them accordingly
       const relatedInvoices = await storage.getInvoicesBySaleId(req.params.id);
-      if (relatedInvoices.length > 0) {
+      if (relatedInvoices.length > 0 && !isStatusOnlyUpdate) {
         console.log(`Found ${relatedInvoices.length} related invoices to update`);
         
         for (const invoice of relatedInvoices) {
@@ -708,6 +700,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
         
         console.log(`Updated ${relatedInvoices.length} related invoices`);
+      } else if (relatedInvoices.length > 0 && isStatusOnlyUpdate) {
+        console.log(`Preserving ${relatedInvoices.length} existing invoices for status-only update`);
       }
       
       const saleWithDetails = await storage.getSaleWithDetails(sale.id);
