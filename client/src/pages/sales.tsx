@@ -67,7 +67,7 @@ export default function Sales() {
   });
 
   // Fetch invoices to check invoice status for each sale
-  const { data: invoicesData = [] } = useQuery({
+  const { data: invoicesData = [] } = useQuery<any[]>({
     queryKey: ["/api/invoices"],
   });
 
@@ -167,6 +167,7 @@ export default function Sales() {
     },
     onSuccess: (data) => {
       console.log("Status update mutation onSuccess called:", data);
+      setIsSubmitting(false);
       queryClient.invalidateQueries({ queryKey: ["/api/sales"] });
       queryClient.invalidateQueries({ queryKey: ["/api/products"] });
       queryClient.invalidateQueries({ queryKey: ["/api/analytics"] });
@@ -184,6 +185,7 @@ export default function Sales() {
     },
     onError: (error) => {
       console.error("Status update mutation onError called:", error);
+      setIsSubmitting(false);
       if (isUnauthorizedError(error)) {
         toast({
           title: "Session Expired",
@@ -223,6 +225,7 @@ export default function Sales() {
       return await apiRequest(`/api/sales/${id}/multi-product`, "PUT", data);
     },
     onSuccess: (data) => {
+      setIsSubmitting(false);
       queryClient.invalidateQueries({ queryKey: ["/api/sales"] });
       queryClient.invalidateQueries({ queryKey: ["/api/products"] });
       queryClient.invalidateQueries({ queryKey: ["/api/analytics"] });
@@ -261,6 +264,7 @@ export default function Sales() {
       }
     },
     onError: (error) => {
+      setIsSubmitting(false);
       if (isUnauthorizedError(error)) {
         toast({
           title: "Session Expired",
@@ -479,7 +483,16 @@ export default function Sales() {
     setIsEditDialogOpen(true);
   };
 
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
   const handleSubmit = async (data: FormData) => {
+    // Prevent double submission
+    if (isSubmitting) {
+      console.log("Form submission already in progress, ignoring duplicate call");
+      return;
+    }
+
+    setIsSubmitting(true);
     console.log("=== EDIT FORM SUBMITTED ===");
     console.log("Form submitted with data:", data);
     console.log("Form validation passed!");
@@ -488,6 +501,7 @@ export default function Sales() {
     
     if (!editingSale) {
       console.error("No sale being edited!");
+      setIsSubmitting(false);
       toast({
         title: "Error", 
         description: "No sale selected for editing",
@@ -502,6 +516,7 @@ export default function Sales() {
     );
     
     if (validItems.length === 0) {
+      setIsSubmitting(false);
       toast({
         title: "Missing Products",
         description: "Please add at least one valid product.",
@@ -516,6 +531,7 @@ export default function Sales() {
     for (const item of validItems) {
       const product = products.find(p => p.id === item.productId);
       if (!product) {
+        setIsSubmitting(false);
         toast({
           title: "Product Not Found",
           description: `Product not found in inventory.`,
@@ -562,6 +578,7 @@ export default function Sales() {
       // Status-only update - preserve invoices
       console.log("Detected status-only update - using preserve invoices endpoint");
       const statusUpdateData = {
+        customerId: data.customerId,
         status: data.status,
         platformSource: data.platformSource,
         notes: data.notes,
@@ -1154,8 +1171,7 @@ export default function Sales() {
                                                 errorCount++;
                                               }
                                               resolve(false); // Continue with other deletions
-                                            },
-                                            meta: { skipToast: true } // Skip individual toasts for group operations
+                                            }
                                           });
                                         });
                                       } catch (e) {
