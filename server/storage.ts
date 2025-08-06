@@ -640,27 +640,68 @@ export class DatabaseStorage implements IStorage {
     return result.rowCount! > 0;
   }
 
-  // User Settings Management
+  // User Settings Management with Shared Business Access
   async getUserSettings(userId: string): Promise<UserSettings | undefined> {
-    const [settings] = await db.select().from(userSettings).where(eq(userSettings.userId, userId));
-    return settings || undefined;
+    // Import whitelist functions
+    const { hasBusinessAccess, getPrimaryUserId } = await import("./userWhitelist");
+    
+    if (hasBusinessAccess(userId)) {
+      // For whitelisted users, get the primary user's settings as shared business settings
+      const primaryUserId = getPrimaryUserId();
+      const [settings] = await db.select().from(userSettings).where(eq(userSettings.userId, primaryUserId));
+      return settings || undefined;
+    } else {
+      // Regular users get their own settings
+      const [settings] = await db.select().from(userSettings).where(eq(userSettings.userId, userId));
+      return settings || undefined;
+    }
   }
 
   async createUserSettings(settings: InsertUserSettings): Promise<UserSettings> {
-    const [newSettings] = await db.insert(userSettings).values({
-      ...settings,
-      id: randomUUID(),
-    }).returning();
-    return newSettings;
+    // Import whitelist functions
+    const { hasBusinessAccess, getPrimaryUserId } = await import("./userWhitelist");
+    
+    if (hasBusinessAccess(settings.userId)) {
+      // For whitelisted users, create/update settings under the primary user ID
+      const primaryUserId = getPrimaryUserId();
+      const [newSettings] = await db.insert(userSettings).values({
+        ...settings,
+        userId: primaryUserId, // Always use primary user ID for shared business settings
+        id: randomUUID(),
+      }).returning();
+      return newSettings;
+    } else {
+      // Regular users create their own settings
+      const [newSettings] = await db.insert(userSettings).values({
+        ...settings,
+        id: randomUUID(),
+      }).returning();
+      return newSettings;
+    }
   }
 
   async updateUserSettings(userId: string, updates: Partial<UserSettings>): Promise<UserSettings | undefined> {
-    const [updatedSettings] = await db
-      .update(userSettings)
-      .set({ ...updates, updatedAt: new Date() })
-      .where(eq(userSettings.userId, userId))
-      .returning();
-    return updatedSettings || undefined;
+    // Import whitelist functions
+    const { hasBusinessAccess, getPrimaryUserId } = await import("./userWhitelist");
+    
+    if (hasBusinessAccess(userId)) {
+      // For whitelisted users, update the primary user's settings (shared business settings)
+      const primaryUserId = getPrimaryUserId();
+      const [updatedSettings] = await db
+        .update(userSettings)
+        .set({ ...updates, updatedAt: new Date() })
+        .where(eq(userSettings.userId, primaryUserId))
+        .returning();
+      return updatedSettings || undefined;
+    } else {
+      // Regular users update their own settings
+      const [updatedSettings] = await db
+        .update(userSettings)
+        .set({ ...updates, updatedAt: new Date() })
+        .where(eq(userSettings.userId, userId))
+        .returning();
+      return updatedSettings || undefined;
+    }
   }
 
   // Invoice Management
@@ -760,6 +801,30 @@ export class DatabaseStorage implements IStorage {
 
   async getInvoicesBySaleId(saleId: string): Promise<Invoice[]> {
     return await db.select().from(invoices).where(eq(invoices.saleId, saleId));
+  }
+
+  async getInvoicesBySaleIdAndUser(saleId: string, userId: string): Promise<Invoice[]> {
+    // Import whitelist functions for shared data access
+    const { hasBusinessAccess, getAuthorizedUserIds } = await import("./userWhitelist");
+    
+    if (hasBusinessAccess(userId)) {
+      // User has whitelist access - check invoices from all authorized users for this sale
+      const authorizedUsers = getAuthorizedUserIds();
+      return await db.select().from(invoices).where(
+        and(
+          eq(invoices.saleId, saleId),
+          inArray(invoices.userId, authorizedUsers)
+        )
+      );
+    } else {
+      // Regular user - only their own invoices
+      return await db.select().from(invoices).where(
+        and(
+          eq(invoices.saleId, saleId),
+          eq(invoices.userId, userId)
+        )
+      );
+    }
   }
 
   async getInvoicesBySaleIdAndUser(saleId: string, userId: string): Promise<Invoice[]> {
@@ -864,17 +929,21 @@ export class DatabaseStorage implements IStorage {
   }
 
   async generateInvoiceNumber(userId: string): Promise<string> {
-    // Get user settings to get prefix and next number
-    const settings = await this.getUserSettings(userId);
+    // Import whitelist functions
+    const { hasBusinessAccess, getPrimaryUserId } = await import("./userWhitelist");
+    
+    // Get settings from primary user for whitelisted users (shared business settings)
+    const settingsUserId = hasBusinessAccess(userId) ? getPrimaryUserId() : userId;
+    const settings = await this.getUserSettings(settingsUserId);
     const prefix = settings?.invoicePrefix || "INV";
     const nextNumber = settings?.nextInvoiceNumber || 1;
     
     // Generate the invoice number
     const invoiceNumber = `${prefix}-${nextNumber.toString().padStart(4, '0')}`;
     
-    // Update the next invoice number in settings
+    // Update the next invoice number in shared settings (always update primary user's settings for whitelisted users)
     if (settings) {
-      await this.updateUserSettings(userId, {
+      await this.updateUserSettings(settingsUserId, {
         nextInvoiceNumber: nextNumber + 1,
       });
     }
@@ -921,17 +990,27 @@ export class DatabaseStorage implements IStorage {
 
   // Reusable invoice numbers functionality
   async addReusableInvoiceNumber(userId: string, invoiceNumber: string): Promise<void> {
+    // Import whitelist functions
+    const { hasBusinessAccess, getPrimaryUserId } = await import("./userWhitelist");
+    
+    // Store reusable numbers under primary user for whitelisted users (shared business pool)
+    const storageUserId = hasBusinessAccess(userId) ? getPrimaryUserId() : userId;
     await db.insert(reusableInvoiceNumbers).values({
-      userId,
+      userId: storageUserId,
       invoiceNumber,
     });
   }
 
   async getNextReusableInvoiceNumber(userId: string): Promise<string | null> {
+    // Import whitelist functions
+    const { hasBusinessAccess, getPrimaryUserId } = await import("./userWhitelist");
+    
+    // Get reusable numbers from primary user for whitelisted users (shared business pool)
+    const lookupUserId = hasBusinessAccess(userId) ? getPrimaryUserId() : userId;
     const [reusableNumber] = await db
       .select()
       .from(reusableInvoiceNumbers)
-      .where(eq(reusableInvoiceNumbers.userId, userId))
+      .where(eq(reusableInvoiceNumbers.userId, lookupUserId))
       .orderBy(reusableInvoiceNumbers.createdAt)
       .limit(1);
 
@@ -945,10 +1024,15 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getReusableInvoiceNumbers(userId: string): Promise<{ invoiceNumber: string }[]> {
+    // Import whitelist functions
+    const { hasBusinessAccess, getPrimaryUserId } = await import("./userWhitelist");
+    
+    // Get reusable numbers from primary user for whitelisted users (shared business pool)
+    const lookupUserId = hasBusinessAccess(userId) ? getPrimaryUserId() : userId;
     return await db
       .select({ invoiceNumber: reusableInvoiceNumbers.invoiceNumber })
       .from(reusableInvoiceNumbers)
-      .where(eq(reusableInvoiceNumbers.userId, userId))
+      .where(eq(reusableInvoiceNumbers.userId, lookupUserId))
       .orderBy(reusableInvoiceNumbers.createdAt);
   }
 

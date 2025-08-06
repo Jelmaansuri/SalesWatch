@@ -1122,24 +1122,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Get user settings for invoice generation or create default
       let userSettings = await storage.getUserSettings(userId);
       if (!userSettings) {
-        // Create default user settings
+        // Create default PROGENY AGROTECH business settings for whitelisted users
+        const { hasBusinessAccess } = await import("./userWhitelist");
         const defaultSettings = {
           userId,
-          businessName: "Your Business",
-          businessRegistration: "",
-          businessAddress: "Your Business Address",
-          businessPhone: "Your Phone",
-          businessEmail: "your@email.com",
-          businessWebsite: "",
+          businessName: hasBusinessAccess(userId) ? "PROGENY AGROTECH" : "Your Business",
+          businessRegistration: hasBusinessAccess(userId) ? "SSM Registration Number" : "",
+          businessAddress: hasBusinessAccess(userId) ? "Kuala Lumpur, Malaysia" : "Your Business Address",
+          businessPhone: hasBusinessAccess(userId) ? "+60XX-XXX-XXXX" : "Your Phone",
+          businessEmail: hasBusinessAccess(userId) ? "progenyagrotech@gmail.com" : "your@email.com",
+          businessWebsite: hasBusinessAccess(userId) ? "https://progenyagrotech.com" : "",
           logoUrl: "",
-          bankDetails: "",
-          invoicePrefix: "INV",
+          bankDetails: hasBusinessAccess(userId) ? "Bank Account Details for PROGENY AGROTECH" : "",
+          invoicePrefix: hasBusinessAccess(userId) ? "PROG" : "INV",
           nextInvoiceNumber: 1,
           currency: "MYR",
           taxRate: "0",
           paymentTerms: "Payment due within 30 days",
           footerText: "",
-          footerNotes: "",
+          footerNotes: hasBusinessAccess(userId) ? "Thank you for choosing PROGENY AGROTECH for your fresh ginger needs." : "",
         };
         userSettings = await storage.createUserSettings(defaultSettings);
       }
@@ -1206,24 +1207,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Get user settings for invoice generation or create default
       let userSettings = await storage.getUserSettings(userId);
       if (!userSettings) {
-        // Create default user settings
+        // Create default PROGENY AGROTECH business settings for whitelisted users
+        const { hasBusinessAccess } = await import("./userWhitelist");
         const defaultSettings = {
           userId,
-          businessName: "Your Business",
-          businessRegistration: "",
-          businessAddress: "Your Business Address",
-          businessPhone: "Your Phone",
-          businessEmail: "your@email.com",
-          businessWebsite: "",
+          businessName: hasBusinessAccess(userId) ? "PROGENY AGROTECH" : "Your Business",
+          businessRegistration: hasBusinessAccess(userId) ? "SSM Registration Number" : "",
+          businessAddress: hasBusinessAccess(userId) ? "Kuala Lumpur, Malaysia" : "Your Business Address",
+          businessPhone: hasBusinessAccess(userId) ? "+60XX-XXX-XXXX" : "Your Phone",
+          businessEmail: hasBusinessAccess(userId) ? "progenyagrotech@gmail.com" : "your@email.com",
+          businessWebsite: hasBusinessAccess(userId) ? "https://progenyagrotech.com" : "",
           logoUrl: "",
-          bankDetails: "",
-          invoicePrefix: "INV",
+          bankDetails: hasBusinessAccess(userId) ? "Bank Account Details for PROGENY AGROTECH" : "",
+          invoicePrefix: hasBusinessAccess(userId) ? "PROG" : "INV",
           nextInvoiceNumber: 1,
           currency: "MYR",
           taxRate: "0",
           paymentTerms: "Payment due within 30 days",
           footerText: "",
-          footerNotes: "",
+          footerNotes: hasBusinessAccess(userId) ? "Thank you for choosing PROGENY AGROTECH for your fresh ginger needs." : "",
         };
         userSettings = await storage.createUserSettings(defaultSettings);
       }
