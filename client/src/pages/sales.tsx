@@ -120,7 +120,7 @@ export default function Sales() {
     });
 
     return Object.values(groups).map(group => ({
-      groupKey: group[0].notes?.match(/\[GROUP:([^\]]+)\]/)?.[1] || 'ungrouped',
+      groupKey: group[0].notes?.match(/\[GROUP:([^\]]+)\]/)?.[1] || `ungrouped_${group[0].id}`,
       customer: group[0].customer,
       items: group.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()), // Sort by creation time
       totalAmount: group.reduce((sum, sale) => sum + parseFloat(sale.totalAmount), 0),
@@ -658,7 +658,12 @@ export default function Sales() {
               <DialogTitle>Edit Sale</DialogTitle>
             </DialogHeader>
             <Form {...form}>
-              <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
+              <form onSubmit={(e) => {
+                e.preventDefault();
+                if (!isSubmitting) {
+                  form.handleSubmit(handleSubmit)(e);
+                }
+              }} className="space-y-4">
                 {/* Customer Selection */}
                 <FormField
                   control={form.control}
@@ -976,20 +981,10 @@ export default function Sales() {
                   </Button>
                   <Button 
                     type="submit" 
-                    disabled={updateMultiProductSaleMutation.isPending || editProductItems.some(item => !item.productId || !item.unitPrice || parseFloat(item.unitPrice) <= 0)}
+                    disabled={isSubmitting || updateMultiProductSaleMutation.isPending || updateSaleStatusMutation.isPending || editProductItems.some(item => !item.productId || !item.unitPrice || parseFloat(item.unitPrice) <= 0)}
                     className="bg-blue-600 hover:bg-blue-700 text-white"
-                    onClick={(e) => {
-                      console.log("Update Order button clicked!");
-                      console.log("Form valid:", form.formState.isValid);
-                      console.log("Form errors:", form.formState.errors);
-                      console.log("Product items validation:", editProductItems.map(item => ({
-                        productId: !!item.productId,
-                        unitPrice: !!item.unitPrice && parseFloat(item.unitPrice) > 0,
-                        quantity: item.quantity > 0
-                      })));
-                    }}
                   >
-                    {updateMultiProductSaleMutation.isPending ? "Updating..." : "Update Order"}
+                    {(isSubmitting || updateMultiProductSaleMutation.isPending || updateSaleStatusMutation.isPending) ? "Updating..." : "Update Order"}
                   </Button>
                 </div>
               </form>
