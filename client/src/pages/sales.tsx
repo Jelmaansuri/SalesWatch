@@ -151,16 +151,7 @@ export default function Sales() {
     mutationFn: async ({ id, data }: { id: string; data: FormData }) => {
       // Use status-only endpoint to preserve invoices
       console.log("Calling status-only endpoint:", `/api/sales/${id}/status`);
-      const response = await apiRequest(`/api/sales/${id}/status`, "PUT", data);
-      console.log("Status-only response received:", response.status);
-      
-      if (!response.ok) {
-        const errorData = await response.text();
-        console.error("Status update failed:", errorData);
-        throw new Error(`Failed to update status: ${response.status} ${errorData}`);
-      }
-      
-      const result = await response.json();
+      const result = await apiRequest(`/api/sales/${id}/status`, "PUT", data);
       console.log("Status update successful:", result);
       return result;
     },
