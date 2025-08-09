@@ -624,6 +624,8 @@ function HarvestLogForm({ plot, selectedCycle, onSuccess }: {
 }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [showConfirmation, setShowConfirmation] = useState(false);
+  const [formDataToSubmit, setFormDataToSubmit] = useState<z.infer<typeof insertHarvestLogSchema> | null>(null);
   
   const form = useForm<z.infer<typeof insertHarvestLogSchema>>({
     resolver: zodResolver(insertHarvestLogSchema),
@@ -666,18 +668,22 @@ function HarvestLogForm({ plot, selectedCycle, onSuccess }: {
       return response.json();
     },
     onSuccess: () => {
-      // Invalidate all relevant queries to refresh the data
+      // Invalidate all relevant queries to refresh the data automatically
       queryClient.invalidateQueries({ queryKey: ["/api/plots"] });
       queryClient.invalidateQueries({ queryKey: ["/api/harvest-logs"] });
       queryClient.invalidateQueries({ queryKey: [`/api/harvest-logs/plot/${plot.id}/cycle`] });
       queryClient.invalidateQueries({ queryKey: [`/api/harvest-logs/${plot.id}`] });
+      queryClient.invalidateQueries({ queryKey: ["/api/analytics/dashboard"] });
       
       toast({
-        title: "Harvest Event Recorded",
-        description: `Harvest event for Cycle ${selectedCycle} recorded successfully with Grade A/B detailed tracking.`,
-        duration: 3000, // Auto-dismiss after 3 seconds
+        title: "Harvest Event Recorded Successfully!",
+        description: `Harvest data has been saved for ${plot.name} - Cycle ${selectedCycle}. All displays will automatically update with the latest information.`,
+        duration: 4000,
       });
+      
       form.reset(); // Reset the form after successful submission
+      setShowConfirmation(false); // Close confirmation dialog
+      setFormDataToSubmit(null);
       onSuccess();
     },
     onError: () => {
@@ -685,32 +691,48 @@ function HarvestLogForm({ plot, selectedCycle, onSuccess }: {
         title: "Error", 
         description: "Failed to record harvest log",
         variant: "destructive",
-        duration: 5000, // Keep error messages visible longer
+        duration: 5000,
       });
+      setShowConfirmation(false);
+      setFormDataToSubmit(null);
     },
   });
 
   const onSubmit = (data: z.infer<typeof insertHarvestLogSchema>) => {
-    mutation.mutate(data);
+    // Show confirmation dialog with the data
+    setFormDataToSubmit(data);
+    setShowConfirmation(true);
+  };
+
+  const handleConfirmSubmit = () => {
+    if (formDataToSubmit) {
+      mutation.mutate(formDataToSubmit);
+    }
+  };
+
+  const handleCancelSubmit = () => {
+    setShowConfirmation(false);
+    setFormDataToSubmit(null);
   };
 
   return (
-    <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-        <div className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-          Recording harvest for <strong>{plot.name}</strong> - Cycle {selectedCycle}
-        </div>
+    <>
+      <Form {...form}>
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+          <div className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+            Recording harvest for <strong>{plot.name}</strong> - Cycle {selectedCycle}
+          </div>
 
-        <FormField
-          control={form.control}
-          name="harvestDate"
-          render={({ field }) => (
-            <FormItem className="flex flex-col">
-              <FormLabel>Harvest Date</FormLabel>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <FormControl>
-                    <Button
+          <FormField
+            control={form.control}
+            name="harvestDate"
+            render={({ field }) => (
+              <FormItem className="flex flex-col">
+                <FormLabel>Harvest Date</FormLabel>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <FormControl>
+                      <Button
                       variant="outline"
                       className={cn(
                         "w-full pl-3 text-left font-normal",
@@ -886,6 +908,68 @@ function HarvestLogForm({ plot, selectedCycle, onSuccess }: {
         </DialogFooter>
       </form>
     </Form>
+
+    {/* Confirmation Dialog */}
+    <Dialog open={showConfirmation} onOpenChange={setShowConfirmation}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <AlertTriangle className="h-5 w-5 text-amber-500" />
+            Confirm Harvest Recording
+          </DialogTitle>
+          <DialogDescription>
+            Please confirm the harvest data you want to record:
+          </DialogDescription>
+        </DialogHeader>
+        
+        {formDataToSubmit && (
+          <div className="space-y-3 py-4">
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              <div>
+                <span className="font-medium">Plot:</span> {plot.name}
+              </div>
+              <div>
+                <span className="font-medium">Cycle:</span> {selectedCycle}
+              </div>
+              <div>
+                <span className="font-medium">Date:</span> {format(new Date(formDataToSubmit.harvestDate), "PPP")}
+              </div>
+              <div>
+                <span className="font-medium">Grade A:</span> {formDataToSubmit.gradeAKg} kg
+              </div>
+              <div>
+                <span className="font-medium">Grade B:</span> {formDataToSubmit.gradeBKg} kg
+              </div>
+              <div>
+                <span className="font-medium">Total Value:</span> RM {((formDataToSubmit.gradeAKg * formDataToSubmit.pricePerKgGradeA) + (formDataToSubmit.gradeBKg * formDataToSubmit.pricePerKgGradeB)).toFixed(2)}
+              </div>
+            </div>
+            
+            {formDataToSubmit.comments && (
+              <div className="text-sm">
+                <span className="font-medium">Comments:</span> {formDataToSubmit.comments}
+              </div>
+            )}
+            
+            <div className="bg-blue-50 dark:bg-blue-950 p-3 rounded-lg text-sm">
+              <p className="text-blue-800 dark:text-blue-200">
+                After recording, all harvest summaries and plot information will automatically update with the latest data.
+              </p>
+            </div>
+          </div>
+        )}
+        
+        <DialogFooter className="flex gap-2">
+          <Button variant="outline" onClick={handleCancelSubmit} disabled={mutation.isPending}>
+            Cancel
+          </Button>
+          <Button onClick={handleConfirmSubmit} disabled={mutation.isPending} className="bg-green-600 hover:bg-green-700">
+            {mutation.isPending ? "Recording..." : "Confirm & Record"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+    </>
   );
 }
 
