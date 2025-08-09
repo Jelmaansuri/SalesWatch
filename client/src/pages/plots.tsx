@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { CalendarIcon, Plus, Sprout, Clock, Target, AlertTriangle, CheckCircle, MapPin, BarChart3, Eye, Edit, Trash2, Package, RefreshCw } from "lucide-react";
+import { CalendarIcon, Plus, Sprout, Clock, Target, AlertTriangle, CheckCircle, MapPin, BarChart3, Eye, Edit, Trash2, Package, RefreshCw, TreePine, ArrowRight } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { format, addDays, differenceInDays, parseISO } from "date-fns";
@@ -62,6 +62,24 @@ const harvestSchema = z.object({
 
 type HarvestFormData = z.infer<typeof harvestSchema>;
 
+// Harvest Log Schema for new harvest logs
+const harvestLogSchema = z.object({
+  plotId: z.string(),
+  cycleNumber: z.number().min(1),
+  harvestDate: z.date(),
+  amountKg: z.number().min(0.01, "Amount must be at least 0.01 kg"),
+  notes: z.string().optional(),
+});
+
+// Next Cycle Schema
+const nextCycleSchema = z.object({
+  plantingDate: z.date(),
+  daysToMaturity: z.number().min(1),
+  daysToOpenNetting: z.number().min(1),
+  polybagCount: z.number().min(1),
+  notes: z.string().optional(),
+});
+
 interface Plot {
   id: string;
   userId: string;
@@ -96,6 +114,9 @@ function PlotCard({ plot, onEdit, onDelete, onHarvest, onNextCycle }: {
   onHarvest?: (plot: Plot) => void;
   onNextCycle?: (plot: Plot) => void;
 }) {
+  // State for selected cycle in this plot card
+  const [selectedCycle, setSelectedCycle] = useState(plot.currentCycle);
+  
   // Use centralized PROGENY AGROTECH calculation logic
   const metrics = calculatePlotMetrics(plot);
   const {
@@ -303,15 +324,24 @@ function PlotCard({ plot, onEdit, onDelete, onHarvest, onNextCycle }: {
           </div>
         )}
 
-        {/* Cycle Information - Always Show for ALL Plots */}
+        {/* Enhanced Cycle Information with Dynamic Selection */}
         <div className="border-t pt-4 mt-4">
           <div className="space-y-2 bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg border border-blue-200 dark:border-blue-800">
             <div className="flex justify-between items-center">
               <div className="flex items-center gap-2">
                 <BarChart3 className="h-4 w-4 text-blue-600" />
-                <span className="text-sm font-semibold text-blue-800 dark:text-blue-200">
-                  Cycle {plot.currentCycle}
-                </span>
+                <Select value={selectedCycle.toString()} onValueChange={(value) => setSelectedCycle(parseInt(value))}>
+                  <SelectTrigger className="w-32 h-6 bg-transparent border-blue-300 text-blue-800 dark:text-blue-200 text-sm font-semibold">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Array.from({ length: plot.currentCycle }, (_, i) => i + 1).map((cycle) => (
+                      <SelectItem key={cycle} value={cycle.toString()}>
+                        Cycle {cycle}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="flex gap-1">
                 {plot.status === "harvested" && (
@@ -358,29 +388,61 @@ function PlotCard({ plot, onEdit, onDelete, onHarvest, onNextCycle }: {
         {/* Harvest Action Buttons */}
         {(plot.status === "ready_for_harvest" || plot.status === "harvested") && (
           <div className="space-y-2 mt-4">
-            <Button 
-              size="sm" 
-              variant={plot.status === "harvested" ? "outline" : "default"}
-              className={`w-full text-xs ${plot.status === "harvested" ? "border-green-600 text-green-600 hover:bg-green-50" : "bg-green-600 hover:bg-green-700"}`}
-              onClick={() => onHarvest?.(plot)}
-              data-testid={`button-harvest-${plot.id}`}
-            >
-              <Package className="h-3 w-3 mr-1" />
-              {plot.status === "harvested" ? "Update Harvest" : "Record Harvest"}
-            </Button>
+            <Dialog>
+              <DialogTrigger asChild>
+                <Button 
+                  size="sm" 
+                  variant={plot.status === "harvested" ? "outline" : "default"}
+                  className={`w-full text-xs ${plot.status === "harvested" ? "border-green-600 text-green-600 hover:bg-green-50" : "bg-green-600 hover:bg-green-700"}`}
+                  data-testid={`button-harvest-${plot.id}`}
+                >
+                  <Package className="h-3 w-3 mr-1" />
+                  {plot.status === "harvested" ? "Update Harvest" : "Record Harvest"}
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-md">
+                <DialogHeader>
+                  <DialogTitle>Record Harvest for {plot.name}</DialogTitle>
+                </DialogHeader>
+                <HarvestLogForm 
+                  plot={plot} 
+                  selectedCycle={selectedCycle}
+                  onSuccess={() => {
+                    // Refresh data and close modal
+                    window.location.reload();
+                  }}
+                />
+              </DialogContent>
+            </Dialog>
             
             {/* Proceed to Next Cycle Button - For all harvested plots (can convert to multi-cycle) */}
             {plot.status === "harvested" && (
-              <Button 
-                size="sm" 
-                variant="secondary"
-                className="w-full text-xs bg-blue-600 hover:bg-blue-700 text-white"
-                onClick={() => onNextCycle?.(plot)}
-                data-testid={`button-next-cycle-${plot.id}`}
-              >
-                <RefreshCw className="h-3 w-3 mr-1" />
-                Proceed to Next Cycle ({plot.currentCycle + 1})
-              </Button>
+              <Dialog>
+                <DialogTrigger asChild>
+                  <Button 
+                    size="sm" 
+                    variant="secondary"
+                    className="w-full text-xs bg-blue-600 hover:bg-blue-700 text-white"
+                    data-testid={`button-next-cycle-${plot.id}`}
+                  >
+                    <RefreshCw className="h-3 w-3 mr-1" />
+                    Proceed to Next Cycle ({plot.currentCycle + 1})
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-md">
+                  <DialogHeader>
+                    <DialogTitle>Start Next Cycle for {plot.name}</DialogTitle>
+                  </DialogHeader>
+                  <NextCycleForm 
+                    plot={plot} 
+                    nextCycle={plot.currentCycle + 1}
+                    onSuccess={() => {
+                      // Refresh data and close modal
+                      window.location.reload();
+                    }}
+                  />
+                </DialogContent>
+              </Dialog>
             )}
           </div>
         )}
@@ -402,6 +464,340 @@ function PlotCard({ plot, onEdit, onDelete, onHarvest, onNextCycle }: {
         )}
       </CardContent>
     </Card>
+  );
+}
+
+// HarvestLogForm Component
+function HarvestLogForm({ plot, selectedCycle, onSuccess }: {
+  plot: Plot;
+  selectedCycle: number;
+  onSuccess: () => void;
+}) {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  
+  const form = useForm<z.infer<typeof harvestLogSchema>>({
+    resolver: zodResolver(harvestLogSchema),
+    defaultValues: {
+      plotId: plot.id,
+      cycleNumber: selectedCycle,
+      harvestDate: new Date(),
+      amountKg: 0,
+      notes: "",
+    },
+  });
+
+  const mutation = useMutation({
+    mutationFn: async (data: z.infer<typeof harvestLogSchema>) => {
+      const response = await fetch("/api/harvest-logs", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      if (!response.ok) throw new Error("Failed to record harvest log");
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/plots"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/harvest-logs"] });
+      toast({
+        title: "Harvest Recorded",
+        description: `Harvest log for Cycle ${selectedCycle} recorded successfully`,
+      });
+      onSuccess();
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to record harvest log",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const onSubmit = (data: z.infer<typeof harvestLogSchema>) => {
+    mutation.mutate(data);
+  };
+
+  return (
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+        <div className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+          Recording harvest for <strong>{plot.name}</strong> - Cycle {selectedCycle}
+        </div>
+
+        <FormField
+          control={form.control}
+          name="harvestDate"
+          render={({ field }) => (
+            <FormItem className="flex flex-col">
+              <FormLabel>Harvest Date</FormLabel>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <FormControl>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        "w-full pl-3 text-left font-normal",
+                        !field.value && "text-muted-foreground"
+                      )}
+                    >
+                      {field.value ? format(field.value, "PPP") : <span>Pick a date</span>}
+                      <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                    </Button>
+                  </FormControl>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={field.value}
+                    onSelect={field.onChange}
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="amountKg"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Harvest Amount (kg)</FormLabel>
+              <FormControl>
+                <Input
+                  type="number"
+                  step="0.01"
+                  placeholder="0.00"
+                  {...field}
+                  onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="notes"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Notes (Optional)</FormLabel>
+              <FormControl>
+                <Textarea
+                  placeholder="Any additional notes about this harvest..."
+                  {...field}
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <DialogFooter>
+          <Button type="submit" disabled={mutation.isPending}>
+            {mutation.isPending ? "Recording..." : "Record Harvest"}
+          </Button>
+        </DialogFooter>
+      </form>
+    </Form>
+  );
+}
+
+// NextCycleForm Component
+function NextCycleForm({ plot, nextCycle, onSuccess }: {
+  plot: Plot;
+  nextCycle: number;
+  onSuccess: () => void;
+}) {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  
+  const form = useForm<z.infer<typeof nextCycleSchema>>({
+    resolver: zodResolver(nextCycleSchema),
+    defaultValues: {
+      plantingDate: addDays(new Date(), 30), // 30 days from now
+      daysToMaturity: plot.daysToMaturity,
+      daysToOpenNetting: plot.daysToOpenNetting,
+      polybagCount: plot.polybagCount,
+      notes: "",
+    },
+  });
+
+  const mutation = useMutation({
+    mutationFn: async (data: z.infer<typeof nextCycleSchema>) => {
+      const payload = {
+        currentCycle: nextCycle,
+        status: "plot_preparation",
+        plantingDate: data.plantingDate.toISOString(),
+        expectedHarvestDate: addDays(data.plantingDate, data.daysToMaturity).toISOString(),
+        nettingOpenDate: addDays(data.plantingDate, data.daysToOpenNetting).toISOString(),
+        daysToMaturity: data.daysToMaturity,
+        daysToOpenNetting: data.daysToOpenNetting,
+        polybagCount: data.polybagCount,
+        notes: data.notes,
+        isMultiCycle: true,
+        actualHarvestDate: null,
+        harvestAmountKg: null,
+      };
+
+      const response = await fetch(`/api/plots/${plot.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (!response.ok) throw new Error("Failed to start next cycle");
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/plots"] });
+      toast({
+        title: "Next Cycle Started",
+        description: `${plot.name} has been set up for Cycle ${nextCycle}`,
+      });
+      onSuccess();
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to start next cycle",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const onSubmit = (data: z.infer<typeof nextCycleSchema>) => {
+    mutation.mutate(data);
+  };
+
+  return (
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+        <div className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+          Setting up <strong>{plot.name}</strong> for Cycle {nextCycle}
+        </div>
+
+        <FormField
+          control={form.control}
+          name="plantingDate"
+          render={({ field }) => (
+            <FormItem className="flex flex-col">
+              <FormLabel>New Planting Date</FormLabel>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <FormControl>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        "w-full pl-3 text-left font-normal",
+                        !field.value && "text-muted-foreground"
+                      )}
+                    >
+                      {field.value ? format(field.value, "PPP") : <span>Pick a date</span>}
+                      <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                    </Button>
+                  </FormControl>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={field.value}
+                    onSelect={field.onChange}
+                    disabled={(date) => date < new Date()}
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <div className="grid grid-cols-2 gap-4">
+          <FormField
+            control={form.control}
+            name="daysToMaturity"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Days to Maturity</FormLabel>
+                <FormControl>
+                  <Input
+                    type="number"
+                    {...field}
+                    onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="daysToOpenNetting"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Days to Open Shade</FormLabel>
+                <FormControl>
+                  <Input
+                    type="number"
+                    {...field}
+                    onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
+
+        <FormField
+          control={form.control}
+          name="polybagCount"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Polybag Count</FormLabel>
+              <FormControl>
+                <Input
+                  type="number"
+                  {...field}
+                  onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="notes"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Notes for New Cycle</FormLabel>
+              <FormControl>
+                <Textarea
+                  placeholder="Any notes for this new cycle..."
+                  {...field}
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <DialogFooter>
+          <Button type="submit" disabled={mutation.isPending}>
+            <ArrowRight className="h-4 w-4 mr-2" />
+            {mutation.isPending ? "Starting..." : `Start Cycle ${nextCycle}`}
+          </Button>
+        </DialogFooter>
+      </form>
+    </Form>
   );
 }
 

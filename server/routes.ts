@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertCustomerSchema, insertProductSchema, insertSaleSchema, insertPlotSchema, insertUserSettingsSchema, insertInvoiceSchema, insertInvoiceItemSchema } from "@shared/schema";
+import { insertCustomerSchema, insertProductSchema, insertSaleSchema, insertPlotSchema, insertUserSettingsSchema, insertInvoiceSchema, insertInvoiceItemSchema, insertHarvestLogSchema } from "@shared/schema";
 import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
 import { z } from "zod";
@@ -1704,6 +1704,128 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(204).send();
     } catch (error) {
       res.status(500).json({ message: "Failed to delete plot" });
+    }
+  });
+
+  // Harvest Logs routes (protected)
+  app.get("/api/harvest-logs/:plotId", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ message: "User not authenticated" });
+      }
+      
+      const { plotId } = req.params;
+      const { cycleNumber } = req.query;
+      
+      // Check if user can access this plot's harvest logs
+      const plot = await storage.getPlot(plotId);
+      if (!plot) {
+        return res.status(404).json({ message: "Plot not found" });
+      }
+      
+      const { canViewSharedData } = await import("./userWhitelist");
+      if (!canViewSharedData(userId, plot.userId)) {
+        return res.status(403).json({ message: "Not authorized to view harvest logs for this plot" });
+      }
+      
+      const harvestLogs = await storage.getHarvestLogs(plotId, cycleNumber ? parseInt(cycleNumber as string) : undefined);
+      res.json(harvestLogs);
+    } catch (error) {
+      console.error("Error fetching harvest logs:", error);
+      res.status(500).json({ message: "Failed to fetch harvest logs" });
+    }
+  });
+
+  app.post("/api/harvest-logs", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ message: "User not authenticated" });
+      }
+      
+      const harvestLogData = { ...req.body, userId };
+      const validatedData = insertHarvestLogSchema.parse(harvestLogData);
+      
+      // Check if user can create harvest logs for this plot
+      const plot = await storage.getPlot(validatedData.plotId);
+      if (!plot) {
+        return res.status(404).json({ message: "Plot not found" });
+      }
+      
+      const { canEditSharedData } = await import("./userWhitelist");
+      if (!canEditSharedData(userId, plot.userId)) {
+        return res.status(403).json({ message: "Not authorized to create harvest logs for this plot" });
+      }
+      
+      const harvestLog = await storage.createHarvestLog(validatedData);
+      res.status(201).json(harvestLog);
+    } catch (error) {
+      console.error("Error creating harvest log:", error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Validation error", errors: error.errors });
+      }
+      res.status(500).json({ message: "Failed to create harvest log" });
+    }
+  });
+
+  app.put("/api/harvest-logs/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ message: "User not authenticated" });
+      }
+      
+      // Check if harvest log exists and user can edit it
+      const existingLog = await storage.getHarvestLogsByUserId(userId);
+      const targetLog = existingLog.find(log => log.id === req.params.id);
+      if (!targetLog) {
+        return res.status(404).json({ message: "Harvest log not found" });
+      }
+      
+      const { canEditSharedData } = await import("./userWhitelist");
+      if (!canEditSharedData(userId, targetLog.userId)) {
+        return res.status(403).json({ message: "Not authorized to edit this harvest log" });
+      }
+      
+      const updatedLog = await storage.updateHarvestLog(req.params.id, req.body);
+      if (!updatedLog) {
+        return res.status(404).json({ message: "Harvest log not found" });
+      }
+      res.json(updatedLog);
+    } catch (error) {
+      console.error("Error updating harvest log:", error);
+      res.status(500).json({ message: "Failed to update harvest log" });
+    }
+  });
+
+  app.delete("/api/harvest-logs/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ message: "User not authenticated" });
+      }
+      
+      // Check if harvest log exists and user can delete it
+      const existingLog = await storage.getHarvestLogsByUserId(userId);
+      const targetLog = existingLog.find(log => log.id === req.params.id);
+      if (!targetLog) {
+        return res.status(404).json({ message: "Harvest log not found" });
+      }
+      
+      const { canEditSharedData } = await import("./userWhitelist");
+      if (!canEditSharedData(userId, targetLog.userId)) {
+        return res.status(403).json({ message: "Not authorized to delete this harvest log" });
+      }
+      
+      const deleted = await storage.deleteHarvestLog(req.params.id);
+      if (!deleted) {
+        return res.status(404).json({ message: "Harvest log not found" });
+      }
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting harvest log:", error);
+      res.status(500).json({ message: "Failed to delete harvest log" });
     }
   });
 

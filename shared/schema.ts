@@ -141,6 +141,23 @@ export const invoices = pgTable("invoices", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+// Harvest logs table for detailed harvest tracking
+export const harvestLogs = pgTable("harvest_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  plotId: varchar("plot_id").notNull().references(() => plots.id),
+  cycleNumber: integer("cycle_number").notNull(), // Which cycle this harvest belongs to
+  harvestDate: timestamp("harvest_date").notNull(), // Tarikh
+  gradeAKg: decimal("grade_a_kg", { precision: 10, scale: 2 }).default("0.00"), // Gred A, kg
+  gradeBKg: decimal("grade_b_kg", { precision: 10, scale: 2 }).default("0.00"), // Gred B, kg
+  pricePerKg: decimal("price_per_kg", { precision: 10, scale: 2 }).default("0.00"), // Harga/kg
+  totalKg: decimal("total_kg", { precision: 10, scale: 2 }).notNull(), // Calculated: gradeAKg + gradeBKg
+  totalValue: decimal("total_value", { precision: 10, scale: 2 }).default("0.00"), // Calculated: totalKg * pricePerKg
+  comments: text("comments"), // Komen
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 // Invoice items table (multiple products per invoice)
 export const invoiceItems = pgTable("invoice_items", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -224,6 +241,25 @@ export const insertUserSettingsSchema = createInsertSchema(userSettings).omit({
   footerNotes: z.string().nullable().transform(val => val || ""),
 });
 
+// Harvest logs insert schema
+export const insertHarvestLogSchema = createInsertSchema(harvestLogs).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  totalKg: true, // Auto-calculated
+  totalValue: true, // Auto-calculated
+}).extend({
+  userId: z.string().optional(), // Allow userId to be set by server
+  harvestDate: z.union([
+    z.string().transform((val) => new Date(val)),
+    z.date()
+  ]),
+  gradeAKg: z.number().min(0, "Grade A weight must be positive").default(0),
+  gradeBKg: z.number().min(0, "Grade B weight must be positive").default(0),
+  pricePerKg: z.number().min(0, "Price per kg must be positive").default(0),
+  comments: z.string().optional(),
+});
+
 // Invoice insert schemas
 export const insertInvoiceSchema = createInsertSchema(invoices).omit({
   id: true,
@@ -282,6 +318,9 @@ export type InsertSale = z.infer<typeof insertSaleSchema>;
 
 export type Plot = typeof plots.$inferSelect;
 export type InsertPlot = z.infer<typeof insertPlotSchema>;
+
+export type HarvestLog = typeof harvestLogs.$inferSelect;
+export type InsertHarvestLog = z.infer<typeof insertHarvestLogSchema>;
 
 // Derived types for API responses
 export type SaleWithDetails = Sale & {

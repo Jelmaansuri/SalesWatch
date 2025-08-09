@@ -1,0 +1,37 @@
+Primary Directive: Your task is to implement new functionality into the existing Plot Card component. It is critical that you do not alter the current visual layout or re-arrange any existing UI elements. The final product must look identical to the provided design, but with added interactivity and data handling as described below.
+Detailed Functional Requirements:
+1. Implement Dynamic Cycle Selection
+ * Location: Find the section at the bottom of the card that displays the cycle information (currently showing "Cycle 2").
+ * Action: Replace the static text "Cycle 2" with a dynamic dropdown menu (e.g., an HTML <select> element).
+ * Functionality:
+   * This dropdown must be populated with all available cycles for that specific plot (e.g., "Cycle 2", "Cycle 1").
+   * Implement a data-binding or event handler (onChange). When the user selects a different cycle from this dropdown, all data on the entire card must instantly update to reflect the data for the selected cycle. This includes:
+     * All dates (Planted, Expected Harvest, Actual Harvest, Netting Open).
+     * All counters (DAP, WAP, Days Remaining, Days to Open Shade).
+     * The "Progress to Harvest" bar and percentage.
+     * The "This Cycle" harvest amount.
+2. Activate the "Update Harvest" Button
+ * Location: The button labeled "Update Harvest".
+ * Action: This button must be made interactive.
+ * Functionality:
+   * When clicked, it must open a modal window (pop-up) or a new view for detailed harvest logging.
+   * This logging interface must contain a form with the following input fields:
+     * Tarikh (Date)
+     * Gred A, kg (Grade A, kg)
+     * Gred B, kg (Grade B, kg)
+     * Harga/kg (Price/kg)
+     * Komen (Comment)
+   * Upon saving a log entry, the system must automatically recalculate the total harvest for the currently selected cycle and update the value shown in the "This Cycle" field on the card.
+3. Activate the "Proceed to Next Cycle" Button
+ * Location: The button labeled "Proceed to Next Cycle (3)".
+ * Action: This button must be made interactive.
+ * Functionality:
+   * When clicked, it should initiate the following workflow:
+     * Archive the currently completed cycle (e.g., "Cycle 2").
+     * Create a new, active cycle record in the database (e.g., "Cycle 3").
+     * Refresh the plot card to display this new, empty cycle, resetting all progress bars, dates, and counters to their initial state for a new planting.
+     * The cycle selection dropdown should also be updated to include the new cycle number.
+4. Ensure Correct Data Aggregation
+ * The field labeled "This Cycle" must always display the total harvest weight for the cycle currently selected in the dropdown menu.
+ * The field labeled "Total Harvested" must always display the cumulative sum of harvest weights from all completed cycles for that plot, regardless of which cycle is currently selected for viewing.
+Final Summary: The task is one of enhancement, not redesign. All existing visual components and their positions must be preserved. Your work is to wire up the controls (buttons, new dropdown) to perform the data operations as specified, making the static card a fully dynamic and interactive component.

@@ -1,7 +1,7 @@
-import { type Customer, type InsertCustomer, type Product, type InsertProduct, type Sale, type InsertSale, type SaleWithDetails, type DashboardMetrics, type User, type UpsertUser, type Plot, type InsertPlot, type UserSettings, type InsertUserSettings, type Invoice, type InsertInvoice, type InvoiceItem, type InsertInvoiceItem, type InvoiceWithDetails } from "@shared/schema";
+import { type Customer, type InsertCustomer, type Product, type InsertProduct, type Sale, type InsertSale, type SaleWithDetails, type DashboardMetrics, type User, type UpsertUser, type Plot, type InsertPlot, type UserSettings, type InsertUserSettings, type Invoice, type InsertInvoice, type InvoiceItem, type InsertInvoiceItem, type InvoiceWithDetails, type HarvestLog, type InsertHarvestLog } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { db } from "./db";
-import { customers, products, sales, users, plots, userSettings, invoices, invoiceItems, reusableInvoiceNumbers } from "@shared/schema";
+import { customers, products, sales, users, plots, userSettings, invoices, invoiceItems, reusableInvoiceNumbers, harvestLogs } from "@shared/schema";
 import { eq, desc, sql, and, inArray } from "drizzle-orm";
 import { hasBusinessAccess, getAuthorizedUserIds } from "./userWhitelist";
 
@@ -51,6 +51,14 @@ export interface IStorage {
   createPlot(plot: InsertPlot): Promise<Plot>;
   updatePlot(id: string, updates: Partial<Plot>): Promise<Plot | undefined>;
   deletePlot(id: string): Promise<boolean>;
+
+  // Harvest Logs
+  getHarvestLogs(plotId: string, cycleNumber?: number): Promise<HarvestLog[]>;
+  getHarvestLogsByPlotAndCycle(plotId: string, cycleNumber: number): Promise<HarvestLog[]>;
+  createHarvestLog(harvestLog: InsertHarvestLog): Promise<HarvestLog>;
+  updateHarvestLog(id: string, updates: Partial<HarvestLog>): Promise<HarvestLog | undefined>;
+  deleteHarvestLog(id: string): Promise<boolean>;
+  getHarvestLogsByUserId(userId: string): Promise<HarvestLog[]>;
 
   // User Settings
   getUserSettings(userId: string): Promise<UserSettings | undefined>;
@@ -1065,6 +1073,77 @@ export class DatabaseStorage implements IStorage {
 
   async clearReusableInvoiceNumbers(userId: string): Promise<void> {
     await db.delete(reusableInvoiceNumbers).where(eq(reusableInvoiceNumbers.userId, userId));
+  }
+  // Harvest Logs operations
+  async getHarvestLogs(plotId: string, cycleNumber?: number): Promise<HarvestLog[]> {
+    if (cycleNumber !== undefined) {
+      return await db.select().from(harvestLogs)
+        .where(and(eq(harvestLogs.plotId, plotId), eq(harvestLogs.cycleNumber, cycleNumber)))
+        .orderBy(desc(harvestLogs.harvestDate));
+    }
+    return await db.select().from(harvestLogs)
+      .where(eq(harvestLogs.plotId, plotId))
+      .orderBy(desc(harvestLogs.harvestDate));
+  }
+
+  async getHarvestLogsByPlotAndCycle(plotId: string, cycleNumber: number): Promise<HarvestLog[]> {
+    return await db.select().from(harvestLogs)
+      .where(and(eq(harvestLogs.plotId, plotId), eq(harvestLogs.cycleNumber, cycleNumber)))
+      .orderBy(desc(harvestLogs.harvestDate));
+  }
+
+  async createHarvestLog(harvestLogData: InsertHarvestLog): Promise<HarvestLog> {
+    // Calculate total kg and value
+    const gradeAKg = harvestLogData.gradeAKg || 0;
+    const gradeBKg = harvestLogData.gradeBKg || 0;
+    const pricePerKg = harvestLogData.pricePerKg || 0;
+    const totalKg = gradeAKg + gradeBKg;
+    const totalValue = totalKg * pricePerKg;
+
+    const [newHarvestLog] = await db.insert(harvestLogs).values({
+      id: randomUUID(),
+      userId: harvestLogData.userId,
+      plotId: harvestLogData.plotId,
+      cycleNumber: harvestLogData.cycleNumber,
+      harvestDate: harvestLogData.harvestDate,
+      gradeAKg: gradeAKg.toString(),
+      gradeBKg: gradeBKg.toString(),
+      pricePerKg: pricePerKg.toString(),
+      totalKg: totalKg.toString(),
+      totalValue: totalValue.toString(),
+      comments: harvestLogData.comments || "",
+    }).returning();
+    
+    return newHarvestLog;
+  }
+
+  async updateHarvestLog(id: string, updates: Partial<HarvestLog>): Promise<HarvestLog | undefined> {
+    const [updatedHarvestLog] = await db
+      .update(harvestLogs)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(harvestLogs.id, id))
+      .returning();
+    return updatedHarvestLog || undefined;
+  }
+
+  async deleteHarvestLog(id: string): Promise<boolean> {
+    const result = await db.delete(harvestLogs).where(eq(harvestLogs.id, id));
+    return result.rowCount > 0;
+  }
+
+  async getHarvestLogsByUserId(userId: string): Promise<HarvestLog[]> {
+    if (hasBusinessAccess(userId)) {
+      // User has whitelist access - show all harvest logs from authorized users
+      const authorizedUserIds = getAuthorizedUserIds();
+      return await db.select().from(harvestLogs)
+        .where(inArray(harvestLogs.userId, authorizedUserIds))
+        .orderBy(desc(harvestLogs.harvestDate));
+    } else {
+      // Regular user - show only their harvest logs
+      return await db.select().from(harvestLogs)
+        .where(eq(harvestLogs.userId, userId))
+        .orderBy(desc(harvestLogs.harvestDate));
+    }
   }
 }
 
