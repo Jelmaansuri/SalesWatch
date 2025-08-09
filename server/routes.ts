@@ -1697,12 +1697,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Not authorized to delete this plot" });
       }
       
+      // Check for associated harvest logs
+      const harvestLogs = await storage.getHarvestLogs(req.params.id);
+      
+      if (harvestLogs.length > 0) {
+        // Delete all harvest logs first (cascade deletion)
+        for (const harvestLog of harvestLogs) {
+          await storage.deleteHarvestLog(harvestLog.id);
+        }
+      }
+      
+      // Now delete the plot
       const deleted = await storage.deletePlot(req.params.id);
       if (!deleted) {
         return res.status(404).json({ message: "Plot not found" });
       }
       res.status(204).send();
     } catch (error) {
+      console.error("Error deleting plot:", error);
       res.status(500).json({ message: "Failed to delete plot" });
     }
   });
@@ -1793,8 +1805,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Recalculate total harvested weight for this plot
       const allHarvestLogs = await storage.getHarvestLogs(validatedData.plotId);
       const totalHarvestedWeight = allHarvestLogs.reduce((sum, log) => {
-        const weight = parseFloat(log.weightKg?.toString() || "0");
-        return sum + weight;
+        const gradeAKg = parseFloat(log.gradeAKg?.toString() || "0");
+        const gradeBKg = parseFloat(log.gradeBKg?.toString() || "0");
+        const totalWeight = gradeAKg + gradeBKg;
+        return sum + totalWeight;
       }, 0);
       
       // Update plot status to "harvesting" and update total harvested weight
@@ -1847,8 +1861,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Recalculate total harvested weight for the plot after update
       const allHarvestLogs = await storage.getHarvestLogs(targetLog.plotId);
       const totalHarvestedWeight = allHarvestLogs.reduce((sum, log) => {
-        const weight = parseFloat(log.weightKg?.toString() || "0");
-        return sum + weight;
+        const gradeAKg = parseFloat(log.gradeAKg?.toString() || "0");
+        const gradeBKg = parseFloat(log.gradeBKg?.toString() || "0");
+        const totalWeight = gradeAKg + gradeBKg;
+        return sum + totalWeight;
       }, 0);
       
       await storage.updatePlot(targetLog.plotId, { 
@@ -1891,8 +1907,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Recalculate total harvested weight for the plot after deletion
       const allHarvestLogs = await storage.getHarvestLogs(targetLog.plotId);
       const totalHarvestedWeight = allHarvestLogs.reduce((sum, log) => {
-        const weight = parseFloat(log.weightKg?.toString() || "0");
-        return sum + weight;
+        const gradeAKg = parseFloat(log.gradeAKg?.toString() || "0");
+        const gradeBKg = parseFloat(log.gradeBKg?.toString() || "0");
+        const totalWeight = gradeAKg + gradeBKg;
+        return sum + totalWeight;
       }, 0);
       
       await storage.updatePlot(targetLog.plotId, { 
@@ -1925,8 +1943,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         // Calculate total harvested weight
         const totalHarvestedWeight = allHarvestLogs.reduce((sum, log) => {
-          const weight = parseFloat(log.weightKg?.toString() || "0");
-          return sum + weight;
+          const gradeAKg = parseFloat(log.gradeAKg?.toString() || "0");
+          const gradeBKg = parseFloat(log.gradeBKg?.toString() || "0");
+          const totalWeight = gradeAKg + gradeBKg;
+          return sum + totalWeight;
         }, 0);
         
         // Update the plot with correct total
