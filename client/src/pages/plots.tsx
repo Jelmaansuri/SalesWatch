@@ -291,10 +291,19 @@ function PlotCard({ plot, onEdit, onDelete, onHarvest, onNextCycle }: {
   
   // Calculate cycle-specific metrics based on selected cycle
   const cycleSpecificMetrics = React.useMemo(() => {
-    // For cycle 1, use the original planting date
-    // For subsequent cycles, calculate based on 30-day intervals (PROGENY standard)
-    const cycleOffset = (selectedCycle - 1) * 30; // 30 days between cycles
-    const cyclePlantingDate = addDays(parseISO(plot.plantingDate), cycleOffset);
+    // For current cycle, use the actual planting date from the plot
+    // For previous cycles, calculate based on 30-day intervals (PROGENY standard)
+    let cyclePlantingDate: Date;
+    
+    if (selectedCycle === plot.currentCycle) {
+      // Use the actual planting date from the plot for the current cycle
+      cyclePlantingDate = parseISO(plot.plantingDate);
+    } else {
+      // For past cycles, calculate based on 30-day intervals from the original date
+      const cycleOffset = (selectedCycle - 1) * 30; // 30 days between cycles
+      cyclePlantingDate = addDays(parseISO(plot.plantingDate), cycleOffset);
+    }
+    
     const cycleExpectedHarvestDate = addDays(cyclePlantingDate, plot.daysToMaturity);
     const cycleNettingDate = addDays(cyclePlantingDate, plot.daysToOpenNetting);
     
