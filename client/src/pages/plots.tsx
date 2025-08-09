@@ -3232,9 +3232,45 @@ interface InteractiveHarvestTableProps {
 }
 
 function InteractiveHarvestTable({ plot, selectedCycle, harvestLogs }: InteractiveHarvestTableProps) {
-  // Calculate cycle-specific planting date (30-day intervals)
-  const cycleOffset = (selectedCycle - 1) * 30;
-  const cyclePlantingDate = addDays(parseISO(plot.plantingDate), cycleOffset);
+  // Calculate cycle-specific planting date using stored cycle history (same logic as PlotCard)
+  const cyclePlantingDate = React.useMemo(() => {
+    // Parse cycle history to get cycle-specific dates
+    let cycleHistory: Array<{cycle: number, harvest: number, plantingDate?: string, harvestDate?: string}> = [];
+    try {
+      cycleHistory = JSON.parse(plot.cycleHistory || "[]");
+    } catch (e) {
+      cycleHistory = [];
+    }
+    
+    // Find cycle-specific data
+    const cycleData = cycleHistory.find(entry => entry.cycle === selectedCycle);
+    
+    console.log(`📊 Harvest Table ${plot.name} - Cycle ${selectedCycle} date calculation:`, {
+      selectedCycle,
+      currentCycle: plot.currentCycle,
+      cycleHistory,
+      cycleData,
+      plotPlantingDate: plot.plantingDate
+    });
+    
+    if (selectedCycle === plot.currentCycle) {
+      // For current cycle, use the actual planting date from the plot
+      const date = parseISO(plot.plantingDate);
+      console.log(`✅ Harvest Table using current cycle planting date: ${date}`);
+      return date;
+    } else if (cycleData && cycleData.plantingDate) {
+      // For previous cycles, use stored cycle-specific planting date
+      const date = parseISO(cycleData.plantingDate);
+      console.log(`✅ Harvest Table using stored cycle-specific planting date: ${date}`);
+      return date;
+    } else {
+      // Fallback: calculate based on 30-day intervals from the original date
+      const cycleOffset = (selectedCycle - 1) * 30; // 30 days between cycles
+      const date = addDays(parseISO(plot.plantingDate), cycleOffset);
+      console.log(`⚠️ Harvest Table using fallback calculated date: ${date} (offset: ${cycleOffset} days)`);
+      return date;
+    }
+  }, [plot.plantingDate, plot.currentCycle, plot.cycleHistory, selectedCycle]);
   const [editingLog, setEditingLog] = useState<any>(null);
   const [showEditModal, setShowEditModal] = useState(false);
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
