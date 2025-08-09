@@ -43,7 +43,7 @@ const plotFormSchema = z.object({
   daysToMaturity: z.number().min(1, "Days to maturity must be at least 1"),
   daysToOpenNetting: z.number().min(1, "Days to open netting must be at least 1"),
   nettingOpenDate: z.date().optional(),
-  status: z.string().min(1, "Status is required"),
+  status: z.enum(["plot_preparation", "planted", "growing", "ready_for_harvest", "harvesting", "dormant"]),
   notes: z.string().optional(),
   // Cycle tracking fields
   currentCycle: z.number().min(1, "Current cycle must be at least 1").default(1),
@@ -411,9 +411,9 @@ function PlotCard({ plot, onEdit, onDelete, onHarvest, onNextCycle }: {
                 </Select>
               </div>
               <div className="flex gap-1">
-                {plot.status === "harvested" && (
+                {plot.status === "harvesting" && (
                   <Badge variant="default" className="text-xs bg-green-600 text-white">
-                    Harvested
+                    Harvesting
                   </Badge>
                 )}
                 {plot.isMultiCycle && (
@@ -427,7 +427,7 @@ function PlotCard({ plot, onEdit, onDelete, onHarvest, onNextCycle }: {
 
             
             {/* Next Planting Date for Multi-cycle */}
-            {plot.isMultiCycle && plot.status === "harvested" && (
+            {plot.isMultiCycle && plot.status === "harvesting" && (
               <div className="flex justify-between items-center text-xs">
                 <span className="text-gray-600 dark:text-gray-400">Next Planting:</span>
                 <span className="font-medium text-blue-600">30 days after harvest</span>
@@ -501,8 +501,8 @@ function PlotCard({ plot, onEdit, onDelete, onHarvest, onNextCycle }: {
           </div>
         </div>
 
-        {/* Multiple Harvest Events System - Always available for growing/ready plots */}
-        {(plot.status === "growing" || plot.status === "ready_for_harvest") && (
+        {/* Multiple Harvest Events System - Available for all plots that can have harvest events */}
+        {(plot.status === "planted" || plot.status === "growing" || plot.status === "ready_for_harvest" || plot.status === "harvesting") && (
           <div className="space-y-2 mt-4">
             <Dialog>
               <DialogTrigger asChild>
@@ -1315,7 +1315,7 @@ function PlotForm({
                         <SelectItem value="planted">Planted</SelectItem>
                         <SelectItem value="growing">Growing</SelectItem>
                         <SelectItem value="ready_for_harvest">Ready for Harvest</SelectItem>
-                        <SelectItem value="harvested">Harvested</SelectItem>
+                        <SelectItem value="harvesting">Harvesting</SelectItem>
                         <SelectItem value="dormant">Dormant</SelectItem>
                       </SelectContent>
                     </Select>
@@ -2286,7 +2286,7 @@ export default function Plots() {
   const activePlots = plots.filter((plot: Plot) => 
     ["planted", "growing", "ready_to_harvest"].includes(plot.status)
   );
-  const harvestedPlots = plots.filter((plot: Plot) => plot.status === "harvested");
+  const harvestedPlots = plots.filter((plot: Plot) => plot.status === "harvesting");
   const totalPolybags = plots.reduce((sum: number, plot: Plot) => sum + plot.polybagCount, 0);
   const totalHarvestedKg = plots.reduce((sum: number, plot: Plot) => 
     sum + parseFloat(plot.totalHarvestedKg?.toString() || "0"), 0

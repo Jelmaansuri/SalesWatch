@@ -1724,8 +1724,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Plot not found" });
       }
       
-      const { canViewSharedData } = await import("./userWhitelist");
-      if (!canViewSharedData(userId, plot.userId)) {
+      const { canEditSharedData } = await import("./userWhitelist");
+      if (!canEditSharedData(userId, plot.userId)) {
         return res.status(403).json({ message: "Not authorized to view harvest logs for this plot" });
       }
       
@@ -1753,8 +1753,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Plot not found" });
       }
       
-      const { canViewSharedData } = await import("./userWhitelist");
-      if (!canViewSharedData(userId, plot.userId)) {
+      const { canEditSharedData } = await import("./userWhitelist");
+      if (!canEditSharedData(userId, plot.userId)) {
         return res.status(403).json({ message: "Not authorized to view harvest logs for this plot" });
       }
       
@@ -1787,7 +1787,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Not authorized to create harvest logs for this plot" });
       }
       
+      // Create the harvest log
       const harvestLog = await storage.createHarvestLog(validatedData);
+      
+      // Auto-update plot status to "harvesting" when first harvest event is added
+      if (plot.status !== "harvesting") {
+        await storage.updatePlot(validatedData.plotId, { status: "harvesting" });
+      }
+      
       res.status(201).json(harvestLog);
     } catch (error) {
       console.error("Error creating harvest log:", error);

@@ -81,7 +81,7 @@ export const plots = pgTable("plots", {
   daysToMaturity: integer("days_to_maturity").notNull(), // user-defined maturity period
   daysToOpenNetting: integer("days_to_open_netting").notNull(), // days after planting to open netting
   nettingOpenDate: timestamp("netting_open_date"), // calculated: planting date + days to open netting
-  status: text("status").notNull().default("planted"), // planted, growing, ready_for_harvest, harvested, dormant
+  status: text("status").notNull().default("planted"), // plot_preparation, planted, growing, ready_for_harvest, harvesting, dormant
   notes: text("notes"),
   // Cycle tracking fields
   currentCycle: integer("current_cycle").notNull().default(1), // Current cycle number (1, 2, 3, etc.)

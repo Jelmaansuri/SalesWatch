@@ -91,7 +91,7 @@ export function calculatePlotMetrics(plot: Plot, referenceDate: Date = new Date(
   
   // Completed cycles calculation (matching dashboard logic)
   let completedCycles = 0;
-  if (plot.status === 'harvested') {
+  if (plot.status === 'harvesting') {
     completedCycles = plot.currentCycle;
   } else if (plot.currentCycle > 1) {
     // For plots in other statuses, count previously completed cycles
@@ -125,7 +125,7 @@ export function getStatusColor(status: string): string {
     case "planted": return "bg-green-500";
     case "growing": return "bg-blue-500";
     case "ready_for_harvest": return "bg-yellow-500";
-    case "harvested": return "bg-purple-500";
+    case "harvesting": return "bg-purple-500";
     case "dormant": return "bg-gray-500";
     default: return "bg-gray-400";
   }
@@ -140,7 +140,7 @@ export function getStatusLabel(status: string): string {
     case "planted": return "Planted";
     case "growing": return "Growing";
     case "ready_for_harvest": return "Ready for Harvest";
-    case "harvested": return "Harvested";
+    case "harvesting": return "Harvesting";
     case "dormant": return "Dormant";
     default: return status;
   }
