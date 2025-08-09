@@ -1125,7 +1125,7 @@ function NextCycleForm({ plot, nextCycle, onSuccess }: {
   const form = useForm<z.infer<typeof nextCycleSchema>>({
     resolver: zodResolver(nextCycleSchema),
     defaultValues: {
-      plantingDate: addDays(new Date(), 30), // 30 days from now
+      plantingDate: new Date(), // Default to today, user can select any date
       daysToMaturity: plot.daysToMaturity,
       daysToOpenNetting: plot.daysToOpenNetting,
       polybagCount: plot.polybagCount,
@@ -2246,7 +2246,7 @@ function NextCycleModal({
                       </PopoverContent>
                     </Popover>
                     <FormDescription>
-                      Select any date for future planning - today, tomorrow, or any future date
+                      Select any date for flexible planning - past, present, or future dates are allowed
                     </FormDescription>
                     <FormMessage />
                   </FormItem>

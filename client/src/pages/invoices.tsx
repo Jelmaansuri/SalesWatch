@@ -32,6 +32,7 @@ import MainLayout from "@/components/layout/main-layout";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { isUnauthorizedError } from "@/lib/authUtils";
+import { EnhancedDataTable, type ColumnDef, type FilterConfig } from "@/components/ui/enhanced-data-table";
 import type { InvoiceWithDetails } from "@shared/schema";
 
 export default function Invoices() {
@@ -116,6 +117,177 @@ function InvoicesContent() {
       isGroup: group.length > 1
     }));
   }, [invoices, sales]);
+
+  // Column definitions for EnhancedDataTable
+  const invoiceColumns: ColumnDef<any>[] = [
+    {
+      key: "invoiceNumber",
+      label: "Invoice #",
+      sortable: true,
+      searchable: true,
+      accessor: (item) => item.isGroup ? `GROUP: ${item.groupKey}` : item.items[0].invoiceNumber,
+      render: (value, item) => (
+        <div className="font-medium">
+          {item.isGroup ? (
+            <div className="flex items-center gap-2">
+              <span className="text-xs bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-100 px-2 py-1 rounded">
+                GROUP: {item.groupKey}
+              </span>
+              <span className="text-sm text-muted-foreground">
+                ({item.items.length} invoices)
+              </span>
+            </div>
+          ) : (
+            item.items[0].invoiceNumber
+          )}
+        </div>
+      ),
+    },
+    {
+      key: "customer",
+      label: "Customer",
+      sortable: true,
+      searchable: true,
+      accessor: (item) => item.customer.name,
+      render: (value, item) => (
+        <div>
+          <div className="font-medium">{item.customer.name}</div>
+          {item.customer.company && (
+            <div className="text-sm text-muted-foreground">{item.customer.company}</div>
+          )}
+          {item.customer.email && (
+            <div className="text-sm text-muted-foreground">{item.customer.email}</div>
+          )}
+        </div>
+      ),
+    },
+    {
+      key: "invoiceDate",
+      label: "Date",
+      sortable: true,
+      accessor: (item) => item.invoiceDate,
+      render: (value) => format(new Date(value), "dd/MM/yyyy"),
+    },
+    {
+      key: "dueDate",
+      label: "Due Date",
+      sortable: true,
+      accessor: (item) => item.items[0].dueDate,
+      render: (value) => value ? format(new Date(value), "dd/MM/yyyy") : "-",
+    },
+    {
+      key: "totalAmount",
+      label: "Amount",
+      sortable: true,
+      accessor: (item) => item.totalAmount,
+      render: (value) => (
+        <span className="font-medium text-green-600">
+          RM {value.toFixed(2)}
+        </span>
+      ),
+    },
+    {
+      key: "status",
+      label: "Status",
+      sortable: true,
+      filterable: true,
+      accessor: (item) => item.status,
+      filterOptions: [
+        { value: "draft", label: "Draft" },
+        { value: "sent", label: "Sent" },
+        { value: "paid", label: "Paid" },
+        { value: "overdue", label: "Overdue" },
+        { value: "cancelled", label: "Cancelled" },
+      ],
+      render: (value) => {
+        const statusColors = {
+          draft: "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-100",
+          sent: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-100",
+          paid: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100",
+          overdue: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-100",
+          cancelled: "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-100",
+        };
+        return (
+          <Badge className={statusColors[value as keyof typeof statusColors]}>
+            {value?.charAt(0).toUpperCase() + value?.slice(1)}
+          </Badge>
+        );
+      },
+    },
+    {
+      key: "actions",
+      label: "Actions",
+      render: (value, item) => (
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              setSelectedInvoice(item.items[0]);
+              setPreviewModalOpen(true);
+            }}
+            data-testid={`button-preview-invoice-${item.id}`}
+          >
+            <Eye className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              setSelectedInvoice(item.items[0]);
+              setEditModalOpen(true);
+            }}
+            data-testid={`button-edit-invoice-${item.id}`}
+          >
+            <Edit2 className="h-4 w-4" />
+          </Button>
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button
+                variant="outline"
+                size="sm"
+                data-testid={`button-delete-invoice-${item.id}`}
+              >
+                <Trash2 className="h-4 w-4 text-red-500" />
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Delete Invoice</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Are you sure you want to delete this invoice? This action cannot be undone.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={() => handleDelete(item.id)}
+                  className="bg-red-600 hover:bg-red-700"
+                >
+                  Delete
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </div>
+      ),
+    },
+  ];
+
+  // Filter configurations for EnhancedDataTable
+  const invoiceFilters: FilterConfig[] = [
+    {
+      key: "status",
+      label: "Status",
+      options: [
+        { value: "draft", label: "Draft" },
+        { value: "sent", label: "Sent" },
+        { value: "paid", label: "Paid" },
+        { value: "overdue", label: "Overdue" },
+        { value: "cancelled", label: "Cancelled" },
+      ],
+    },
+  ];
 
   // Delete invoice mutation
   const deleteInvoiceMutation = useMutation({
@@ -348,324 +520,17 @@ function InvoicesContent() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="flex flex-col sm:flex-row gap-4 mb-4">
-            <div className="flex-1">
-              <div className="relative">
-                <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search by invoice number, customer, or company..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
-                  data-testid="input-search-invoices"
-                />
-              </div>
-            </div>
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-[180px]" data-testid="select-status-filter">
-                <Filter className="h-4 w-4 mr-2" />
-                <SelectValue placeholder="Filter by status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Statuses</SelectItem>
-                <SelectItem value="draft">Draft</SelectItem>
-                <SelectItem value="sent">Sent</SelectItem>
-                <SelectItem value="paid">Paid</SelectItem>
-                <SelectItem value="overdue">Overdue</SelectItem>
-                <SelectItem value="cancelled">Cancelled</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+          {/* Enhanced Invoices Table */}
+          <EnhancedDataTable
+            data={groupedInvoices}
+            columns={invoiceColumns}
+            filters={invoiceFilters}
+            searchPlaceholder="Search by invoice number, customer, or company..."
+            defaultSort={{ key: "invoiceDate", direction: "desc" }}
+            isLoading={isLoading}
+            emptyMessage="No invoices found. Create your first invoice to get started!"
+          />
 
-          {/* Invoices Table */}
-          <div className="rounded-md border">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Invoice #</TableHead>
-                  <TableHead>Customer</TableHead>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Due Date</TableHead>
-                  <TableHead>Amount</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {isLoading ? (
-                  <TableRow>
-                    <TableCell colSpan={7} className="text-center py-8">
-                      Loading invoices...
-                    </TableCell>
-                  </TableRow>
-                ) : filteredInvoices.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={7} className="text-center py-8">
-                      {searchTerm || statusFilter !== "all" 
-                        ? "No invoices match your filters" 
-                        : "No invoices found. Create your first invoice to get started!"
-                      }
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  filteredInvoices.map((group) => (
-                    <React.Fragment key={group.id}>
-                      {/* Group Header Row */}
-                      <TableRow 
-                        className={`${group.isGroup ? 'bg-muted/50 hover:bg-muted/70' : ''}`}
-                        data-testid={`row-invoice-group-${group.id}`}
-                      >
-                        <TableCell className="font-medium">
-                          {group.isGroup ? (
-                            <div className="flex items-center gap-2">
-                              <span className="text-xs bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-100 px-2 py-1 rounded">
-                                GROUP: {group.groupKey}
-                              </span>
-                              <span className="text-sm text-muted-foreground">
-                                ({group.items.length} invoices)
-                              </span>
-                            </div>
-                          ) : (
-                            group.items[0].invoiceNumber
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          <div>
-                            <div className="font-medium">{group.customer.name}</div>
-                            {group.customer.company && (
-                              <div className="text-sm text-muted-foreground">
-                                {group.customer.company}
-                              </div>
-                            )}
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          {format(new Date(group.invoiceDate), "MMM dd, yyyy")}
-                        </TableCell>
-                        <TableCell>
-                          <div className={`${
-                            new Date(group.items[0].dueDate) < new Date() && group.status !== 'paid'
-                              ? 'text-destructive font-medium' 
-                              : ''
-                          }`}>
-                            {format(new Date(group.items[0].dueDate), "MMM dd, yyyy")}
-                          </div>
-                        </TableCell>
-                        <TableCell className="font-medium">
-                          RM {group.totalAmount.toFixed(2)}
-                          {group.isGroup && (
-                            <div className="text-xs text-muted-foreground">
-                              Combined total
-                            </div>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          {group.isGroup ? (
-                            <div className="text-sm text-muted-foreground">
-                              Mixed statuses
-                            </div>
-                          ) : (
-                            <Select 
-                              value={group.status} 
-                              onValueChange={(status) => handleStatusChange(group.id, status)}
-                              disabled={updateStatusMutation.isPending}
-                            >
-                              <SelectTrigger className="w-[120px]">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="draft">Draft</SelectItem>
-                                <SelectItem value="sent">Sent</SelectItem>
-                                <SelectItem value="paid">Paid</SelectItem>
-                                <SelectItem value="overdue">Overdue</SelectItem>
-                                <SelectItem value="cancelled">Cancelled</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          )}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          {!group.isGroup && (
-                            <div className="flex items-center justify-end gap-2">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handlePreview(group.items[0])}
-                                data-testid={`button-preview-${group.id}`}
-                              >
-                                <Eye className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handlePDFDownload(group.items[0])}
-                                data-testid={`button-pdf-${group.id}`}
-                              >
-                                <Download className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleEdit(group.items[0])}
-                                data-testid={`button-edit-${group.id}`}
-                              >
-                                <Edit2 className="h-4 w-4" />
-                              </Button>
-
-                              <AlertDialog>
-                                <AlertDialogTrigger asChild>
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    data-testid={`button-delete-${group.id}`}
-                                  >
-                                    <Trash2 className="h-4 w-4" />
-                                  </Button>
-                                </AlertDialogTrigger>
-                                <AlertDialogContent>
-                                  <AlertDialogHeader>
-                                    <AlertDialogTitle>Delete Invoice</AlertDialogTitle>
-                                    <AlertDialogDescription>
-                                      Are you sure you want to delete invoice {group.items[0].invoiceNumber}? 
-                                      This action cannot be undone.
-                                    </AlertDialogDescription>
-                                  </AlertDialogHeader>
-                                  <AlertDialogFooter>
-                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                    <AlertDialogAction
-                                      onClick={() => handleDelete(group.id)}
-                                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                                    >
-                                      Delete
-                                    </AlertDialogAction>
-                                  </AlertDialogFooter>
-                                </AlertDialogContent>
-                              </AlertDialog>
-                            </div>
-                          )}
-                        </TableCell>
-                      </TableRow>
-
-                      {/* Individual Items in Group */}
-                      {group.isGroup && group.items.map((invoice, index) => (
-                        <TableRow 
-                          key={`${group.id}-item-${index}`}
-                          className="bg-background border-l-4 border-l-blue-200 dark:border-l-blue-800"
-                          data-testid={`row-invoice-${invoice.id}`}
-                        >
-                          <TableCell className="pl-8">
-                            <div className="flex items-center gap-2">
-                              <span className="text-xs text-muted-foreground">└</span>
-                              <span className="font-medium">{invoice.invoiceNumber}</span>
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <div className="text-sm text-muted-foreground">
-                              Same customer
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <div className="text-sm">
-                              {format(new Date(invoice.invoiceDate), "MMM dd, yyyy")}
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <div className={`text-sm ${
-                              new Date(invoice.dueDate) < new Date() && invoice.status !== 'paid'
-                                ? 'text-destructive font-medium' 
-                                : ''
-                            }`}>
-                              {format(new Date(invoice.dueDate), "MMM dd, yyyy")}
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <div className="text-sm">
-                              RM {parseFloat(invoice.totalAmount).toFixed(2)}
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <Select 
-                              value={invoice.status} 
-                              onValueChange={(status) => handleStatusChange(invoice.id, status)}
-                              disabled={updateStatusMutation.isPending}
-                            >
-                              <SelectTrigger className="w-[120px]">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="draft">Draft</SelectItem>
-                                <SelectItem value="sent">Sent</SelectItem>
-                                <SelectItem value="paid">Paid</SelectItem>
-                                <SelectItem value="overdue">Overdue</SelectItem>
-                                <SelectItem value="cancelled">Cancelled</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </TableCell>
-                          <TableCell className="text-right">
-                            <div className="flex items-center justify-end gap-2">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handlePreview(invoice)}
-                                data-testid={`button-preview-${invoice.id}`}
-                              >
-                                <Eye className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handlePDFDownload(invoice)}
-                                data-testid={`button-pdf-${invoice.id}`}
-                              >
-                                <Download className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleEdit(invoice)}
-                                data-testid={`button-edit-${invoice.id}`}
-                              >
-                                <Edit2 className="h-4 w-4" />
-                              </Button>
-
-                              <AlertDialog>
-                                <AlertDialogTrigger asChild>
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    data-testid={`button-delete-${invoice.id}`}
-                                  >
-                                    <Trash2 className="h-4 w-4" />
-                                  </Button>
-                                </AlertDialogTrigger>
-                                <AlertDialogContent>
-                                  <AlertDialogHeader>
-                                    <AlertDialogTitle>Delete Invoice</AlertDialogTitle>
-                                    <AlertDialogDescription>
-                                      Are you sure you want to delete invoice {invoice.invoiceNumber}? 
-                                      This action cannot be undone.
-                                    </AlertDialogDescription>
-                                  </AlertDialogHeader>
-                                  <AlertDialogFooter>
-                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                    <AlertDialogAction
-                                      onClick={() => handleDelete(invoice.id)}
-                                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                                    >
-                                      Delete
-                                    </AlertDialogAction>
-                                  </AlertDialogFooter>
-                                </AlertDialogContent>
-                              </AlertDialog>
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </React.Fragment>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </div>
         </CardContent>
       </Card>
 
