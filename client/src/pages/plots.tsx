@@ -154,6 +154,41 @@ function HarvestEventDialog({ plot, selectedCycle }: {
   );
 }
 
+// NextCycleDialog Component
+function NextCycleDialog({ plot }: { plot: Plot }) {
+  const [isOpen, setIsOpen] = useState(false);
+
+  const handleSuccess = () => {
+    setIsOpen(false); // Close the dialog after successful next cycle progression
+  };
+
+  return (
+    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+      <DialogTrigger asChild>
+        <Button 
+          size="sm" 
+          variant="secondary"
+          className="w-full text-xs bg-blue-600 hover:bg-blue-700 text-white"
+          data-testid={`button-next-cycle-${plot.id}`}
+        >
+          <RefreshCw className="h-3 w-3 mr-1" />
+          Start Next Cycle ({plot.currentCycle + 1})
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>Start Next Cycle for {plot.name}</DialogTitle>
+        </DialogHeader>
+        <NextCycleForm 
+          plot={plot} 
+          nextCycle={plot.currentCycle + 1}
+          onSuccess={handleSuccess}
+        />
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function PlotCard({ plot, onEdit, onDelete, onHarvest, onNextCycle }: { 
   plot: Plot; 
   onEdit: (plot: Plot) => void; 
@@ -163,6 +198,11 @@ function PlotCard({ plot, onEdit, onDelete, onHarvest, onNextCycle }: {
 }) {
   // State for selected cycle in this plot card
   const [selectedCycle, setSelectedCycle] = useState(plot.currentCycle);
+  
+  // Auto-update selected cycle when plot's current cycle changes (after next cycle progression)
+  React.useEffect(() => {
+    setSelectedCycle(plot.currentCycle);
+  }, [plot.currentCycle]);
   
   // Query harvest logs for the selected cycle with staleTime to ensure fresh data
   const { data: cycleHarvestLogs = [] } = useQuery({
@@ -620,31 +660,7 @@ function PlotCard({ plot, onEdit, onDelete, onHarvest, onNextCycle }: {
             
             {/* Proceed to Next Cycle Button - Available when current cycle has harvest data */}
             {selectedCycle === plot.currentCycle && cycleHarvestKg > 0 && plot.isMultiCycle && (
-              <Dialog>
-                <DialogTrigger asChild>
-                  <Button 
-                    size="sm" 
-                    variant="secondary"
-                    className="w-full text-xs bg-blue-600 hover:bg-blue-700 text-white"
-                    data-testid={`button-next-cycle-${plot.id}`}
-                  >
-                    <RefreshCw className="h-3 w-3 mr-1" />
-                    Start Next Cycle ({plot.currentCycle + 1})
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="max-w-md">
-                  <DialogHeader>
-                    <DialogTitle>Start Next Cycle for {plot.name}</DialogTitle>
-                  </DialogHeader>
-                  <NextCycleForm 
-                    plot={plot} 
-                    nextCycle={plot.currentCycle + 1}
-                    onSuccess={() => {
-                      // Close modal instantly - NextCycleForm handles optimistic updates
-                    }}
-                  />
-                </DialogContent>
-              </Dialog>
+              <NextCycleDialog plot={plot} />
             )}
           </div>
         )}
