@@ -3155,7 +3155,6 @@ function InteractiveHarvestTable({ plot, selectedCycle, harvestLogs }: Interacti
             <h3 className="font-semibold text-green-800 dark:text-green-200">Cycle Information</h3>
             <p><span className="font-medium">Cycle:</span> {selectedCycle}</p>
             <p><span className="font-medium">Planting Date:</span> {plot.plantingDate ? format(new Date(plot.plantingDate), "dd/MM/yyyy") : "-"}</p>
-            <p><span className="font-medium">Status:</span> <Badge variant={getStatusColor(plot.status)}>{getStatusLabel(plot.status)}</Badge></p>
           </div>
           <div>
             <h3 className="font-semibold text-green-800 dark:text-green-200">Harvest Summary</h3>
