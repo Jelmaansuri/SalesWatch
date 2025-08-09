@@ -199,18 +199,66 @@ function InvoicesContent() {
         { value: "overdue", label: "Overdue" },
         { value: "cancelled", label: "Cancelled" },
       ],
-      render: (value) => {
-        const statusColors = {
-          draft: "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-100",
-          sent: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-100",
-          paid: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100",
-          overdue: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-100",
-          cancelled: "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-100",
+      render: (value, item) => {
+        const getVibrantInvoiceDesign = (status: string) => {
+          switch (status) {
+            case "draft":
+              return "bg-gradient-to-r from-blue-400 to-blue-600 text-white shadow-md border-0 font-medium";
+            case "sent":
+              return "bg-gradient-to-r from-indigo-500 to-purple-600 text-white shadow-md border-0 font-medium";
+            case "paid":
+              return "bg-gradient-to-r from-green-500 to-emerald-600 text-white shadow-md border-0 font-medium";
+            case "overdue":
+              return "bg-gradient-to-r from-red-500 to-rose-600 text-white shadow-md border-0 font-medium";
+            case "cancelled":
+              return "bg-gradient-to-r from-gray-500 to-slate-600 text-white shadow-md border-0 font-medium";
+            default:
+              return "bg-gradient-to-r from-cyan-500 to-teal-600 text-white shadow-md border-0 font-medium";
+          }
         };
+        
         return (
-          <Badge className={statusColors[value as keyof typeof statusColors]}>
-            {value?.charAt(0).toUpperCase() + value?.slice(1)}
-          </Badge>
+          <Select value={value} onValueChange={(newStatus) => handleInvoiceStatusChange(item.id, newStatus)}>
+            <SelectTrigger className="w-auto border-0 bg-transparent p-0 h-auto">
+              <SelectValue>
+                <div className={`${getVibrantInvoiceDesign(value)} px-2 py-1 rounded-full cursor-pointer hover:shadow-xl transition-shadow inline-flex items-center justify-center text-xs font-medium`}>
+                  {value?.charAt(0).toUpperCase() + value?.slice(1)}
+                </div>
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="draft">
+                <div className="flex items-center space-x-2">
+                  <div className="w-3 h-3 rounded-full bg-gradient-to-r from-blue-400 to-blue-600"></div>
+                  <span>Draft</span>
+                </div>
+              </SelectItem>
+              <SelectItem value="sent">
+                <div className="flex items-center space-x-2">
+                  <div className="w-3 h-3 rounded-full bg-gradient-to-r from-indigo-500 to-purple-600"></div>
+                  <span>Sent</span>
+                </div>
+              </SelectItem>
+              <SelectItem value="paid">
+                <div className="flex items-center space-x-2">
+                  <div className="w-3 h-3 rounded-full bg-gradient-to-r from-green-500 to-emerald-600"></div>
+                  <span>Paid</span>
+                </div>
+              </SelectItem>
+              <SelectItem value="overdue">
+                <div className="flex items-center space-x-2">
+                  <div className="w-3 h-3 rounded-full bg-gradient-to-r from-red-500 to-rose-600"></div>
+                  <span>Overdue</span>
+                </div>
+              </SelectItem>
+              <SelectItem value="cancelled">
+                <div className="flex items-center space-x-2">
+                  <div className="w-3 h-3 rounded-full bg-gradient-to-r from-gray-500 to-slate-600"></div>
+                  <span>Cancelled</span>
+                </div>
+              </SelectItem>
+            </SelectContent>
+          </Select>
         );
       },
     },
@@ -423,6 +471,25 @@ function InvoicesContent() {
 
   const handleDelete = (invoiceId: string) => {
     deleteInvoiceMutation.mutate(invoiceId);
+  };
+
+  // Handle invoice status change directly from table
+  const handleInvoiceStatusChange = async (invoiceId: string, newStatus: string) => {
+    try {
+      await apiRequest(`/api/invoices/${invoiceId}`, "PUT", { status: newStatus });
+      queryClient.invalidateQueries({ queryKey: ["/api/invoices"] });
+      toast({
+        title: "Invoice Status Updated",
+        description: `Invoice status updated to ${newStatus.charAt(0).toUpperCase() + newStatus.slice(1)}`,
+      });
+    } catch (error) {
+      console.error("Error updating invoice status:", error);
+      toast({
+        title: "Error",
+        description: "Failed to update invoice status",
+        variant: "destructive",
+      });
+    }
   };
 
   const handlePDFDownload = (invoice: InvoiceWithDetails) => {
