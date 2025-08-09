@@ -721,52 +721,43 @@ function HarvestLogForm({ plot, selectedCycle, onSuccess }: {
       if (!response.ok) throw new Error("Failed to record harvest log");
       return response.json();
     },
-    onSuccess: async () => {
-      // Comprehensive query invalidation and refresh strategy
+    onSuccess: async (newHarvestLog) => {
+      // Optimistic updates for instant UI response
       try {
-        // 1. Invalidate and refetch all plots data
-        await queryClient.invalidateQueries({ queryKey: ["/api/plots"] });
-        await queryClient.refetchQueries({ queryKey: ["/api/plots"] });
-        
-        // 2. Invalidate all harvest log queries for this plot
-        await queryClient.invalidateQueries({ 
-          predicate: (query) => {
-            const key = query.queryKey[0] as string;
-            return key.includes('/api/harvest-logs') && key.includes(plot.id);
-          }
+        // 1. Update harvest logs cache
+        queryClient.setQueryData([`/api/harvest-logs/${plot.id}`], (oldData: any) => {
+          return oldData ? [...oldData, newHarvestLog] : [newHarvestLog];
         });
         
-        // 3. Force refetch specific harvest queries
-        await queryClient.refetchQueries({ queryKey: [`/api/harvest-logs/${plot.id}`] });
-        await queryClient.refetchQueries({ queryKey: [`/api/harvest-logs/plot/${plot.id}/cycle/${selectedCycle}`] });
+        queryClient.setQueryData([`/api/harvest-logs/plot/${plot.id}/cycle/${selectedCycle}`], (oldData: any) => {
+          return oldData ? [...oldData, newHarvestLog] : [newHarvestLog];
+        });
         
-        // 4. Invalidate dashboard and analytics
-        await queryClient.invalidateQueries({ queryKey: ["/api/analytics/dashboard"] });
-        await queryClient.refetchQueries({ queryKey: ["/api/analytics/dashboard"] });
+        // 2. Only invalidate dashboard for accurate totals (no refetch to prevent page refresh)
+        queryClient.invalidateQueries({ queryKey: ["/api/analytics/dashboard"] });
         
-        // 5. Force remove stale data from cache and refetch
-        queryClient.removeQueries({ queryKey: [`/api/harvest-logs/plot/${plot.id}/cycle/${selectedCycle}`] });
-        await queryClient.prefetchQuery({ queryKey: [`/api/harvest-logs/plot/${plot.id}/cycle/${selectedCycle}`] });
-        
-        console.log(`✅ Successfully refreshed all data after harvest recording for ${plot.name} - Cycle ${selectedCycle}`);
+        console.log(`✅ Instantly updated UI after harvest recording for ${plot.name} - Cycle ${selectedCycle}`);
         
         toast({
-          title: "Harvest Event Recorded Successfully!",
-          description: `Harvest data has been saved for ${plot.name} - Cycle ${selectedCycle}. All displays have been updated with the latest information.`,
-          duration: 4000,
+          title: "Harvest Event Recorded!",
+          description: `Harvest data saved for ${plot.name} - Cycle ${selectedCycle}`,
+          duration: 3000,
         });
       } catch (error) {
-        console.error("Error refreshing data after harvest recording:", error);
+        console.error("Error with optimistic updates:", error);
+        // Fallback to simple invalidation without refetch
+        queryClient.invalidateQueries({ queryKey: [`/api/harvest-logs/${plot.id}`] });
+        queryClient.invalidateQueries({ queryKey: ["/api/analytics/dashboard"] });
+        
         toast({
-          title: "Data Saved - Please Refresh",
-          description: "Harvest was recorded successfully, but please refresh the page to see updated data.",
-          variant: "destructive",
-          duration: 6000,
+          title: "Harvest Recorded",
+          description: "Data saved successfully",
+          duration: 3000,
         });
       }
       
-      form.reset(); // Reset the form after successful submission
-      setShowConfirmation(false); // Close confirmation dialog
+      form.reset();
+      setShowConfirmation(false);
       setFormDataToSubmit(null);
       onSuccess();
     },
