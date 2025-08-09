@@ -640,8 +640,7 @@ function PlotCard({ plot, onEdit, onDelete, onHarvest, onNextCycle }: {
                     plot={plot} 
                     nextCycle={plot.currentCycle + 1}
                     onSuccess={() => {
-                      // Refresh data and close modal
-                      window.location.reload();
+                      // Close modal instantly - NextCycleForm handles optimistic updates
                     }}
                   />
                 </DialogContent>
@@ -756,9 +755,7 @@ function HarvestLogForm({ plot, selectedCycle, onSuccess }: {
         });
       } catch (error) {
         console.error("Error with optimistic updates:", error);
-        // Fallback to simple invalidation without refetch
-        queryClient.invalidateQueries({ queryKey: [`/api/harvest-logs/${plot.id}`] });
-        queryClient.invalidateQueries({ queryKey: ["/api/analytics/dashboard"] });
+        // No invalidation to prevent refresh - errors shouldn't trigger data refresh
         
         toast({
           title: "Harvest Recorded",
@@ -1104,8 +1101,24 @@ function NextCycleForm({ plot, nextCycle, onSuccess }: {
       if (!response.ok) throw new Error("Failed to start next cycle");
       return response.json();
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/plots"] });
+    onSuccess: (updatedPlot) => {
+      // Optimistic update for instant UI response (no invalidation to prevent refresh)
+      queryClient.setQueryData(["/api/plots"], (oldData: Plot[] | undefined) => {
+        if (!oldData) return oldData;
+        return oldData.map(plot => 
+          plot.id === updatedPlot.id ? updatedPlot : plot
+        );
+      });
+      
+      // Update dashboard metrics optimistically
+      queryClient.setQueryData(["/api/analytics/dashboard"], (oldData: any) => {
+        if (!oldData) return oldData;
+        return {
+          ...oldData,
+          completedCycles: Number(oldData.completedCycles || 0) + 1
+        };
+      });
+      
       toast({
         title: "Next Cycle Started",
         description: `${plot.name} has been set up for Cycle ${nextCycle}`,
@@ -1784,10 +1797,13 @@ function HarvestLogModal({
         title: "Success",
         description: "Harvest log updated successfully",
       });
-      queryClient.invalidateQueries({ 
-        queryKey: ['/api/harvest-logs/plot', plot.id, 'cycle', plot.currentCycle] 
+      // Optimistic update - update harvest logs cache
+      queryClient.setQueryData([`/api/harvest-logs/plot/${plot.id}/cycle/${plot.currentCycle}`], (oldData: any[]) => {
+        return oldData ? oldData.map(log => log.id === harvestLog.id ? { ...log, ...data } : log) : oldData;
       });
-      queryClient.invalidateQueries({ queryKey: ['/api/plots'] });
+      queryClient.setQueryData([`/api/harvest-logs/${plot.id}`], (oldData: any[]) => {
+        return oldData ? oldData.map(log => log.id === harvestLog.id ? { ...log, ...data } : log) : oldData;
+      });
       onSubmit();
     },
     onError: (error) => {
