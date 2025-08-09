@@ -3129,6 +3129,9 @@ interface InteractiveHarvestTableProps {
 }
 
 function InteractiveHarvestTable({ plot, selectedCycle, harvestLogs }: InteractiveHarvestTableProps) {
+  // Calculate cycle-specific planting date (30-day intervals)
+  const cycleOffset = (selectedCycle - 1) * 30;
+  const cyclePlantingDate = addDays(parseISO(plot.plantingDate), cycleOffset);
   const [editingLog, setEditingLog] = useState<any>(null);
   const [showEditModal, setShowEditModal] = useState(false);
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
@@ -3212,7 +3215,7 @@ function InteractiveHarvestTable({ plot, selectedCycle, harvestLogs }: Interacti
           <div>
             <h3 style="color: #15803d; font-size: 14px; margin: 0 0 10px 0; font-weight: bold;">Cycle Information</h3>
             <p style="margin: 3px 0; font-size: 12px;"><strong>Cycle:</strong> ${selectedCycle}</p>
-            <p style="margin: 3px 0; font-size: 12px;"><strong>Planting Date:</strong> ${plot.plantingDate ? format(new Date(plot.plantingDate), "dd/MM/yyyy") : "-"}</p>
+            <p style="margin: 3px 0; font-size: 12px;"><strong>Planting Date:</strong> ${format(cyclePlantingDate, "dd/MM/yyyy")}</p>
           </div>
           <div>
             <h3 style="color: #15803d; font-size: 14px; margin: 0 0 10px 0; font-weight: bold;">Harvest Summary</h3>
@@ -3366,7 +3369,7 @@ function InteractiveHarvestTable({ plot, selectedCycle, harvestLogs }: Interacti
           <div>
             <h3 className="font-semibold text-green-800 dark:text-green-200">Cycle Information</h3>
             <p><span className="font-medium">Cycle:</span> {selectedCycle}</p>
-            <p><span className="font-medium">Planting Date:</span> {plot.plantingDate ? format(new Date(plot.plantingDate), "dd/MM/yyyy") : "-"}</p>
+            <p><span className="font-medium">Planting Date:</span> {format(cyclePlantingDate, "dd/MM/yyyy")}</p>
           </div>
           <div>
             <h3 className="font-semibold text-green-800 dark:text-green-200">Harvest Summary</h3>
