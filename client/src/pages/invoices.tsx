@@ -600,7 +600,7 @@ function InvoicesContent() {
             columns={invoiceColumns}
             filters={invoiceFilters}
             searchPlaceholder="Search by invoice number, customer, or company..."
-            defaultSort={{ key: "createdAt", direction: "desc" }}
+            defaultSort={{ key: "invoiceNumber", direction: "desc" }}
             isLoading={isLoading}
             emptyMessage="No invoices found. Create your first invoice to get started!"
           />
