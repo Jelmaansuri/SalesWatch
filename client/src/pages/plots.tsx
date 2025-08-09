@@ -1582,6 +1582,182 @@ function PlotForm({
   );
 }
 
+// Harvest Log Modal Component (for editing individual harvest logs)
+function HarvestLogModal({ 
+  plot, 
+  harvestLog,
+  isOpen, 
+  onClose, 
+  onSubmit 
+}: { 
+  plot: any; 
+  harvestLog: any;
+  isOpen: boolean; 
+  onClose: () => void; 
+  onSubmit: () => void; 
+}) {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  const updateMutation = useMutation({
+    mutationFn: async (data: any) => {
+      const response = await fetch(`/api/harvest-logs/${harvestLog.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      if (!response.ok) throw new Error('Failed to update harvest log');
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Success",
+        description: "Harvest log updated successfully",
+      });
+      queryClient.invalidateQueries({ 
+        queryKey: ['/api/harvest-logs/plot', plot.id, 'cycle', plot.currentCycle] 
+      });
+      queryClient.invalidateQueries({ queryKey: ['/api/plots'] });
+      onSubmit();
+    },
+    onError: (error) => {
+      console.error('Error updating harvest log:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update harvest log",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const form = useForm({
+    defaultValues: {
+      harvestDate: harvestLog.harvestDate ? format(new Date(harvestLog.harvestDate), "yyyy-MM-dd") : "",
+      gradeAKg: harvestLog.gradeAKg || 0,
+      gradeBKg: harvestLog.gradeBKg || 0,
+      pricePerKgGradeA: harvestLog.pricePerKgGradeA || harvestLog.priceGradeA || 0,
+      pricePerKgGradeB: harvestLog.pricePerKgGradeB || harvestLog.priceGradeB || 0,
+      comments: harvestLog.comments || "",
+    },
+  });
+
+  const handleSubmit = (data: any) => {
+    updateMutation.mutate({
+      ...data,
+      harvestDate: new Date(data.harvestDate).toISOString(),
+      gradeAKg: Number(data.gradeAKg) || 0,
+      gradeBKg: Number(data.gradeBKg) || 0,
+      pricePerKgGradeA: Number(data.pricePerKgGradeA) || 0,
+      pricePerKgGradeB: Number(data.pricePerKgGradeB) || 0,
+    });
+  };
+
+  return (
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="sm:max-w-[600px]">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Edit className="h-5 w-5 text-green-600" />
+            Edit Harvest Log - {plot.name}
+          </DialogTitle>
+          <DialogDescription>
+            Update the harvest details for this entry
+          </DialogDescription>
+        </DialogHeader>
+
+        <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
+          {/* Date */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="text-sm font-medium">Harvest Date</label>
+              <input
+                type="date"
+                {...form.register("harvestDate")}
+                className="w-full mt-1 px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                data-testid="input-edit-harvest-date"
+              />
+            </div>
+          </div>
+
+          {/* Quantities */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="text-sm font-medium">Grade A Weight (kg)</label>
+              <input
+                type="number"
+                step="0.1"
+                {...form.register("gradeAKg", { valueAsNumber: true })}
+                className="w-full mt-1 px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                data-testid="input-edit-grade-a-kg"
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium">Grade B Weight (kg)</label>
+              <input
+                type="number"
+                step="0.1"
+                {...form.register("gradeBKg", { valueAsNumber: true })}
+                className="w-full mt-1 px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                data-testid="input-edit-grade-b-kg"
+              />
+            </div>
+          </div>
+
+          {/* Prices */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="text-sm font-medium">Grade A Price (RM/kg)</label>
+              <input
+                type="number"
+                step="0.01"
+                {...form.register("pricePerKgGradeA", { valueAsNumber: true })}
+                className="w-full mt-1 px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                data-testid="input-edit-price-grade-a"
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium">Grade B Price (RM/kg)</label>
+              <input
+                type="number"
+                step="0.01"
+                {...form.register("pricePerKgGradeB", { valueAsNumber: true })}
+                className="w-full mt-1 px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                data-testid="input-edit-price-grade-b"
+              />
+            </div>
+          </div>
+
+          {/* Comments */}
+          <div>
+            <label className="text-sm font-medium">Comments</label>
+            <textarea
+              {...form.register("comments")}
+              rows={3}
+              className="w-full mt-1 px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-green-500 focus:border-green-500"
+              placeholder="Any comments about this harvest..."
+              data-testid="textarea-edit-comments"
+            />
+          </div>
+
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={onClose}>
+              Cancel
+            </Button>
+            <Button 
+              type="submit" 
+              disabled={updateMutation.isPending}
+              className="bg-green-600 hover:bg-green-700"
+              data-testid="button-update-harvest-log"
+            >
+              {updateMutation.isPending ? "Updating..." : "Update Harvest Log"}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 // Harvest Modal Component
 function HarvestModal({ 
   plot, 
@@ -2622,13 +2798,214 @@ function HarvestReportsContent({ plots }: HarvestReportsContentProps) {
               </p>
             </div>
           ) : (
-            <HarvestSummaryTable 
+            <InteractiveHarvestTable 
               plot={selectedPlot} 
               selectedCycle={selectedCycle} 
               harvestLogs={harvestLogs} 
             />
           )}
         </Card>
+      )}
+    </div>
+  );
+}
+
+// Interactive Harvest Table Component
+interface InteractiveHarvestTableProps {
+  plot: any;
+  selectedCycle: number;
+  harvestLogs: any[];
+}
+
+function InteractiveHarvestTable({ plot, selectedCycle, harvestLogs }: InteractiveHarvestTableProps) {
+  const [editingLog, setEditingLog] = useState<any>(null);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  // Sort harvest logs by date
+  const sortedLogs = harvestLogs.sort((a, b) => new Date(a.harvestDate).getTime() - new Date(b.harvestDate).getTime());
+
+  // Calculate totals
+  const totalGradeA = sortedLogs.reduce((sum, log) => sum + Number(log.gradeAKg || 0), 0);
+  const totalGradeB = sortedLogs.reduce((sum, log) => sum + Number(log.gradeBKg || 0), 0);
+  const totalValueGradeA = sortedLogs.reduce((sum, log) => sum + (Number(log.gradeAKg || 0) * Number(log.pricePerKgGradeA || log.priceGradeA || 0)), 0);
+  const totalValueGradeB = sortedLogs.reduce((sum, log) => sum + (Number(log.gradeBKg || 0) * Number(log.pricePerKgGradeB || log.priceGradeB || 0)), 0);
+  const grandTotal = totalValueGradeA + totalValueGradeB;
+
+  const handleEdit = (log: any) => {
+    setEditingLog(log);
+    setShowEditModal(true);
+  };
+
+  const handleDelete = async (logId: string) => {
+    if (!confirm('Are you sure you want to delete this harvest log?')) return;
+
+    try {
+      const response = await fetch(`/api/harvest-logs/${logId}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) throw new Error('Failed to delete harvest log');
+
+      toast({
+        title: "Success",
+        description: "Harvest log deleted successfully",
+      });
+
+      // Invalidate queries to refresh data
+      queryClient.invalidateQueries({ 
+        queryKey: ['/api/harvest-logs/plot', plot.id, 'cycle', selectedCycle] 
+      });
+      queryClient.invalidateQueries({ queryKey: ['/api/plots'] });
+    } catch (error) {
+      console.error('Error deleting harvest log:', error);
+      toast({
+        title: "Error",
+        description: "Failed to delete harvest log",
+        variant: "destructive",
+      });
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Plot Summary Header */}
+      <div className="bg-green-50 dark:bg-green-900/20 p-4 rounded-lg">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+          <div>
+            <h3 className="font-semibold text-green-800 dark:text-green-200">Plot Information</h3>
+            <p><span className="font-medium">Plot:</span> {plot.name}</p>
+            <p><span className="font-medium">Location:</span> {plot.location}</p>
+            <p><span className="font-medium">Polybags:</span> {plot.polybagCount}</p>
+          </div>
+          <div>
+            <h3 className="font-semibold text-green-800 dark:text-green-200">Cycle Information</h3>
+            <p><span className="font-medium">Cycle:</span> {selectedCycle}</p>
+            <p><span className="font-medium">Planting Date:</span> {plot.plantingDate ? format(new Date(plot.plantingDate), "dd/MM/yyyy") : "-"}</p>
+            <p><span className="font-medium">Status:</span> <Badge variant={getStatusColor(plot.status)}>{getStatusLabel(plot.status)}</Badge></p>
+          </div>
+          <div>
+            <h3 className="font-semibold text-green-800 dark:text-green-200">Harvest Summary</h3>
+            <p><span className="font-medium">Total Events:</span> {sortedLogs.length}</p>
+            <p><span className="font-medium">Total Weight:</span> {(totalGradeA + totalGradeB).toFixed(1)} kg</p>
+            <p><span className="font-medium">Total Revenue:</span> RM {grandTotal.toFixed(2)}</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Interactive Table */}
+      <div className="border rounded-lg overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-gray-50 dark:bg-gray-800">
+              <tr>
+                <th className="px-4 py-3 text-left font-medium">Date</th>
+                <th className="px-4 py-3 text-center font-medium">Grade A (kg)</th>
+                <th className="px-4 py-3 text-center font-medium">Grade B (kg)</th>
+                <th className="px-4 py-3 text-center font-medium">Price A (RM/kg)</th>
+                <th className="px-4 py-3 text-center font-medium">Price B (RM/kg)</th>
+                <th className="px-4 py-3 text-center font-medium">Value A (RM)</th>
+                <th className="px-4 py-3 text-center font-medium">Value B (RM)</th>
+                <th className="px-4 py-3 text-center font-medium">Total (RM)</th>
+                <th className="px-4 py-3 text-center font-medium">Comments</th>
+                <th className="px-4 py-3 text-center font-medium">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+              {sortedLogs.map((log, index) => {
+                const gradeATotal = Number(log.gradeAKg || 0) * Number(log.pricePerKgGradeA || log.priceGradeA || 0);
+                const gradeBTotal = Number(log.gradeBKg || 0) * Number(log.pricePerKgGradeB || log.priceGradeB || 0);
+                const rowTotal = gradeATotal + gradeBTotal;
+
+                return (
+                  <tr key={log.id} className={index % 2 === 0 ? "bg-white dark:bg-gray-900" : "bg-gray-50 dark:bg-gray-800"}>
+                    <td className="px-4 py-3">
+                      {format(new Date(log.harvestDate), "dd/MM/yyyy")}
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      {log.gradeAKg > 0 ? log.gradeAKg : "-"}
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      {log.gradeBKg > 0 ? log.gradeBKg : "-"}
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      {log.gradeAKg > 0 ? `RM${Number(log.pricePerKgGradeA || log.priceGradeA || 0).toFixed(2)}` : "-"}
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      {log.gradeBKg > 0 ? `RM${Number(log.pricePerKgGradeB || log.priceGradeB || 0).toFixed(2)}` : "-"}
+                    </td>
+                    <td className="px-4 py-3 text-center font-medium">
+                      {gradeATotal > 0 ? `RM${gradeATotal.toFixed(2)}` : "-"}
+                    </td>
+                    <td className="px-4 py-3 text-center font-medium">
+                      {gradeBTotal > 0 ? `RM${gradeBTotal.toFixed(2)}` : "-"}
+                    </td>
+                    <td className="px-4 py-3 text-center font-bold text-green-600">
+                      RM{rowTotal.toFixed(2)}
+                    </td>
+                    <td className="px-4 py-3 text-center max-w-32 truncate">
+                      {log.comments || "-"}
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      <div className="flex gap-2 justify-center">
+                        <Button 
+                          size="sm" 
+                          variant="outline" 
+                          onClick={() => handleEdit(log)}
+                          data-testid={`button-edit-harvest-${log.id}`}
+                        >
+                          <Edit className="h-3 w-3" />
+                        </Button>
+                        <Button 
+                          size="sm" 
+                          variant="outline" 
+                          onClick={() => handleDelete(log.id)}
+                          data-testid={`button-delete-harvest-${log.id}`}
+                        >
+                          <Trash2 className="h-3 w-3 text-red-500" />
+                        </Button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+
+              {/* Totals Row */}
+              <tr className="bg-green-100 dark:bg-green-900 font-bold border-t-2 border-green-300">
+                <td className="px-4 py-3 text-center font-bold">TOTAL</td>
+                <td className="px-4 py-3 text-center">{totalGradeA.toFixed(1)}</td>
+                <td className="px-4 py-3 text-center">{totalGradeB.toFixed(1)}</td>
+                <td className="px-4 py-3"></td>
+                <td className="px-4 py-3"></td>
+                <td className="px-4 py-3 text-center">RM{totalValueGradeA.toFixed(2)}</td>
+                <td className="px-4 py-3 text-center">RM{totalValueGradeB.toFixed(2)}</td>
+                <td className="px-4 py-3 text-center text-lg text-green-700 dark:text-green-300">
+                  RM{grandTotal.toFixed(2)}
+                </td>
+                <td className="px-4 py-3"></td>
+                <td className="px-4 py-3"></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Edit Harvest Log Modal */}
+      {editingLog && (
+        <HarvestLogModal
+          plot={plot}
+          harvestLog={editingLog}
+          isOpen={showEditModal}
+          onClose={() => {
+            setShowEditModal(false);
+            setEditingLog(null);
+          }}
+          onSubmit={() => {
+            setShowEditModal(false);
+            setEditingLog(null);
+          }}
+        />
       )}
     </div>
   );
