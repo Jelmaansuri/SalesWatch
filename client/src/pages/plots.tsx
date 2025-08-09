@@ -303,16 +303,28 @@ function PlotCard({ plot, onEdit, onDelete, onHarvest, onNextCycle }: {
     const cycleData = cycleHistory.find(entry => entry.cycle === selectedCycle);
     let cyclePlantingDate: Date;
     
+    // Debug logging for cycle calculation
+    console.log(`🔍 Plot ${plot.name} - Cycle ${selectedCycle} calculation:`, {
+      selectedCycle,
+      currentCycle: plot.currentCycle,
+      cycleHistory,
+      cycleData,
+      plotPlantingDate: plot.plantingDate
+    });
+    
     if (selectedCycle === plot.currentCycle) {
       // For current cycle, use the actual planting date from the plot
       cyclePlantingDate = parseISO(plot.plantingDate);
+      console.log(`✅ Using current cycle planting date: ${cyclePlantingDate}`);
     } else if (cycleData && cycleData.plantingDate) {
       // For previous cycles, use stored cycle-specific planting date
       cyclePlantingDate = parseISO(cycleData.plantingDate);
+      console.log(`✅ Using stored cycle-specific planting date: ${cyclePlantingDate}`);
     } else {
       // Fallback: calculate based on 30-day intervals from the original date
       const cycleOffset = (selectedCycle - 1) * 30; // 30 days between cycles
       cyclePlantingDate = addDays(parseISO(plot.plantingDate), cycleOffset);
+      console.log(`⚠️ Using fallback calculated date: ${cyclePlantingDate} (offset: ${cycleOffset} days)`);
     }
     
     const cycleExpectedHarvestDate = addDays(cyclePlantingDate, plot.daysToMaturity);
@@ -345,7 +357,7 @@ function PlotCard({ plot, onEdit, onDelete, onHarvest, onNextCycle }: {
       cycleShouldOpenNetting,
       cycleIsReadyForHarvest
     };
-  }, [selectedCycle, plot.plantingDate, plot.daysToMaturity, plot.daysToOpenNetting]);
+  }, [selectedCycle, plot.plantingDate, plot.daysToMaturity, plot.daysToOpenNetting, plot.cycleHistory]);
 
   // Parse dates for display
   const plantingDate = parseISO(plot.plantingDate);
@@ -1163,19 +1175,24 @@ function NextCycleForm({ plot, nextCycle, onSuccess }: {
         cycleHistory = [];
       }
       
-      // Store the current cycle info before moving to next cycle (if the plot had actual harvest data)
-      if (plot.harvestAmountKg && parseFloat(plot.harvestAmountKg) > 0) {
-        const currentCycleInfo = {
-          cycle: plot.currentCycle,
-          harvest: parseFloat(plot.harvestAmountKg),
-          plantingDate: plot.plantingDate,
-          harvestDate: plot.actualHarvestDate || new Date().toISOString()
-        };
-        
-        // Remove any existing entry for this cycle and add the updated one
-        cycleHistory = cycleHistory.filter(entry => entry.cycle !== plot.currentCycle);
-        cycleHistory.push(currentCycleInfo);
-      }
+      // ALWAYS store the current cycle info before moving to next cycle
+      // This ensures we track the actual planting dates used for each cycle
+      const currentCycleInfo = {
+        cycle: plot.currentCycle,
+        harvest: plot.harvestAmountKg ? parseFloat(plot.harvestAmountKg) : 0,
+        plantingDate: plot.plantingDate,
+        harvestDate: plot.actualHarvestDate || null
+      };
+      
+      // Remove any existing entry for this cycle and add the updated one
+      cycleHistory = cycleHistory.filter(entry => entry.cycle !== plot.currentCycle);
+      cycleHistory.push(currentCycleInfo);
+      
+      console.log(`💾 Storing cycle history for Plot ${plot.name}:`, {
+        storingCycle: plot.currentCycle,
+        plantingDate: plot.plantingDate,
+        newCycleHistory: cycleHistory
+      });
       
       const payload = {
         currentCycle: nextCycle,
