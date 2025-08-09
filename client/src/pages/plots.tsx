@@ -516,7 +516,7 @@ function PlotCard({ plot, onEdit, onDelete, onHarvest, onNextCycle }: {
                   Add Harvest Event - Cycle {selectedCycle}
                 </Button>
               </DialogTrigger>
-              <DialogContent className="max-w-md">
+              <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
                   <DialogTitle>Add Harvest Event for {plot.name}</DialogTitle>
                   <div className="text-sm text-gray-600 dark:text-gray-400">
@@ -527,8 +527,8 @@ function PlotCard({ plot, onEdit, onDelete, onHarvest, onNextCycle }: {
                   plot={plot} 
                   selectedCycle={selectedCycle}
                   onSuccess={() => {
-                    // Refresh data and close modal
-                    window.location.reload();
+                    // Dialog will close automatically via DialogTrigger
+                    // Data will be refreshed via query invalidation
                   }}
                 />
               </DialogContent>
@@ -645,14 +645,17 @@ function HarvestLogForm({ plot, selectedCycle, onSuccess }: {
       toast({
         title: "Harvest Event Recorded",
         description: `Harvest event for Cycle ${selectedCycle} recorded successfully with Grade A/B detailed tracking.`,
+        duration: 3000, // Auto-dismiss after 3 seconds
       });
+      form.reset(); // Reset the form after successful submission
       onSuccess();
     },
     onError: () => {
       toast({
-        title: "Error",
+        title: "Error", 
         description: "Failed to record harvest log",
         variant: "destructive",
+        duration: 5000, // Keep error messages visible longer
       });
     },
   });
@@ -906,6 +909,7 @@ function NextCycleForm({ plot, nextCycle, onSuccess }: {
       toast({
         title: "Next Cycle Started",
         description: `${plot.name} has been set up for Cycle ${nextCycle}`,
+        duration: 3000, // Auto-dismiss after 3 seconds
       });
       onSuccess();
     },
@@ -914,6 +918,7 @@ function NextCycleForm({ plot, nextCycle, onSuccess }: {
         title: "Error",
         description: "Failed to start next cycle",
         variant: "destructive",
+        duration: 5000, // Keep error messages visible longer
       });
     },
   });
@@ -1933,6 +1938,7 @@ export default function Plots() {
     toast({
       title: "Next cycle started!",
       description: `${data.name} has been set up for Cycle ${data.currentCycle}`,
+      duration: 3000, // Auto-dismiss after 3 seconds
     });
   };
 
@@ -2026,14 +2032,16 @@ export default function Plots() {
       toast({ 
         title: "Success", 
         description: message,
-        variant: "default"
+        variant: "default",
+        duration: 3000, // Auto-dismiss after 3 seconds
       });
     } catch (error) {
       console.error("Error recording harvest:", error);
       toast({ 
         title: "Error", 
         description: "Failed to record harvest",
-        variant: "destructive"
+        variant: "destructive",
+        duration: 5000, // Keep error messages visible longer
       });
     }
   };
@@ -2087,10 +2095,19 @@ export default function Plots() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/plots"] });
       queryClient.invalidateQueries({ queryKey: ["/api/analytics/dashboard"] });
-      toast({ title: "Success", description: "Plot created successfully" });
+      toast({ 
+        title: "Success", 
+        description: "Plot created successfully",
+        duration: 3000, // Auto-dismiss after 3 seconds
+      });
     },
     onError: () => {
-      toast({ title: "Error", description: "Failed to create plot", variant: "destructive" });
+      toast({ 
+        title: "Error", 
+        description: "Failed to create plot", 
+        variant: "destructive",
+        duration: 5000, // Keep error messages visible longer
+      });
     },
   });
 
@@ -2131,11 +2148,20 @@ export default function Plots() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/plots"] });
       queryClient.invalidateQueries({ queryKey: ["/api/analytics/dashboard"] });
-      toast({ title: "Success", description: "Plot updated successfully" });
+      toast({ 
+        title: "Success", 
+        description: "Plot updated successfully",
+        duration: 3000, // Auto-dismiss after 3 seconds
+      });
       setEditingPlot(undefined);
     },
     onError: () => {
-      toast({ title: "Error", description: "Failed to update plot", variant: "destructive" });
+      toast({ 
+        title: "Error", 
+        description: "Failed to update plot", 
+        variant: "destructive",
+        duration: 5000, // Keep error messages visible longer
+      });
     },
   });
 
@@ -2161,7 +2187,11 @@ export default function Plots() {
       // Also refetch immediately to ensure UI updates
       queryClient.refetchQueries({ queryKey: ["/api/plots"] });
       
-      toast({ title: "Success", description: "Plot deleted successfully" });
+      toast({ 
+        title: "Success", 
+        description: "Plot deleted successfully",
+        duration: 3000, // Auto-dismiss after 3 seconds
+      });
     },
     onError: (error) => {
       // Extract detailed error message from API response
