@@ -14,7 +14,6 @@ import {
   MapPin,
   Receipt,
   Settings,
-  Leaf,
   ChevronLeft,
   ChevronRight
 } from "lucide-react";
@@ -30,7 +29,6 @@ const navigation: NavigationItem[] = [
   { name: "Invoice Management", href: "/invoices", icon: "Receipt" },
   { name: "Reports & Analytics", href: "/reports", icon: "FileText" },
   { name: "Plot Management", href: "/plots", icon: "MapPin" },
-  { name: "Harvest Reports", href: "/harvest-reports", icon: "Leaf" },
   { name: "Business Settings", href: "/settings", icon: "Settings" },
 ];
 
@@ -44,7 +42,6 @@ const iconMap = {
   MapPin,
   Receipt,
   Settings,
-  Leaf,
 };
 
 interface SidebarProps {

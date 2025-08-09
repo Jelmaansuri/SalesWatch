@@ -2350,12 +2350,24 @@ export default function Plots() {
                 Track and manage your agricultural land plots
               </p>
             </div>
-            <Button onClick={handleAddNew} data-testid="button-add-plot">
-              <Plus className="h-4 w-4 mr-2" />
-              Add New Plot
-            </Button>
           </div>
         </div>
+
+        {/* Tabs for Plot Management */}
+        <Tabs defaultValue="manage" className="w-full">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="manage">Manage Plots</TabsTrigger>
+            <TabsTrigger value="harvest-reports">Harvest Reports</TabsTrigger>
+          </TabsList>
+
+          {/* Manage Plots Tab */}
+          <TabsContent value="manage" className="space-y-6">
+            <div className="flex justify-end">
+              <Button onClick={handleAddNew} data-testid="button-add-plot">
+                <Plus className="h-4 w-4 mr-2" />
+                Add New Plot
+              </Button>
+            </div>
 
         {/* Summary Cards */}
         <div className="grid grid-cols-1 md:grid-cols-5 gap-6 mb-8">
@@ -2496,8 +2508,129 @@ export default function Plots() {
           }}
           onSubmit={handleNextCycleSubmit}
         />
+          </TabsContent>
+
+          {/* Harvest Reports Tab */}
+          <TabsContent value="harvest-reports" className="space-y-6">
+            <HarvestReportsContent plots={plots} />
+          </TabsContent>
+
+        </Tabs>
       </div>
     </MainLayout>
+  );
+}
+
+// Harvest Reports Content Component
+interface HarvestReportsContentProps {
+  plots: any[];
+}
+
+function HarvestReportsContent({ plots }: HarvestReportsContentProps) {
+  const [selectedPlot, setSelectedPlot] = useState<any>(null);
+  const [selectedCycle, setSelectedCycle] = useState<number>(1);
+
+  // Get harvest logs for the selected plot and cycle
+  const { data: harvestLogs = [], isLoading } = useQuery({
+    queryKey: ['/api/harvest-logs/plot', selectedPlot?.id, 'cycle', selectedCycle],
+    enabled: !!selectedPlot?.id,
+  });
+
+  // Set default plot selection when plots load
+  useEffect(() => {
+    if (plots.length > 0 && !selectedPlot) {
+      setSelectedPlot(plots[0]);
+    }
+  }, [plots, selectedPlot]);
+
+  if (plots.length === 0) {
+    return (
+      <Card className="p-8 text-center">
+        <FileText className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+        <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">
+          No plots available
+        </h3>
+        <p className="text-gray-600 dark:text-gray-400">
+          Create plots first to view harvest reports.
+        </p>
+      </Card>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Plot and Cycle Selection */}
+      <div className="flex gap-4 items-end">
+        <div className="flex-1">
+          <Label htmlFor="plot-select">Select Plot</Label>
+          <Select
+            value={selectedPlot?.id || ""}
+            onValueChange={(plotId) => {
+              const plot = plots.find(p => p.id === plotId);
+              setSelectedPlot(plot);
+              setSelectedCycle(1); // Reset to cycle 1
+            }}
+          >
+            <SelectTrigger id="plot-select">
+              <SelectValue placeholder="Choose a plot" />
+            </SelectTrigger>
+            <SelectContent>
+              {plots.map((plot) => (
+                <SelectItem key={plot.id} value={plot.id}>
+                  {plot.name} - {plot.location}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        {selectedPlot && (
+          <div className="flex-1">
+            <Label htmlFor="cycle-select">Select Cycle</Label>
+            <Select
+              value={selectedCycle.toString()}
+              onValueChange={(cycle) => setSelectedCycle(parseInt(cycle))}
+            >
+              <SelectTrigger id="cycle-select">
+                <SelectValue placeholder="Choose cycle" />
+              </SelectTrigger>
+              <SelectContent>
+                {Array.from({ length: selectedPlot.currentCycle }, (_, i) => i + 1).map((cycle) => (
+                  <SelectItem key={cycle} value={cycle.toString()}>
+                    Cycle {cycle}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
+      </div>
+
+      {/* Harvest Report Display */}
+      {selectedPlot && (
+        <Card className="p-6">
+          {isLoading ? (
+            <div className="text-center py-8">Loading harvest data...</div>
+          ) : harvestLogs.length === 0 ? (
+            <div className="text-center py-8">
+              <FileText className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">
+                No harvest data
+              </h3>
+              <p className="text-gray-600 dark:text-gray-400">
+                No harvest logs found for {selectedPlot.name} Cycle {selectedCycle}.
+              </p>
+            </div>
+          ) : (
+            <HarvestSummaryTable 
+              plot={selectedPlot} 
+              selectedCycle={selectedCycle} 
+              harvestLogs={harvestLogs} 
+            />
+          )}
+        </Card>
+      )}
+    </div>
   );
 }
 

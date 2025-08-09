@@ -13,7 +13,6 @@ import Customers from "@/pages/customers";
 import Orders from "@/pages/orders";
 import Reports from "@/pages/reports";
 import Plots from "@/pages/plots";
-import HarvestReports from "@/pages/harvest-reports";
 import Invoices from "@/pages/invoices";
 import Settings from "@/pages/settings";
 import Home from "@/pages/home";
@@ -46,7 +45,6 @@ function Router() {
           <Route path="/orders" component={Orders} />
           <Route path="/reports" component={Reports} />
           <Route path="/plots" component={Plots} />
-          <Route path="/harvest-reports" component={HarvestReports} />
           <Route path="/invoices" component={Invoices} />
           <Route path="/settings" component={Settings} />
         </>
