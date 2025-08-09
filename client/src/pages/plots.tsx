@@ -544,18 +544,18 @@ function PlotCard({ plot, onEdit, onDelete, onHarvest, onNextCycle }: {
                     className="w-full text-xs border-green-600 text-green-700 hover:bg-green-50"
                     data-testid={`button-view-summary-${plot.id}`}
                   >
-                    <FileText className="h-3 w-3 mr-1" />
-                    View Harvest Summary - Cycle {selectedCycle}
+                    <Edit className="h-3 w-3 mr-1" />
+                    Manage Harvest Data - Cycle {selectedCycle}
                   </Button>
                 </DialogTrigger>
-                <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+                <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
                   <DialogHeader>
                     <DialogTitle>Harvest Summary - {plot.name} (Cycle {selectedCycle})</DialogTitle>
                     <div className="text-sm text-gray-600 dark:text-gray-400">
-                      Detailed harvest report formatted like your PDF documents
+                      Interactive harvest data - you can edit or delete entries as needed
                     </div>
                   </DialogHeader>
-                  <HarvestSummaryTable 
+                  <InteractiveHarvestTable 
                     plot={plot} 
                     selectedCycle={selectedCycle}
                     harvestLogs={cycleHarvestLogs}
