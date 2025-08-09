@@ -19,7 +19,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { format, addDays, differenceInDays, parseISO } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
-import { insertPlotSchema } from "@shared/schema";
+import { insertPlotSchema, insertHarvestLogSchema } from "@shared/schema";
 import { z } from "zod";
 import MainLayout from "@/components/layout/main-layout";
 import { 
@@ -595,8 +595,8 @@ function HarvestLogForm({ plot, selectedCycle, onSuccess }: {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   
-  const form = useForm<z.infer<typeof harvestLogSchema>>({
-    resolver: zodResolver(harvestLogSchema),
+  const form = useForm<z.infer<typeof insertHarvestLogSchema>>({
+    resolver: zodResolver(insertHarvestLogSchema),
     defaultValues: {
       plotId: plot.id,
       cycleNumber: selectedCycle,
@@ -605,33 +605,32 @@ function HarvestLogForm({ plot, selectedCycle, onSuccess }: {
       gradeBKg: 0,
       pricePerKgGradeA: 7.00, // Default price from PDF
       pricePerKgGradeB: 4.00, // Default price from PDF
-      totalAmountGradeA: 0,
-      totalAmountGradeB: 0,
-      grandTotal: 0,
       comments: "",
     },
   });
 
-  // Watch form values to calculate totals automatically
+  // Track calculated values for display
   const watchedValues = form.watch();
   
-  // Auto-calculate totals when quantities or prices change
-  React.useEffect(() => {
-    const gradeATotal = (watchedValues.gradeAKg || 0) * (watchedValues.pricePerKgGradeA || 0);
-    const gradeBTotal = (watchedValues.gradeBKg || 0) * (watchedValues.pricePerKgGradeB || 0);
-    const grandTotal = gradeATotal + gradeBTotal;
-    
-    form.setValue("totalAmountGradeA", gradeATotal);
-    form.setValue("totalAmountGradeB", gradeBTotal);
-    form.setValue("grandTotal", grandTotal);
-  }, [watchedValues.gradeAKg, watchedValues.gradeBKg, watchedValues.pricePerKgGradeA, watchedValues.pricePerKgGradeB, form]);
+  // Calculate totals for display purposes
+  const gradeATotal = (watchedValues.gradeAKg || 0) * (watchedValues.pricePerKgGradeA || 0);
+  const gradeBTotal = (watchedValues.gradeBKg || 0) * (watchedValues.pricePerKgGradeB || 0);
+  const grandTotal = gradeATotal + gradeBTotal;
 
   const mutation = useMutation({
-    mutationFn: async (data: z.infer<typeof harvestLogSchema>) => {
+    mutationFn: async (data: z.infer<typeof insertHarvestLogSchema>) => {
+      // Calculate totals and add them to the request data
+      const enrichedData = {
+        ...data,
+        totalAmountGradeA: gradeATotal,
+        totalAmountGradeB: gradeBTotal,
+        grandTotal: grandTotal,
+      };
+      
       const response = await fetch("/api/harvest-logs", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
+        body: JSON.stringify(enrichedData),
       });
       if (!response.ok) throw new Error("Failed to record harvest log");
       return response.json();
@@ -658,7 +657,7 @@ function HarvestLogForm({ plot, selectedCycle, onSuccess }: {
     },
   });
 
-  const onSubmit = (data: z.infer<typeof harvestLogSchema>) => {
+  const onSubmit = (data: z.infer<typeof insertHarvestLogSchema>) => {
     mutation.mutate(data);
   };
 
@@ -748,26 +747,16 @@ function HarvestLogForm({ plot, selectedCycle, onSuccess }: {
             )}
           />
 
-          <FormField
-            control={form.control}
-            name="totalAmountGradeA"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Total (RM)</FormLabel>
-                <FormControl>
-                  <Input
-                    type="number"
-                    step="0.01"
-                    readOnly
-                    className="bg-gray-100 dark:bg-gray-800"
-                    {...field}
-                    value={field.value?.toFixed(2) || "0.00"}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+          <div className="space-y-2">
+            <Label>Total (RM)</Label>
+            <Input
+              type="number"
+              step="0.01"
+              readOnly
+              className="bg-gray-100 dark:bg-gray-800"
+              value={gradeATotal.toFixed(2)}
+            />
+          </div>
         </div>
 
         {/* Grade B Section */}
@@ -814,50 +803,30 @@ function HarvestLogForm({ plot, selectedCycle, onSuccess }: {
             )}
           />
 
-          <FormField
-            control={form.control}
-            name="totalAmountGradeB"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Total (RM)</FormLabel>
-                <FormControl>
-                  <Input
-                    type="number"
-                    step="0.01"
-                    readOnly
-                    className="bg-gray-100 dark:bg-gray-800"
-                    {...field}
-                    value={field.value?.toFixed(2) || "0.00"}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+          <div className="space-y-2">
+            <Label>Total (RM)</Label>
+            <Input
+              type="number"
+              step="0.01"
+              readOnly
+              className="bg-gray-100 dark:bg-gray-800"
+              value={gradeBTotal.toFixed(2)}
+            />
+          </div>
         </div>
 
         {/* Grand Total */}
         <div className="p-4 border rounded-lg bg-blue-50 dark:bg-blue-950">
-          <FormField
-            control={form.control}
-            name="grandTotal"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel className="text-lg font-semibold text-blue-800 dark:text-blue-200">Grand Total (RM)</FormLabel>
-                <FormControl>
-                  <Input
-                    type="number"
-                    step="0.01"
-                    readOnly
-                    className="bg-gray-100 dark:bg-gray-800 text-lg font-bold"
-                    {...field}
-                    value={field.value?.toFixed(2) || "0.00"}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+          <div className="space-y-2">
+            <Label className="text-lg font-semibold text-blue-800 dark:text-blue-200">Grand Total (RM)</Label>
+            <Input
+              type="number"
+              step="0.01"
+              readOnly
+              className="bg-gray-100 dark:bg-gray-800 text-lg font-bold"
+              value={grandTotal.toFixed(2)}
+            />
+          </div>
         </div>
 
         <FormField
