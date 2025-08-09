@@ -736,13 +736,13 @@ function HarvestLogForm({ plot, selectedCycle, onSuccess }: {
         // 2. Update dashboard metrics optimistically (no invalidation to prevent refresh)
         queryClient.setQueryData(["/api/analytics/dashboard"], (oldData: any) => {
           if (!oldData) return oldData;
-          const gradeAKg = newHarvestLog.gradeAKg || 0;
-          const gradeBKg = newHarvestLog.gradeBKg || 0;
+          const gradeAKg = Number(newHarvestLog.gradeAKg || 0);
+          const gradeBKg = Number(newHarvestLog.gradeBKg || 0);
           return {
             ...oldData,
-            totalHarvestKg: parseFloat(oldData.totalHarvestKg || 0) + gradeAKg + gradeBKg,
-            totalGradeAKg: parseFloat(oldData.totalGradeAKg || 0) + gradeAKg,
-            totalGradeBKg: parseFloat(oldData.totalGradeBKg || 0) + gradeBKg,
+            totalHarvestKg: Number(oldData.totalHarvestKg || 0) + gradeAKg + gradeBKg,
+            totalGradeAKg: Number(oldData.totalGradeAKg || 0) + gradeAKg,
+            totalGradeBKg: Number(oldData.totalGradeBKg || 0) + gradeBKg,
           };
         });
         
@@ -2404,8 +2404,10 @@ export default function Plots() {
         if (!oldData) return oldData;
         return {
           ...oldData,
-          totalHarvestKg: parseFloat(oldData.totalHarvestKg || 0) + data.harvestAmountKg,
-          completedCycles: data.proceedToNextCycle ? oldData.completedCycles + 1 : oldData.completedCycles
+          totalHarvestKg: Number(oldData.totalHarvestKg || 0) + Number(data.harvestAmountKg),
+          totalGradeAKg: Number(oldData.totalGradeAKg || 0),
+          totalGradeBKg: Number(oldData.totalGradeBKg || 0),
+          completedCycles: data.proceedToNextCycle ? Number(oldData.completedCycles) + 1 : Number(oldData.completedCycles)
         };
       });
       
