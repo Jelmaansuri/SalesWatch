@@ -125,7 +125,15 @@ function InvoicesContent() {
       label: "Invoice #",
       sortable: true,
       searchable: true,
-      accessor: (item) => item.isGroup ? `GROUP: ${item.groupKey}` : item.items[0].invoiceNumber,
+      accessor: (item) => {
+        if (item.isGroup) {
+          return `GROUP: ${item.groupKey}`;
+        }
+        // Extract number from invoice number for proper numeric sorting
+        const invoiceNum = item.items[0].invoiceNumber;
+        const numMatch = invoiceNum.match(/(\d+)$/);
+        return numMatch ? parseInt(numMatch[1]) : 0;
+      },
       render: (value, item) => (
         <div className="font-medium">
           {item.isGroup ? (
