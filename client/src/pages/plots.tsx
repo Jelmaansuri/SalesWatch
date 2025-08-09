@@ -2429,6 +2429,15 @@ export default function Plots() {
   // Sort plots alphabetically by name
   const plots = plotsData.sort((a, b) => a.name.localeCompare(b.name));
 
+  // Fetch dashboard metrics to synchronize completed cycles count
+  const { data: dashboardMetrics } = useQuery({
+    queryKey: ["/api/analytics/dashboard"],
+    staleTime: 0,
+  });
+
+  // Use dashboard data for completed cycles to ensure synchronization
+  const completedCycles = dashboardMetrics?.completedCycles || 0;
+
   const createMutation = useMutation({
     mutationFn: async (data: PlotFormData) => {
       console.log("Sending data to server:", data);
@@ -2668,15 +2677,6 @@ export default function Plots() {
   
   // Dashboard calculations are now working correctly
   // All plot totals are automatically updated when harvest events are recorded
-  
-  // Fetch actual completed cycles from dashboard API to ensure synchronization
-  const { data: dashboardMetrics } = useQuery({
-    queryKey: ["/api/analytics/dashboard"],
-    staleTime: 0,
-  });
-  
-  // Use dashboard data for completed cycles to ensure synchronization
-  const completedCycles = dashboardMetrics?.completedCycles || 0;
   
   // Plots needing attention (netting open due or ready for harvest)
   const plotsNeedingAttention = plots.filter((plot: Plot) => {
