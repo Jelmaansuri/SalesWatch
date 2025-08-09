@@ -164,16 +164,20 @@ function PlotCard({ plot, onEdit, onDelete, onHarvest, onNextCycle }: {
   // State for selected cycle in this plot card
   const [selectedCycle, setSelectedCycle] = useState(plot.currentCycle);
   
-  // Query harvest logs for the selected cycle
+  // Query harvest logs for the selected cycle with staleTime to ensure fresh data
   const { data: cycleHarvestLogs = [] } = useQuery({
     queryKey: [`/api/harvest-logs/plot/${plot.id}/cycle/${selectedCycle}`],
     enabled: !!plot.id && selectedCycle > 0,
+    staleTime: 0, // Always fetch fresh data
+    gcTime: 0, // Don't cache data for long
   });
 
   // Query all harvest logs for the plot to calculate overall totals
   const { data: allPlotHarvestLogs = [] } = useQuery({
     queryKey: [`/api/harvest-logs/${plot.id}`],
     enabled: !!plot.id,
+    staleTime: 0, // Always fetch fresh data
+    gcTime: 0, // Don't cache data for long
   });
 
   // Calculate cycle-specific harvest totals
@@ -683,19 +687,49 @@ function HarvestLogForm({ plot, selectedCycle, onSuccess }: {
       if (!response.ok) throw new Error("Failed to record harvest log");
       return response.json();
     },
-    onSuccess: () => {
-      // Invalidate all relevant queries to refresh the data automatically
-      queryClient.invalidateQueries({ queryKey: ["/api/plots"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/harvest-logs"] });
-      queryClient.invalidateQueries({ queryKey: [`/api/harvest-logs/plot/${plot.id}/cycle`] });
-      queryClient.invalidateQueries({ queryKey: [`/api/harvest-logs/${plot.id}`] });
-      queryClient.invalidateQueries({ queryKey: ["/api/analytics/dashboard"] });
-      
-      toast({
-        title: "Harvest Event Recorded Successfully!",
-        description: `Harvest data has been saved for ${plot.name} - Cycle ${selectedCycle}. All displays will automatically update with the latest information.`,
-        duration: 4000,
-      });
+    onSuccess: async () => {
+      // Comprehensive query invalidation and refresh strategy
+      try {
+        // 1. Invalidate and refetch all plots data
+        await queryClient.invalidateQueries({ queryKey: ["/api/plots"] });
+        await queryClient.refetchQueries({ queryKey: ["/api/plots"] });
+        
+        // 2. Invalidate all harvest log queries for this plot
+        await queryClient.invalidateQueries({ 
+          predicate: (query) => {
+            const key = query.queryKey[0] as string;
+            return key.includes('/api/harvest-logs') && key.includes(plot.id);
+          }
+        });
+        
+        // 3. Force refetch specific harvest queries
+        await queryClient.refetchQueries({ queryKey: [`/api/harvest-logs/${plot.id}`] });
+        await queryClient.refetchQueries({ queryKey: [`/api/harvest-logs/plot/${plot.id}/cycle/${selectedCycle}`] });
+        
+        // 4. Invalidate dashboard and analytics
+        await queryClient.invalidateQueries({ queryKey: ["/api/analytics/dashboard"] });
+        await queryClient.refetchQueries({ queryKey: ["/api/analytics/dashboard"] });
+        
+        // 5. Force remove stale data from cache and refetch
+        queryClient.removeQueries({ queryKey: [`/api/harvest-logs/plot/${plot.id}/cycle/${selectedCycle}`] });
+        await queryClient.prefetchQuery({ queryKey: [`/api/harvest-logs/plot/${plot.id}/cycle/${selectedCycle}`] });
+        
+        console.log(`✅ Successfully refreshed all data after harvest recording for ${plot.name} - Cycle ${selectedCycle}`);
+        
+        toast({
+          title: "Harvest Event Recorded Successfully!",
+          description: `Harvest data has been saved for ${plot.name} - Cycle ${selectedCycle}. All displays have been updated with the latest information.`,
+          duration: 4000,
+        });
+      } catch (error) {
+        console.error("Error refreshing data after harvest recording:", error);
+        toast({
+          title: "Data Saved - Please Refresh",
+          description: "Harvest was recorded successfully, but please refresh the page to see updated data.",
+          variant: "destructive",
+          duration: 6000,
+        });
+      }
       
       form.reset(); // Reset the form after successful submission
       setShowConfirmation(false); // Close confirmation dialog
@@ -2354,6 +2388,8 @@ export default function Plots() {
 
   const { data: plotsData = [], isLoading } = useQuery<Plot[]>({
     queryKey: ["/api/plots"],
+    staleTime: 0, // Always fetch fresh data
+    gcTime: 0, // Don't cache data for long
   });
 
   // Sort plots alphabetically by name
