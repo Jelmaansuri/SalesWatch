@@ -129,6 +129,12 @@ function PlotCard({ plot, onEdit, onDelete, onHarvest, onNextCycle }: {
     enabled: !!plot.id && selectedCycle > 0,
   });
 
+  // Query all harvest logs for the plot to calculate overall totals
+  const { data: allPlotHarvestLogs = [] } = useQuery({
+    queryKey: [`/api/harvest-logs/${plot.id}`],
+    enabled: !!plot.id,
+  });
+
   // Calculate cycle-specific harvest totals
   const cycleHarvestTotals = cycleHarvestLogs.reduce((total, log) => {
     const gradeATotal = parseFloat(log.totalAmountGradeA || "0");
@@ -141,6 +147,42 @@ function PlotCard({ plot, onEdit, onDelete, onHarvest, onNextCycle }: {
     const gradeBKg = parseFloat(log.gradeBKg || "0");
     return total + gradeAKg + gradeBKg;
   }, 0);
+
+  // Calculate overall plot harvest totals from all cycles
+  const overallHarvestTotals = allPlotHarvestLogs.reduce((total, log) => {
+    const gradeATotal = parseFloat(log.totalAmountGradeA || "0");
+    const gradeBTotal = parseFloat(log.totalAmountGradeB || "0");
+    return total + gradeATotal + gradeBTotal;
+  }, 0);
+
+  const overallHarvestKg = allPlotHarvestLogs.reduce((total, log) => {
+    const gradeAKg = parseFloat(log.gradeAKg || "0");
+    const gradeBKg = parseFloat(log.gradeBKg || "0");
+    return total + gradeAKg + gradeBKg;
+  }, 0);
+
+  // Calculate totals by cycle for summary
+  const cycleWiseTotals = React.useMemo(() => {
+    const cycleMap: { [key: number]: { kg: number; value: number; events: number } } = {};
+    
+    allPlotHarvestLogs.forEach(log => {
+      const cycle = log.cycleNumber;
+      if (!cycleMap[cycle]) {
+        cycleMap[cycle] = { kg: 0, value: 0, events: 0 };
+      }
+      
+      const gradeAKg = parseFloat(log.gradeAKg || "0");
+      const gradeBKg = parseFloat(log.gradeBKg || "0");
+      const gradeATotal = parseFloat(log.totalAmountGradeA || "0");
+      const gradeBTotal = parseFloat(log.totalAmountGradeB || "0");
+      
+      cycleMap[cycle].kg += gradeAKg + gradeBKg;
+      cycleMap[cycle].value += gradeATotal + gradeBTotal;
+      cycleMap[cycle].events += 1;
+    });
+    
+    return cycleMap;
+  }, [allPlotHarvestLogs]);
   
   // Use centralized PROGENY AGROTECH calculation logic
   const metrics = calculatePlotMetrics(plot);
@@ -394,56 +436,92 @@ function PlotCard({ plot, onEdit, onDelete, onHarvest, onNextCycle }: {
             
             {/* Selected Cycle Harvest Data */}
             {cycleHarvestKg > 0 && (
-              <div className="space-y-1">
+              <div className="space-y-1 mb-3">
+                <div className="text-xs font-medium text-blue-700 dark:text-blue-300 mb-1">
+                  Cycle {selectedCycle} Summary:
+                </div>
                 <div className="flex justify-between items-center text-xs">
-                  <span className="text-gray-600 dark:text-gray-400">Cycle {selectedCycle} Harvest:</span>
+                  <span className="text-gray-600 dark:text-gray-400">Total Weight:</span>
                   <span className="font-medium text-green-600">{formatHarvestAmount(cycleHarvestKg)} kg</span>
                 </div>
                 <div className="flex justify-between items-center text-xs">
-                  <span className="text-gray-600 dark:text-gray-400">Cycle {selectedCycle} Value:</span>
+                  <span className="text-gray-600 dark:text-gray-400">Total Value:</span>
                   <span className="font-medium text-green-600">RM {cycleHarvestTotals.toFixed(2)}</span>
                 </div>
                 <div className="text-xs text-blue-600 dark:text-blue-400">
-                  {cycleHarvestLogs.length} harvest {cycleHarvestLogs.length === 1 ? 'entry' : 'entries'} recorded
+                  {cycleHarvestLogs.length} harvest {cycleHarvestLogs.length === 1 ? 'event' : 'events'} recorded
                 </div>
               </div>
             )}
             
             {/* No data message for cycle */}
             {selectedCycle > 0 && cycleHarvestKg === 0 && (
-              <div className="text-xs text-gray-500 dark:text-gray-400 italic">
-                No harvest data recorded for Cycle {selectedCycle}
+              <div className="text-xs text-gray-500 dark:text-gray-400 italic mb-3">
+                No harvest events recorded for Cycle {selectedCycle}
               </div>
             )}
             
-            {/* Total Harvest if Available */}
-            {totalHarvest > 0 && (
-              <div className="flex justify-between items-center text-xs border-t pt-1 mt-1">
-                <span className="text-gray-600 dark:text-gray-400">Total Harvested:</span>
-                <span className="font-semibold text-green-700">{formatHarvestAmount(totalHarvest)} kg</span>
+            {/* Overall Plot Harvest Summary */}
+            {overallHarvestKg > 0 && (
+              <div className="space-y-1 border-t pt-2 mt-2">
+                <div className="text-xs font-medium text-purple-700 dark:text-purple-300 mb-1">
+                  Plot Total Summary:
+                </div>
+                <div className="flex justify-between items-center text-xs">
+                  <span className="text-gray-600 dark:text-gray-400">All Cycles Weight:</span>
+                  <span className="font-semibold text-purple-600">{formatHarvestAmount(overallHarvestKg)} kg</span>
+                </div>
+                <div className="flex justify-between items-center text-xs">
+                  <span className="text-gray-600 dark:text-gray-400">All Cycles Value:</span>
+                  <span className="font-semibold text-purple-600">RM {overallHarvestTotals.toFixed(2)}</span>
+                </div>
+                
+                {/* Cycle-wise breakdown if multiple cycles have data */}
+                {Object.keys(cycleWiseTotals).length > 1 && (
+                  <div className="mt-2 space-y-1">
+                    <div className="text-xs font-medium text-gray-700 dark:text-gray-300">
+                      By Cycle:
+                    </div>
+                    {Object.entries(cycleWiseTotals)
+                      .sort(([a], [b]) => parseInt(a) - parseInt(b))
+                      .map(([cycle, data]) => (
+                        <div key={cycle} className="flex justify-between items-center text-xs pl-2">
+                          <span className="text-gray-600 dark:text-gray-400">
+                            Cycle {cycle}: {formatHarvestAmount(data.kg)} kg
+                          </span>
+                          <span className="text-gray-600 dark:text-gray-400">
+                            RM {data.value.toFixed(2)}
+                          </span>
+                        </div>
+                      ))}
+                  </div>
+                )}
               </div>
             )}
           </div>
         </div>
 
-        {/* Harvest Action Buttons */}
-        {(plot.status === "ready_for_harvest" || plot.status === "harvested") && (
+        {/* Multiple Harvest Events System - Always available for growing/ready plots */}
+        {(plot.status === "growing" || plot.status === "ready_for_harvest") && (
           <div className="space-y-2 mt-4">
             <Dialog>
               <DialogTrigger asChild>
                 <Button 
                   size="sm" 
-                  variant={plot.status === "harvested" ? "outline" : "default"}
-                  className={`w-full text-xs ${plot.status === "harvested" ? "border-green-600 text-green-600 hover:bg-green-50" : "bg-green-600 hover:bg-green-700"}`}
-                  data-testid={`button-harvest-${plot.id}`}
+                  variant="default"
+                  className="w-full text-xs bg-green-600 hover:bg-green-700 text-white"
+                  data-testid={`button-add-harvest-${plot.id}`}
                 >
                   <Package className="h-3 w-3 mr-1" />
-                  {plot.status === "harvested" ? "Update Harvest" : "Record Harvest"}
+                  Add Harvest Event - Cycle {selectedCycle}
                 </Button>
               </DialogTrigger>
               <DialogContent className="max-w-md">
                 <DialogHeader>
-                  <DialogTitle>Record Harvest for {plot.name}</DialogTitle>
+                  <DialogTitle>Add Harvest Event for {plot.name}</DialogTitle>
+                  <div className="text-sm text-gray-600 dark:text-gray-400">
+                    Recording harvest event for Cycle {selectedCycle}
+                  </div>
                 </DialogHeader>
                 <HarvestLogForm 
                   plot={plot} 
@@ -456,8 +534,8 @@ function PlotCard({ plot, onEdit, onDelete, onHarvest, onNextCycle }: {
               </DialogContent>
             </Dialog>
             
-            {/* Proceed to Next Cycle Button - For all harvested plots (can convert to multi-cycle) */}
-            {plot.status === "harvested" && (
+            {/* Proceed to Next Cycle Button - Available when current cycle has harvest data */}
+            {selectedCycle === plot.currentCycle && cycleHarvestKg > 0 && plot.currentCycle < plot.totalCycles && (
               <Dialog>
                 <DialogTrigger asChild>
                   <Button 
@@ -467,7 +545,7 @@ function PlotCard({ plot, onEdit, onDelete, onHarvest, onNextCycle }: {
                     data-testid={`button-next-cycle-${plot.id}`}
                   >
                     <RefreshCw className="h-3 w-3 mr-1" />
-                    Proceed to Next Cycle ({plot.currentCycle + 1})
+                    Start Next Cycle ({plot.currentCycle + 1})
                   </Button>
                 </DialogTrigger>
                 <DialogContent className="max-w-md">
@@ -489,11 +567,11 @@ function PlotCard({ plot, onEdit, onDelete, onHarvest, onNextCycle }: {
         )}
 
         {/* Completion Message */}
-        {plot.currentCycle === plot.totalCycles && plot.status === "harvested" && (
+        {plot.currentCycle === plot.totalCycles && cycleHarvestKg > 0 && (
           <div className="flex items-center gap-2 p-2 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800 mt-3">
             <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
             <span className="text-sm text-green-700 dark:text-green-300">
-              All cycles completed successfully!
+              All {plot.totalCycles} cycles completed with harvest data recorded!
             </span>
           </div>
         )}
@@ -559,12 +637,15 @@ function HarvestLogForm({ plot, selectedCycle, onSuccess }: {
       return response.json();
     },
     onSuccess: () => {
+      // Invalidate all relevant queries to refresh the data
       queryClient.invalidateQueries({ queryKey: ["/api/plots"] });
       queryClient.invalidateQueries({ queryKey: ["/api/harvest-logs"] });
       queryClient.invalidateQueries({ queryKey: [`/api/harvest-logs/plot/${plot.id}/cycle`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/harvest-logs/${plot.id}`] });
+      
       toast({
-        title: "Harvest Recorded",
-        description: `Detailed harvest log for Cycle ${selectedCycle} recorded successfully with Grade A/B tracking.`,
+        title: "Harvest Event Recorded",
+        description: `Harvest event for Cycle ${selectedCycle} recorded successfully with Grade A/B detailed tracking.`,
       });
       onSuccess();
     },
