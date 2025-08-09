@@ -1230,7 +1230,7 @@ function NextCycleForm({ plot, nextCycle, onSuccess }: {
                     mode="single"
                     selected={field.value}
                     onSelect={field.onChange}
-                    disabled={(date) => date < new Date()}
+                    disabled={(date) => date < new Date("1900-01-01")} // Allow all reasonable past and future dates
                     initialFocus
                   />
                 </PopoverContent>
