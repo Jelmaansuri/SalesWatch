@@ -620,43 +620,43 @@ function PlotCard({ plot, onEdit, onDelete, onHarvest, onNextCycle }: {
           </div>
         </div>
 
-        {/* Multiple Harvest Events System - Available for all plots that can have harvest events */}
+        {/* Manage Harvest Data - Always Available for All Plots */}
+        <div className="space-y-2 mt-4">
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button 
+                size="sm" 
+                variant="outline"
+                className="w-full text-xs border-green-600 text-green-700 hover:bg-green-50"
+                data-testid={`button-view-summary-${plot.id}`}
+              >
+                <Edit className="h-3 w-3 mr-1" />
+                Manage Harvest Data - Cycle {selectedCycle}
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>Harvest Summary - {plot.name} (Cycle {selectedCycle})</DialogTitle>
+                <div className="text-sm text-gray-600 dark:text-gray-400">
+                  Interactive harvest data - you can edit or delete entries as needed
+                </div>
+              </DialogHeader>
+              <InteractiveHarvestTable 
+                plot={plot} 
+                selectedCycle={selectedCycle}
+                harvestLogs={cycleHarvestLogs}
+              />
+            </DialogContent>
+          </Dialog>
+        </div>
+
+        {/* Status-based Harvest Events System - Available for plots that can have harvest events */}
         {(plot.status === "planted" || plot.status === "growing" || plot.status === "ready_for_harvest" || plot.status === "harvesting") && (
-          <div className="space-y-2 mt-4">
+          <div className="space-y-2 mt-2">
             <HarvestEventDialog 
               plot={plot} 
               selectedCycle={selectedCycle}
             />
-            
-            {/* View Harvest Summary Table */}
-            {cycleHarvestKg > 0 && (
-              <Dialog>
-                <DialogTrigger asChild>
-                  <Button 
-                    size="sm" 
-                    variant="outline"
-                    className="w-full text-xs border-green-600 text-green-700 hover:bg-green-50"
-                    data-testid={`button-view-summary-${plot.id}`}
-                  >
-                    <Edit className="h-3 w-3 mr-1" />
-                    Manage Harvest Data - Cycle {selectedCycle}
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
-                  <DialogHeader>
-                    <DialogTitle>Harvest Summary - {plot.name} (Cycle {selectedCycle})</DialogTitle>
-                    <div className="text-sm text-gray-600 dark:text-gray-400">
-                      Interactive harvest data - you can edit or delete entries as needed
-                    </div>
-                  </DialogHeader>
-                  <InteractiveHarvestTable 
-                    plot={plot} 
-                    selectedCycle={selectedCycle}
-                    harvestLogs={cycleHarvestLogs}
-                  />
-                </DialogContent>
-              </Dialog>
-            )}
             
             {/* Proceed to Next Cycle Button - Available when current cycle has harvest data */}
             {selectedCycle === plot.currentCycle && cycleHarvestKg > 0 && plot.isMultiCycle && (
