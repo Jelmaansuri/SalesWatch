@@ -174,7 +174,7 @@ export default function Sales() {
       render: (value, item) => (
         <div className="flex flex-col space-y-1">
           {item.items.map((saleItem: any, index: number) => (
-            <span key={index} className="text-sm">{saleItem.quantity}</span>
+            <span key={index} className="text-sm">{saleItem.quantity || item.quantity || 0}</span>
           ))}
         </div>
       ),
@@ -211,7 +211,7 @@ export default function Sales() {
         value,
         label
       })),
-      render: (value) => {
+      render: (value, item) => {
         const getVibrantStatusDesign = (status: string) => {
           switch (status) {
             case "pending":
@@ -234,9 +234,25 @@ export default function Sales() {
         };
         
         return (
-          <Badge className={`${getVibrantStatusDesign(value)} px-3 py-1 rounded-full`}>
-            {ORDER_STATUS_LABELS[value as keyof typeof ORDER_STATUS_LABELS]}
-          </Badge>
+          <Select value={value} onValueChange={(newStatus) => handleStatusChange(item.id, newStatus)}>
+            <SelectTrigger className="w-auto border-0 bg-transparent p-0 h-auto">
+              <SelectValue>
+                <div className={`${getVibrantStatusDesign(value)} px-3 py-1 rounded-full cursor-pointer hover:shadow-xl transition-shadow inline-flex items-center justify-center text-xs font-semibold`}>
+                  {ORDER_STATUS_LABELS[value as keyof typeof ORDER_STATUS_LABELS]}
+                </div>
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              {Object.entries(ORDER_STATUS_LABELS).map(([statusValue, statusLabel]) => (
+                <SelectItem key={statusValue} value={statusValue}>
+                  <div className="flex items-center space-x-2">
+                    <div className={`w-3 h-3 rounded-full ${getVibrantStatusDesign(statusValue).split(' ')[2]} ${getVibrantStatusDesign(statusValue).split(' ')[4]}`}></div>
+                    <span>{statusLabel}</span>
+                  </div>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         );
       },
     },
@@ -299,10 +315,57 @@ export default function Sales() {
           }
         };
         
+        // Only show dropdown for invoices that exist (not "Not Generated")
+        if (invoiceStatus.status === "Not Generated") {
+          return (
+            <Badge className={`${getVibrantInvoiceDesign(invoiceStatus.status)} px-2 py-1 rounded-full`}>
+              {invoiceStatus.status}
+            </Badge>
+          );
+        }
+        
         return (
-          <Badge className={`${getVibrantInvoiceDesign(invoiceStatus.status)} px-2 py-1 rounded-full`}>
-            {invoiceStatus.status}
-          </Badge>
+          <Select value={invoiceStatus.status.toLowerCase()} onValueChange={(newStatus) => handleInvoiceStatusChange(item.id, newStatus)}>
+            <SelectTrigger className="w-auto border-0 bg-transparent p-0 h-auto">
+              <SelectValue>
+                <div className={`${getVibrantInvoiceDesign(invoiceStatus.status)} px-2 py-1 rounded-full cursor-pointer hover:shadow-xl transition-shadow inline-flex items-center justify-center text-xs font-medium`}>
+                  {invoiceStatus.status}
+                </div>
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="draft">
+                <div className="flex items-center space-x-2">
+                  <div className="w-3 h-3 rounded-full bg-gradient-to-r from-blue-400 to-blue-600"></div>
+                  <span>Draft</span>
+                </div>
+              </SelectItem>
+              <SelectItem value="sent">
+                <div className="flex items-center space-x-2">
+                  <div className="w-3 h-3 rounded-full bg-gradient-to-r from-indigo-500 to-purple-600"></div>
+                  <span>Sent</span>
+                </div>
+              </SelectItem>
+              <SelectItem value="paid">
+                <div className="flex items-center space-x-2">
+                  <div className="w-3 h-3 rounded-full bg-gradient-to-r from-green-500 to-emerald-600"></div>
+                  <span>Paid</span>
+                </div>
+              </SelectItem>
+              <SelectItem value="overdue">
+                <div className="flex items-center space-x-2">
+                  <div className="w-3 h-3 rounded-full bg-gradient-to-r from-red-500 to-rose-600"></div>
+                  <span>Overdue</span>
+                </div>
+              </SelectItem>
+              <SelectItem value="cancelled">
+                <div className="flex items-center space-x-2">
+                  <div className="w-3 h-3 rounded-full bg-gradient-to-r from-gray-500 to-slate-600"></div>
+                  <span>Cancelled</span>
+                </div>
+              </SelectItem>
+            </SelectContent>
+          </Select>
         );
       },
     },
@@ -704,6 +767,55 @@ export default function Sales() {
   const confirmGenerateInvoice = () => {
     if (pendingSale) {
       generateInvoiceMutation.mutate(pendingSale);
+    }
+  };
+
+  // Handle status change directly from table
+  const handleStatusChange = async (saleId: string, newStatus: string) => {
+    try {
+      await apiRequest(`/api/sales/${saleId}/status`, "PUT", { status: newStatus });
+      queryClient.invalidateQueries({ queryKey: ["/api/sales"] });
+      toast({
+        title: "Status Updated",
+        description: `Sale status updated to ${ORDER_STATUS_LABELS[newStatus as keyof typeof ORDER_STATUS_LABELS]}`,
+      });
+    } catch (error) {
+      console.error("Error updating status:", error);
+      toast({
+        title: "Error",
+        description: "Failed to update sale status",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Handle invoice status change directly from table
+  const handleInvoiceStatusChange = async (saleId: string, newStatus: string) => {
+    try {
+      // Find the invoice for this sale
+      const invoice = invoicesData.find((inv: any) => inv.saleId === saleId);
+      if (!invoice) {
+        toast({
+          title: "Error",
+          description: "No invoice found for this sale",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      await apiRequest(`/api/invoices/${invoice.id}`, "PUT", { status: newStatus });
+      queryClient.invalidateQueries({ queryKey: ["/api/invoices"] });
+      toast({
+        title: "Invoice Status Updated",
+        description: `Invoice status updated to ${newStatus}`,
+      });
+    } catch (error) {
+      console.error("Error updating invoice status:", error);
+      toast({
+        title: "Error",
+        description: "Failed to update invoice status",
+        variant: "destructive",
+      });
     }
   };
 
