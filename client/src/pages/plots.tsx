@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { CalendarIcon, Plus, Sprout, Clock, Target, AlertTriangle, CheckCircle, MapPin, BarChart3, Eye, Edit, Trash2, Package, RefreshCw, TreePine, ArrowRight, FileText } from "lucide-react";
+import { CalendarIcon, Plus, Sprout, Clock, Target, AlertTriangle, CheckCircle, MapPin, BarChart3, Eye, Edit, Trash2, Package, RefreshCw, TreePine, ArrowRight, FileText, Download } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { format, addDays, differenceInDays, parseISO } from "date-fns";
@@ -22,6 +22,8 @@ import { useToast } from "@/hooks/use-toast";
 import { insertPlotSchema, insertHarvestLogSchema } from "@shared/schema";
 import { z } from "zod";
 import MainLayout from "@/components/layout/main-layout";
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
 import { 
   calculatePlotMetrics, 
   getStatusColor, 
@@ -3090,6 +3092,7 @@ interface InteractiveHarvestTableProps {
 function InteractiveHarvestTable({ plot, selectedCycle, harvestLogs }: InteractiveHarvestTableProps) {
   const [editingLog, setEditingLog] = useState<any>(null);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
@@ -3140,8 +3143,178 @@ function InteractiveHarvestTable({ plot, selectedCycle, harvestLogs }: Interacti
     }
   };
 
+  const exportToPDF = async () => {
+    setIsGeneratingPDF(true);
+    try {
+      // Create a temporary container for PDF content
+      const printContainer = document.createElement('div');
+      printContainer.style.position = 'absolute';
+      printContainer.style.top = '-9999px';
+      printContainer.style.left = '-9999px';
+      printContainer.style.width = '210mm'; // A4 width
+      printContainer.style.backgroundColor = 'white';
+      printContainer.style.padding = '20px';
+      printContainer.style.fontFamily = 'Arial, sans-serif';
+      
+      // Create PDF content
+      printContainer.innerHTML = `
+        <div style="text-align: center; margin-bottom: 30px;">
+          <h1 style="color: #16a34a; font-size: 24px; margin: 0;">PROGENY AGROTECH</h1>
+          <h2 style="color: #16a34a; font-size: 20px; margin: 10px 0;">Harvest Report</h2>
+        </div>
+        
+        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; margin-bottom: 30px; background-color: #f0fdf4; padding: 15px; border-radius: 8px;">
+          <div>
+            <h3 style="color: #15803d; font-size: 14px; margin: 0 0 10px 0; font-weight: bold;">Plot Information</h3>
+            <p style="margin: 3px 0; font-size: 12px;"><strong>Plot:</strong> ${plot.name}</p>
+            <p style="margin: 3px 0; font-size: 12px;"><strong>Location:</strong> ${plot.location}</p>
+            <p style="margin: 3px 0; font-size: 12px;"><strong>Polybags:</strong> ${plot.polybagCount}</p>
+          </div>
+          <div>
+            <h3 style="color: #15803d; font-size: 14px; margin: 0 0 10px 0; font-weight: bold;">Cycle Information</h3>
+            <p style="margin: 3px 0; font-size: 12px;"><strong>Cycle:</strong> ${selectedCycle}</p>
+            <p style="margin: 3px 0; font-size: 12px;"><strong>Planting Date:</strong> ${plot.plantingDate ? format(new Date(plot.plantingDate), "dd/MM/yyyy") : "-"}</p>
+          </div>
+          <div>
+            <h3 style="color: #15803d; font-size: 14px; margin: 0 0 10px 0; font-weight: bold;">Harvest Summary</h3>
+            <p style="margin: 3px 0; font-size: 12px;"><strong>Total Events:</strong> ${sortedLogs.length}</p>
+            <p style="margin: 3px 0; font-size: 12px;"><strong>Total Weight:</strong> ${(totalGradeA + totalGradeB).toFixed(1)} kg</p>
+            <p style="margin: 3px 0; font-size: 12px;"><strong>Total Revenue:</strong> RM ${grandTotal.toFixed(2)}</p>
+          </div>
+        </div>
+        
+        <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 11px;">
+          <thead>
+            <tr style="background-color: #f3f4f6;">
+              <th style="border: 1px solid #d1d5db; padding: 8px; text-align: center;">Date</th>
+              <th style="border: 1px solid #d1d5db; padding: 8px; text-align: center;">Grade A (kg)</th>
+              <th style="border: 1px solid #d1d5db; padding: 8px; text-align: center;">Grade B (kg)</th>
+              <th style="border: 1px solid #d1d5db; padding: 8px; text-align: center;">Price A (RM/kg)</th>
+              <th style="border: 1px solid #d1d5db; padding: 8px; text-align: center;">Price B (RM/kg)</th>
+              <th style="border: 1px solid #d1d5db; padding: 8px; text-align: center;">Value A (RM)</th>
+              <th style="border: 1px solid #d1d5db; padding: 8px; text-align: center;">Value B (RM)</th>
+              <th style="border: 1px solid #d1d5db; padding: 8px; text-align: center;">Total (RM)</th>
+              <th style="border: 1px solid #d1d5db; padding: 8px; text-align: center;">Comments</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${sortedLogs.map((log, index) => {
+              const gradeATotal = Number(log.gradeAKg || 0) * Number(log.pricePerKgGradeA || log.priceGradeA || 0);
+              const gradeBTotal = Number(log.gradeBKg || 0) * Number(log.pricePerKgGradeB || log.priceGradeB || 0);
+              const rowTotal = gradeATotal + gradeBTotal;
+              return `
+                <tr style="background-color: ${index % 2 === 0 ? '#ffffff' : '#f9fafb'};">
+                  <td style="border: 1px solid #d1d5db; padding: 6px; text-align: center;">${format(new Date(log.harvestDate), "dd/MM/yyyy")}</td>
+                  <td style="border: 1px solid #d1d5db; padding: 6px; text-align: center;">${log.gradeAKg > 0 ? log.gradeAKg : "-"}</td>
+                  <td style="border: 1px solid #d1d5db; padding: 6px; text-align: center;">${log.gradeBKg > 0 ? log.gradeBKg : "-"}</td>
+                  <td style="border: 1px solid #d1d5db; padding: 6px; text-align: center;">${log.gradeAKg > 0 ? `RM${Number(log.pricePerKgGradeA || log.priceGradeA || 0).toFixed(2)}` : "-"}</td>
+                  <td style="border: 1px solid #d1d5db; padding: 6px; text-align: center;">${log.gradeBKg > 0 ? `RM${Number(log.pricePerKgGradeB || log.priceGradeB || 0).toFixed(2)}` : "-"}</td>
+                  <td style="border: 1px solid #d1d5db; padding: 6px; text-align: center; font-weight: bold;">${gradeATotal > 0 ? `RM${gradeATotal.toFixed(2)}` : "-"}</td>
+                  <td style="border: 1px solid #d1d5db; padding: 6px; text-align: center; font-weight: bold;">${gradeBTotal > 0 ? `RM${gradeBTotal.toFixed(2)}` : "-"}</td>
+                  <td style="border: 1px solid #d1d5db; padding: 6px; text-align: center; font-weight: bold; color: #16a34a;">${rowTotal.toFixed(2)}</td>
+                  <td style="border: 1px solid #d1d5db; padding: 6px; text-align: center; max-width: 80px; overflow: hidden; text-overflow: ellipsis;">${log.comments || "-"}</td>
+                </tr>
+              `;
+            }).join('')}
+            <tr style="background-color: #dcfce7; font-weight: bold; border-top: 2px solid #16a34a;">
+              <td style="border: 1px solid #16a34a; padding: 8px; text-align: center;">TOTAL</td>
+              <td style="border: 1px solid #16a34a; padding: 8px; text-align: center;">${totalGradeA.toFixed(1)}</td>
+              <td style="border: 1px solid #16a34a; padding: 8px; text-align: center;">${totalGradeB.toFixed(1)}</td>
+              <td style="border: 1px solid #16a34a; padding: 8px;"></td>
+              <td style="border: 1px solid #16a34a; padding: 8px;"></td>
+              <td style="border: 1px solid #16a34a; padding: 8px; text-align: center;">RM${totalValueGradeA.toFixed(2)}</td>
+              <td style="border: 1px solid #16a34a; padding: 8px; text-align: center;">RM${totalValueGradeB.toFixed(2)}</td>
+              <td style="border: 1px solid #16a34a; padding: 8px; text-align: center; font-size: 13px; color: #15803d;">RM${grandTotal.toFixed(2)}</td>
+              <td style="border: 1px solid #16a34a; padding: 8px;"></td>
+            </tr>
+          </tbody>
+        </table>
+        
+        <div style="margin-top: 30px; text-align: center; font-size: 10px; color: #6b7280;">
+          <p>Generated on ${format(new Date(), "dd/MM/yyyy 'at' HH:mm")}</p>
+        </div>
+      `;
+      
+      document.body.appendChild(printContainer);
+      
+      // Generate PDF
+      const canvas = await html2canvas(printContainer, {
+        scale: 2,
+        useCORS: true,
+        allowTaint: true,
+        backgroundColor: '#ffffff'
+      });
+      
+      document.body.removeChild(printContainer);
+      
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      
+      const imgWidth = 210; // A4 width in mm
+      const pageHeight = 295; // A4 height in mm
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      let heightLeft = imgHeight;
+      
+      let position = 0;
+      
+      // Add first page
+      pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+      heightLeft -= pageHeight;
+      
+      // Add additional pages if needed
+      while (heightLeft >= 0) {
+        position = heightLeft - imgHeight;
+        pdf.addPage();
+        pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+        heightLeft -= pageHeight;
+      }
+      
+      // Save the PDF
+      const fileName = `Harvest_Report_${plot.name.replace(/\s+/g, '_')}_Cycle_${selectedCycle}_${format(new Date(), 'ddMMyyyy')}.pdf`;
+      pdf.save(fileName);
+      
+      toast({
+        title: "Success",
+        description: "PDF report generated successfully",
+      });
+      
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      toast({
+        title: "Error",
+        description: "Failed to generate PDF report",
+        variant: "destructive",
+      });
+    } finally {
+      setIsGeneratingPDF(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
+      {/* Export to PDF Button */}
+      <div className="flex justify-end">
+        <Button 
+          onClick={exportToPDF}
+          disabled={isGeneratingPDF}
+          variant="default"
+          className="bg-green-600 hover:bg-green-700 text-white"
+          data-testid="button-export-pdf"
+        >
+          {isGeneratingPDF ? (
+            <>
+              <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+              Generating PDF...
+            </>
+          ) : (
+            <>
+              <Download className="h-4 w-4 mr-2" />
+              Export to PDF
+            </>
+          )}
+        </Button>
+      </div>
+
       {/* Plot Summary Header */}
       <div className="bg-green-50 dark:bg-green-900/20 p-4 rounded-lg">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
