@@ -176,6 +176,13 @@ function InvoicesContent() {
       render: (value) => value ? format(new Date(value), "dd/MM/yyyy") : "-",
     },
     {
+      key: "createdAt",
+      label: "Created",
+      sortable: true,
+      accessor: (item) => item.createdAt,
+      render: (value) => format(new Date(value), "dd/MM/yyyy HH:mm"),
+    },
+    {
       key: "totalAmount",
       label: "Amount",
       sortable: true,
@@ -593,7 +600,7 @@ function InvoicesContent() {
             columns={invoiceColumns}
             filters={invoiceFilters}
             searchPlaceholder="Search by invoice number, customer, or company..."
-            defaultSort={{ key: "invoiceDate", direction: "desc" }}
+            defaultSort={{ key: "createdAt", direction: "desc" }}
             isLoading={isLoading}
             emptyMessage="No invoices found. Create your first invoice to get started!"
           />
