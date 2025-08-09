@@ -2418,8 +2418,8 @@ export default function Plots() {
 
   const { data: plotsData = [], isLoading } = useQuery<Plot[]>({
     queryKey: ["/api/plots"],
-    staleTime: 0, // Always fetch fresh data
-    gcTime: 0, // Don't cache data for long
+    staleTime: 5 * 60 * 1000, // Cache for 5 minutes to prevent unnecessary refetches
+    gcTime: 10 * 60 * 1000, // Keep in cache for 10 minutes
   });
 
   // Sort plots alphabetically by name
@@ -2428,7 +2428,7 @@ export default function Plots() {
   // Fetch dashboard metrics to synchronize completed cycles count
   const { data: dashboardMetrics } = useQuery({
     queryKey: ["/api/analytics/dashboard"],
-    staleTime: 0,
+    staleTime: 2 * 60 * 1000, // Cache for 2 minutes to prevent excessive refreshing
   });
 
   // Use dashboard data for completed cycles to ensure synchronization
@@ -2577,16 +2577,15 @@ export default function Plots() {
       return response.status === 204 ? null : response.json();
     },
     onSuccess: () => {
-      // Force refetch all related data
-      queryClient.invalidateQueries({ queryKey: ["/api/plots"] });
-      
-      // Also refetch immediately to ensure UI updates
-      queryClient.refetchQueries({ queryKey: ["/api/plots"] });
+      // Optimistic update - remove from cache
+      queryClient.setQueryData(["/api/plots"], (oldData: Plot[] | undefined) => {
+        return oldData ? oldData.filter(plot => plot.id !== deletingPlot?.id) : oldData;
+      });
       
       toast({ 
         title: "Success", 
         description: "Plot deleted successfully",
-        duration: 3000, // Auto-dismiss after 3 seconds
+        duration: 3000,
       });
     },
     onError: (error) => {
@@ -3059,11 +3058,13 @@ function InteractiveHarvestTable({ plot, selectedCycle, harvestLogs }: Interacti
         description: "Harvest log deleted successfully",
       });
 
-      // Invalidate queries to refresh data
-      queryClient.invalidateQueries({ 
-        queryKey: ['/api/harvest-logs/plot', plot.id, 'cycle', selectedCycle] 
+      // Optimistic update - remove from harvest logs cache
+      queryClient.setQueryData([`/api/harvest-logs/${plot.id}`], (oldData: any[]) => {
+        return oldData ? oldData.filter(log => log.id !== logId) : oldData;
       });
-      queryClient.invalidateQueries({ queryKey: ['/api/plots'] });
+      queryClient.setQueryData([`/api/harvest-logs/plot/${plot.id}/cycle/${selectedCycle}`], (oldData: any[]) => {
+        return oldData ? oldData.filter(log => log.id !== logId) : oldData;
+      });
     } catch (error) {
       console.error('Error deleting harvest log:', error);
       toast({
