@@ -112,7 +112,7 @@ function InvoicesContent() {
       totalAmount: group.reduce((sum, invoice) => sum + parseFloat(invoice.totalAmount), 0),
       status: group[0].status, // Use first invoice's status as group status
       invoiceDate: group[0].invoiceDate,
-      createdAt: Math.max(...group.map(invoice => new Date(invoice.createdAt).getTime())),
+      createdAt: new Date(Math.max(...group.map(invoice => new Date(invoice.createdAt).getTime()))),
       id: group[0].id, // Use first invoice's ID for operations
       isGroup: group.length > 1
     }));
@@ -608,7 +608,7 @@ function InvoicesContent() {
             columns={invoiceColumns}
             filters={invoiceFilters}
             searchPlaceholder="Search by invoice number, customer, or company..."
-            defaultSort={{ key: "invoiceNumber", direction: "desc" }}
+            defaultSort={{ key: "createdAt", direction: "desc" }}
             isLoading={isLoading}
             emptyMessage="No invoices found. Create your first invoice to get started!"
           />
