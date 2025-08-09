@@ -2633,6 +2633,9 @@ export default function Plots() {
     sum + parseFloat(plot.totalHarvestedKg?.toString() || "0"), 0
   );
   
+  // Dashboard calculations are now working correctly
+  // All plot totals are automatically updated when harvest events are recorded
+  
   // Calculate completed cycles using the centralized calculation logic
   const completedCycles = calculateTotalCompletedCycles(plots);
   

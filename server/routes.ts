@@ -1790,10 +1790,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Create the harvest log
       const harvestLog = await storage.createHarvestLog(validatedData);
       
-      // Auto-update plot status to "harvesting" when first harvest event is added
+      // Recalculate total harvested weight for this plot
+      const allHarvestLogs = await storage.getHarvestLogs(validatedData.plotId);
+      const totalHarvestedWeight = allHarvestLogs.reduce((sum, log) => {
+        const weight = parseFloat(log.weightKg?.toString() || "0");
+        return sum + weight;
+      }, 0);
+      
+      // Update plot status to "harvesting" and update total harvested weight
+      const updateData: any = {
+        totalHarvestedKg: totalHarvestedWeight.toFixed(2)
+      };
+      
       if (plot.status !== "harvesting") {
-        await storage.updatePlot(validatedData.plotId, { status: "harvesting" });
+        updateData.status = "harvesting";
       }
+      
+      await storage.updatePlot(validatedData.plotId, updateData);
+      
+      console.log(`✅ Updated plot ${plot.name} total harvested weight: ${totalHarvestedWeight.toFixed(2)} kg (from ${allHarvestLogs.length} harvest events)`);
       
       res.status(201).json(harvestLog);
     } catch (error) {
@@ -1828,6 +1843,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!updatedLog) {
         return res.status(404).json({ message: "Harvest log not found" });
       }
+      
+      // Recalculate total harvested weight for the plot after update
+      const allHarvestLogs = await storage.getHarvestLogs(targetLog.plotId);
+      const totalHarvestedWeight = allHarvestLogs.reduce((sum, log) => {
+        const weight = parseFloat(log.weightKg?.toString() || "0");
+        return sum + weight;
+      }, 0);
+      
+      await storage.updatePlot(targetLog.plotId, { 
+        totalHarvestedKg: totalHarvestedWeight.toFixed(2) 
+      });
+      
+      console.log(`✅ Updated plot total harvested weight after log update: ${totalHarvestedWeight.toFixed(2)} kg`);
+      
       res.json(updatedLog);
     } catch (error) {
       console.error("Error updating harvest log:", error);
@@ -1858,10 +1887,64 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!deleted) {
         return res.status(404).json({ message: "Harvest log not found" });
       }
+      
+      // Recalculate total harvested weight for the plot after deletion
+      const allHarvestLogs = await storage.getHarvestLogs(targetLog.plotId);
+      const totalHarvestedWeight = allHarvestLogs.reduce((sum, log) => {
+        const weight = parseFloat(log.weightKg?.toString() || "0");
+        return sum + weight;
+      }, 0);
+      
+      await storage.updatePlot(targetLog.plotId, { 
+        totalHarvestedKg: totalHarvestedWeight.toFixed(2) 
+      });
+      
+      console.log(`✅ Updated plot total harvested weight after log deletion: ${totalHarvestedWeight.toFixed(2)} kg`);
+      
       res.status(204).send();
     } catch (error) {
       console.error("Error deleting harvest log:", error);
       res.status(500).json({ message: "Failed to delete harvest log" });
+    }
+  });
+
+  // Temporary data migration endpoint to recalculate plot totals
+  app.post("/api/plots/recalculate-totals", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ message: "User not authenticated" });
+      }
+      
+      const plots = await storage.getPlotsByUserId(userId);
+      let updatedCount = 0;
+      
+      for (const plot of plots) {
+        // Get all harvest logs for this plot
+        const allHarvestLogs = await storage.getHarvestLogs(plot.id);
+        
+        // Calculate total harvested weight
+        const totalHarvestedWeight = allHarvestLogs.reduce((sum, log) => {
+          const weight = parseFloat(log.weightKg?.toString() || "0");
+          return sum + weight;
+        }, 0);
+        
+        // Update the plot with correct total
+        await storage.updatePlot(plot.id, { 
+          totalHarvestedKg: totalHarvestedWeight.toFixed(2) 
+        });
+        
+        console.log(`📊 Recalculated ${plot.name}: ${totalHarvestedWeight.toFixed(2)} kg (from ${allHarvestLogs.length} harvest events)`);
+        updatedCount++;
+      }
+      
+      res.json({ 
+        message: `Successfully recalculated totals for ${updatedCount} plots`,
+        updatedPlots: updatedCount 
+      });
+    } catch (error) {
+      console.error("Error recalculating plot totals:", error);
+      res.status(500).json({ message: "Failed to recalculate plot totals" });
     }
   });
 
