@@ -103,19 +103,29 @@ function InvoicesContent() {
       groups[individualKey] = [invoice];
     });
 
-    return Object.values(groups).map(group => ({
-      groupKey: group.length > 1 ? 
-        sales.find((sale: any) => sale.id === group[0].saleId)?.notes?.match(/\[GROUP:([^\]]+)\]/)?.[1] || 'ungrouped' : 
-        'ungrouped',
-      customer: group[0].customer,
-      items: group,
-      totalAmount: group.reduce((sum, invoice) => sum + parseFloat(invoice.totalAmount), 0),
-      status: group[0].status, // Use first invoice's status as group status
-      invoiceDate: group[0].invoiceDate,
-      createdAt: new Date(Math.max(...group.map(invoice => new Date(invoice.createdAt).getTime()))),
-      id: group[0].id, // Use first invoice's ID for operations
-      isGroup: group.length > 1
-    }));
+    // Sort groups by the latest creation date in each group
+    return Object.values(groups)
+      .map(group => {
+        // Sort invoices within group by creation date (newest first)
+        const sortedGroup = group.sort((a, b) => 
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        );
+        
+        return {
+          groupKey: group.length > 1 ? 
+            sales.find((sale: any) => sale.id === group[0].saleId)?.notes?.match(/\[GROUP:([^\]]+)\]/)?.[1] || 'ungrouped' : 
+            'ungrouped',
+          customer: sortedGroup[0].customer,
+          items: sortedGroup,
+          totalAmount: group.reduce((sum, invoice) => sum + parseFloat(invoice.totalAmount), 0),
+          status: sortedGroup[0].status,
+          invoiceDate: sortedGroup[0].invoiceDate,
+          createdAt: sortedGroup[0].createdAt, // Use the latest invoice's creation date
+          id: sortedGroup[0].id,
+          isGroup: group.length > 1
+        };
+      })
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   }, [invoices, sales]);
 
   // Column definitions for EnhancedDataTable
