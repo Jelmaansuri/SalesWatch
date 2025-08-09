@@ -2309,11 +2309,6 @@ export default function Plots() {
     }
     setNextCycleModalOpen(false);
     setNextCyclePlot(null);
-    toast({
-      title: "Next cycle started!",
-      description: `${data.name} has been set up for Cycle ${data.currentCycle}`,
-      duration: 3000, // Auto-dismiss after 3 seconds
-    });
   };
 
   // Handle harvest submission
@@ -2394,8 +2389,18 @@ export default function Plots() {
         throw new Error("Failed to record harvest");
       }
 
-      queryClient.invalidateQueries({ queryKey: ["/api/plots"] });
+      // Optimistic update for instant UI response
+      const updatedPlot = { ...harvestingPlot, ...payload };
+      queryClient.setQueryData(["/api/plots"], (oldData: Plot[] | undefined) => {
+        if (!oldData) return oldData;
+        return oldData.map(plot => 
+          plot.id === harvestingPlot.id ? updatedPlot : plot
+        );
+      });
+      
+      // Invalidate dashboard metrics for accurate harvest totals 
       queryClient.invalidateQueries({ queryKey: ["/api/analytics/dashboard"] });
+      
       setHarvestModalOpen(false);
       setHarvestingPlot(null);
       
@@ -2407,7 +2412,7 @@ export default function Plots() {
         title: "Success", 
         description: message,
         variant: "default",
-        duration: 3000, // Auto-dismiss after 3 seconds
+        duration: 3000,
       });
     } catch (error) {
       console.error("Error recording harvest:", error);
@@ -2477,13 +2482,19 @@ export default function Plots() {
       }
       return response.json();
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/plots"] });
+    onSuccess: (newPlot) => {
+      // Optimistic update for instant UI response
+      queryClient.setQueryData(["/api/plots"], (oldData: Plot[] | undefined) => {
+        return oldData ? [...oldData, newPlot] : [newPlot];
+      });
+      
+      // Invalidate dashboard metrics for accurate totals
       queryClient.invalidateQueries({ queryKey: ["/api/analytics/dashboard"] });
+      
       toast({ 
         title: "Success", 
         description: "Plot created successfully",
-        duration: 3000, // Auto-dismiss after 3 seconds
+        duration: 3000,
       });
     },
     onError: () => {
@@ -2530,13 +2541,22 @@ export default function Plots() {
       }
       return response.json();
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/plots"] });
+    onSuccess: (updatedPlot) => {
+      // Optimistic update for instant UI response
+      queryClient.setQueryData(["/api/plots"], (oldData: Plot[] | undefined) => {
+        if (!oldData) return oldData;
+        return oldData.map(plot => 
+          plot.id === updatedPlot.id ? updatedPlot : plot
+        );
+      });
+      
+      // Invalidate dashboard metrics for accurate harvest totals
       queryClient.invalidateQueries({ queryKey: ["/api/analytics/dashboard"] });
+      
       toast({ 
         title: "Success", 
         description: "Plot updated successfully",
-        duration: 3000, // Auto-dismiss after 3 seconds
+        duration: 3000,
       });
       setEditingPlot(undefined);
     },
