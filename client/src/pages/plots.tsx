@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { CalendarIcon, Plus, Sprout, Clock, Target, AlertTriangle, CheckCircle, MapPin, BarChart3, Eye, Edit, Trash2, Package, RefreshCw, TreePine, ArrowRight } from "lucide-react";
+import { CalendarIcon, Plus, Sprout, Clock, Target, AlertTriangle, CheckCircle, MapPin, BarChart3, Eye, Edit, Trash2, Package, RefreshCw, TreePine, ArrowRight, FileText } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { format, addDays, differenceInDays, parseISO } from "date-fns";
@@ -534,8 +534,38 @@ function PlotCard({ plot, onEdit, onDelete, onHarvest, onNextCycle }: {
               </DialogContent>
             </Dialog>
             
+            {/* View Harvest Summary Table */}
+            {cycleHarvestKg > 0 && (
+              <Dialog>
+                <DialogTrigger asChild>
+                  <Button 
+                    size="sm" 
+                    variant="outline"
+                    className="w-full text-xs border-green-600 text-green-700 hover:bg-green-50"
+                    data-testid={`button-view-summary-${plot.id}`}
+                  >
+                    <FileText className="h-3 w-3 mr-1" />
+                    View Harvest Summary - Cycle {selectedCycle}
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+                  <DialogHeader>
+                    <DialogTitle>Harvest Summary - {plot.name} (Cycle {selectedCycle})</DialogTitle>
+                    <div className="text-sm text-gray-600 dark:text-gray-400">
+                      Detailed harvest report formatted like your PDF documents
+                    </div>
+                  </DialogHeader>
+                  <HarvestSummaryTable 
+                    plot={plot} 
+                    selectedCycle={selectedCycle}
+                    harvestLogs={cycleHarvestLogs}
+                  />
+                </DialogContent>
+              </Dialog>
+            )}
+            
             {/* Proceed to Next Cycle Button - Available when current cycle has harvest data */}
-            {selectedCycle === plot.currentCycle && cycleHarvestKg > 0 && plot.currentCycle < plot.totalCycles && (
+            {selectedCycle === plot.currentCycle && cycleHarvestKg > 0 && plot.isMultiCycle && (
               <Dialog>
                 <DialogTrigger asChild>
                   <Button 
@@ -2470,3 +2500,124 @@ export default function Plots() {
     </MainLayout>
   );
 }
+
+// Component to display harvest summary table in PDF format
+interface HarvestSummaryTableProps {
+  plot: any;
+  selectedCycle: number;
+  harvestLogs: any[];
+}
+
+function HarvestSummaryTable({ plot, selectedCycle, harvestLogs }: HarvestSummaryTableProps) {
+  const plotStartDate = plot.plantingDate ? new Date(plot.plantingDate) : new Date();
+  const expectedStartDate = addDays(plotStartDate, plot.daysToMaturity || 135);
+  
+  // Sort harvest logs by date
+  const sortedLogs = harvestLogs
+    .sort((a, b) => new Date(a.harvestDate).getTime() - new Date(b.harvestDate).getTime());
+
+  // Calculate totals
+  const totalGradeA = sortedLogs.reduce((sum, log) => sum + (log.gradeAKg || 0), 0);
+  const totalGradeB = sortedLogs.reduce((sum, log) => sum + (log.gradeBKg || 0), 0);
+  const totalValueGradeA = sortedLogs.reduce((sum, log) => sum + ((log.gradeAKg || 0) * (log.pricePerKgGradeA || 0)), 0);
+  const totalValueGradeB = sortedLogs.reduce((sum, log) => sum + ((log.gradeBKg || 0) * (log.pricePerKgGradeB || 0)), 0);
+  const grandTotal = totalValueGradeA + totalValueGradeB;
+
+  return (
+    <div className="space-y-6 p-4">
+      {/* Header */}
+      <div className="text-center space-y-2">
+        <h2 className="text-2xl font-bold text-green-700">HALIA MUDA</h2>
+        <div className="grid grid-cols-2 gap-4 text-sm">
+          <div className="text-left space-y-1">
+            <div><span className="font-semibold">Musim:</span> {selectedCycle}/2025</div>
+            <div><span className="font-semibold">Plot:</span> {plot.name}</div>
+            <div><span className="font-semibold">Pokok:</span> {plot.polybagCount}</div>
+            <div><span className="font-semibold">Tempoh:</span> {Math.round((plot.daysToMaturity || 135) / 30 * 10) / 10} bulan</div>
+          </div>
+          <div className="text-left space-y-1">
+            <div><span className="font-semibold">Tanam:</span> {format(plotStartDate, "dd/M/yyyy")}</div>
+            <div className="ml-4"><span className="font-semibold">Mula:</span> {format(expectedStartDate, "dd/M/yyyy")}</div>
+            <div className="ml-4"><span className="font-semibold">Tuai Tamat:</span> {sortedLogs.length > 0 ? format(new Date(sortedLogs[sortedLogs.length - 1].harvestDate), "dd/M/yyyy") : "-"}</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Table */}
+      <div className="border border-gray-300 rounded-lg overflow-hidden">
+        <table className="w-full text-sm">
+          <thead className="bg-gray-100 dark:bg-gray-800">
+            <tr>
+              <th className="border border-gray-300 px-2 py-2 text-center">Tarikh</th>
+              <th className="border border-gray-300 px-2 py-2 text-center">Gred A (kg)</th>
+              <th className="border border-gray-300 px-2 py-2 text-center">Gred B (kg)</th>
+              <th className="border border-gray-300 px-2 py-2 text-center">Harga/kg</th>
+              <th className="border border-gray-300 px-2 py-2 text-center">Harga A</th>
+              <th className="border border-gray-300 px-2 py-2 text-center">Harga B</th>
+              <th className="border border-gray-300 px-2 py-2 text-center">Jumlah (RM)</th>
+              <th className="border border-gray-300 px-2 py-2 text-center">Komen</th>
+            </tr>
+          </thead>
+          <tbody>
+            {sortedLogs.map((log, index) => {
+              const gradeATotal = (log.gradeAKg || 0) * (log.pricePerKgGradeA || 0);
+              const gradeBTotal = (log.gradeBKg || 0) * (log.pricePerKgGradeB || 0);
+              const rowTotal = gradeATotal + gradeBTotal;
+              
+              return (
+                <tr key={log.id} className={index % 2 === 0 ? "bg-white dark:bg-gray-900" : "bg-gray-50 dark:bg-gray-800"}>
+                  <td className="border border-gray-300 px-2 py-2 text-center">
+                    {format(new Date(log.harvestDate), "dd/M/yyyy")}
+                  </td>
+                  <td className="border border-gray-300 px-2 py-2 text-center">
+                    {log.gradeAKg > 0 ? log.gradeAKg : ""}
+                  </td>
+                  <td className="border border-gray-300 px-2 py-2 text-center">
+                    {log.gradeBKg > 0 ? log.gradeBKg : ""}
+                  </td>
+                  <td className="border border-gray-300 px-2 py-2 text-center">
+                    {log.gradeAKg > 0 ? `RM${log.pricePerKgGradeA?.toFixed(2)}` : ""}
+                    {log.gradeBKg > 0 && log.gradeAKg > 0 ? " / " : ""}
+                    {log.gradeBKg > 0 ? `RM${log.pricePerKgGradeB?.toFixed(2)}` : ""}
+                  </td>
+                  <td className="border border-gray-300 px-2 py-2 text-right">
+                    {gradeATotal > 0 ? `RM${gradeATotal.toFixed(2)}` : ""}
+                  </td>
+                  <td className="border border-gray-300 px-2 py-2 text-right">
+                    {gradeBTotal > 0 ? `RM${gradeBTotal.toFixed(2)}` : ""}
+                  </td>
+                  <td className="border border-gray-300 px-2 py-2 text-right font-medium">
+                    RM{rowTotal.toFixed(2)}
+                  </td>
+                  <td className="border border-gray-300 px-2 py-2 text-center">
+                    {log.comments || ""}
+                  </td>
+                </tr>
+              );
+            })}
+            
+            {/* Final totals row */}
+            <tr className="bg-yellow-100 dark:bg-yellow-900 font-bold">
+              <td className="border border-gray-300 px-2 py-2 text-center">Final</td>
+              <td className="border border-gray-300 px-2 py-2 text-center">{totalGradeA}</td>
+              <td className="border border-gray-300 px-2 py-2 text-center">{totalGradeB}</td>
+              <td className="border border-gray-300 px-2 py-2"></td>
+              <td className="border border-gray-300 px-2 py-2 text-right">RM{totalValueGradeA.toFixed(2)}</td>
+              <td className="border border-gray-300 px-2 py-2 text-right">RM{totalValueGradeB.toFixed(2)}</td>
+              <td className="border border-gray-300 px-2 py-2 text-right text-lg">RM {grandTotal.toFixed(2)}</td>
+              <td className="border border-gray-300 px-2 py-2"></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      
+      {/* Summary */}
+      <div className="text-center space-y-2 text-sm text-gray-600 dark:text-gray-400">
+        <div>Total harvest events: {sortedLogs.length}</div>
+        <div>Total weight: {(totalGradeA + totalGradeB).toFixed(1)} kg</div>
+        <div>Total revenue: RM {grandTotal.toFixed(2)}</div>
+      </div>
+    </div>
+  );
+}
+
