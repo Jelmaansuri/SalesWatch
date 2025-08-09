@@ -733,8 +733,18 @@ function HarvestLogForm({ plot, selectedCycle, onSuccess }: {
           return oldData ? [...oldData, newHarvestLog] : [newHarvestLog];
         });
         
-        // 2. Only invalidate dashboard for accurate totals (no refetch to prevent page refresh)
-        queryClient.invalidateQueries({ queryKey: ["/api/analytics/dashboard"] });
+        // 2. Update dashboard metrics optimistically (no invalidation to prevent refresh)
+        queryClient.setQueryData(["/api/analytics/dashboard"], (oldData: any) => {
+          if (!oldData) return oldData;
+          const gradeAKg = newHarvestLog.gradeAKg || 0;
+          const gradeBKg = newHarvestLog.gradeBKg || 0;
+          return {
+            ...oldData,
+            totalHarvestKg: parseFloat(oldData.totalHarvestKg || 0) + gradeAKg + gradeBKg,
+            totalGradeAKg: parseFloat(oldData.totalGradeAKg || 0) + gradeAKg,
+            totalGradeBKg: parseFloat(oldData.totalGradeBKg || 0) + gradeBKg,
+          };
+        });
         
         console.log(`✅ Instantly updated UI after harvest recording for ${plot.name} - Cycle ${selectedCycle}`);
         
@@ -2389,8 +2399,15 @@ export default function Plots() {
         );
       });
       
-      // Invalidate dashboard metrics for accurate harvest totals 
-      queryClient.invalidateQueries({ queryKey: ["/api/analytics/dashboard"] });
+      // Update dashboard metrics optimistically (no invalidation to prevent refresh)
+      queryClient.setQueryData(["/api/analytics/dashboard"], (oldData: any) => {
+        if (!oldData) return oldData;
+        return {
+          ...oldData,
+          totalHarvestKg: parseFloat(oldData.totalHarvestKg || 0) + data.harvestAmountKg,
+          completedCycles: data.proceedToNextCycle ? oldData.completedCycles + 1 : oldData.completedCycles
+        };
+      });
       
       setHarvestModalOpen(false);
       setHarvestingPlot(null);
