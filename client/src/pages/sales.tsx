@@ -60,6 +60,7 @@ export default function Sales() {
   const [showInvoicePreview, setShowInvoicePreview] = useState(false);
   const [previewInvoiceNumber, setPreviewInvoiceNumber] = useState<string>("");
   const [pendingSale, setPendingSale] = useState<SaleWithDetails | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const { data: salesData = [], isLoading, error } = useQuery<SaleWithDetails[]>({
     queryKey: ["/api/sales"],
@@ -210,11 +211,34 @@ export default function Sales() {
         value,
         label
       })),
-      render: (value) => (
-        <Badge className={`${ORDER_STATUS_COLORS[value]} text-white`}>
-          {ORDER_STATUS_LABELS[value]}
-        </Badge>
-      ),
+      render: (value) => {
+        const getVibrantStatusDesign = (status: string) => {
+          switch (status) {
+            case "pending":
+              return "bg-gradient-to-r from-yellow-400 to-amber-500 text-white shadow-lg border-0 font-semibold";
+            case "processing":
+              return "bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-lg border-0 font-semibold";
+            case "shipped":
+              return "bg-gradient-to-r from-purple-500 to-violet-600 text-white shadow-lg border-0 font-semibold";
+            case "delivered":
+              return "bg-gradient-to-r from-green-500 to-emerald-600 text-white shadow-lg border-0 font-semibold";
+            case "cancelled":
+              return "bg-gradient-to-r from-red-500 to-rose-600 text-white shadow-lg border-0 font-semibold";
+            case "refunded":
+              return "bg-gradient-to-r from-orange-500 to-red-500 text-white shadow-lg border-0 font-semibold";
+            case "paid":
+              return "bg-gradient-to-r from-teal-500 to-cyan-600 text-white shadow-lg border-0 font-semibold";
+            default:
+              return "bg-gradient-to-r from-gray-500 to-slate-600 text-white shadow-lg border-0 font-semibold";
+          }
+        };
+        
+        return (
+          <Badge className={`${getVibrantStatusDesign(value)} px-3 py-1 rounded-full`}>
+            {ORDER_STATUS_LABELS[value as keyof typeof ORDER_STATUS_LABELS]}
+          </Badge>
+        );
+      },
     },
     {
       key: "platformSource",
@@ -228,7 +252,7 @@ export default function Sales() {
       })),
       render: (value) => (
         <Badge variant="outline">
-          {PLATFORM_SOURCE_LABELS[value]}
+          {PLATFORM_SOURCE_LABELS[value as keyof typeof PLATFORM_SOURCE_LABELS]}
         </Badge>
       ),
     },
@@ -255,8 +279,28 @@ export default function Sales() {
       ],
       render: (value, item) => {
         const invoiceStatus = getInvoiceStatus(item.id);
+        
+        const getVibrantInvoiceDesign = (status: string) => {
+          switch (status) {
+            case "Not Generated":
+              return "bg-gradient-to-r from-gray-400 to-gray-500 text-white shadow-md border-0 font-medium";
+            case "Draft":
+              return "bg-gradient-to-r from-blue-400 to-blue-600 text-white shadow-md border-0 font-medium";
+            case "Sent":
+              return "bg-gradient-to-r from-indigo-500 to-purple-600 text-white shadow-md border-0 font-medium";
+            case "Paid":
+              return "bg-gradient-to-r from-green-500 to-emerald-600 text-white shadow-md border-0 font-medium";
+            case "Overdue":
+              return "bg-gradient-to-r from-red-500 to-rose-600 text-white shadow-md border-0 font-medium";
+            case "Cancelled":
+              return "bg-gradient-to-r from-gray-500 to-slate-600 text-white shadow-md border-0 font-medium";
+            default:
+              return "bg-gradient-to-r from-cyan-500 to-teal-600 text-white shadow-md border-0 font-medium";
+          }
+        };
+        
         return (
-          <Badge variant={invoiceStatus.badge as any}>
+          <Badge className={`${getVibrantInvoiceDesign(invoiceStatus.status)} px-2 py-1 rounded-full`}>
             {invoiceStatus.status}
           </Badge>
         );
@@ -274,6 +318,15 @@ export default function Sales() {
             data-testid={`button-edit-sale-${item.id}`}
           >
             <Edit className="h-4 w-4" />
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => handleGenerateInvoice(item)}
+            className="text-green-600 hover:text-green-700 hover:bg-green-50"
+            data-testid={`button-generate-invoice-${item.id}`}
+          >
+            <FileText className="h-4 w-4" />
           </Button>
           <AlertDialog>
             <AlertDialogTrigger asChild>
@@ -693,8 +746,6 @@ export default function Sales() {
   const handleDelete = (saleId: string) => {
     deleteSaleMutation.mutate(saleId);
   };
-
-  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSubmit = async (data: FormData) => {
     // Prevent double submission
