@@ -543,15 +543,20 @@ export class DatabaseStorage implements IStorage {
     
     console.log('Total completed cycles calculated:', completedCycles);
     
-    // Calculate total harvest amount from actual harvest log data
+    // Calculate total harvest amount from actual harvest log data with Grade A/B breakdown
     const allHarvestLogs = await db.select().from(harvestLogs);
-    const totalHarvestKg = allHarvestLogs.reduce((sum, log) => {
-      const gradeAKg = parseFloat(log.gradeAKg || "0");
-      const gradeBKg = parseFloat(log.gradeBKg || "0");
-      return sum + gradeAKg + gradeBKg;
+    
+    const totalGradeAKg = allHarvestLogs.reduce((sum, log) => {
+      return sum + parseFloat(log.gradeAKg || "0");
     }, 0);
     
-    console.log('Total harvest calculated from harvest logs:', totalHarvestKg);
+    const totalGradeBKg = allHarvestLogs.reduce((sum, log) => {
+      return sum + parseFloat(log.gradeBKg || "0");
+    }, 0);
+    
+    const totalHarvestKg = totalGradeAKg + totalGradeBKg;
+    
+    console.log(`Total harvest calculated - Grade A: ${totalGradeAKg}kg, Grade B: ${totalGradeBKg}kg, Total: ${totalHarvestKg}kg`);
 
     const orderStatusCounts = {
       unpaid: allSales.filter(s => s.status === 'unpaid').length,
@@ -567,7 +572,9 @@ export class DatabaseStorage implements IStorage {
       activeOrders, 
       totalCustomers, 
       completedCycles, 
-      totalHarvestKg 
+      totalHarvestKg,
+      totalGradeAKg,
+      totalGradeBKg
     });
 
     return {
@@ -577,6 +584,8 @@ export class DatabaseStorage implements IStorage {
       totalCustomers,
       completedCycles,
       totalHarvestKg,
+      totalGradeAKg,
+      totalGradeBKg,
       orderStatusCounts,
     };
   }

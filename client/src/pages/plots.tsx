@@ -2724,7 +2724,7 @@ export default function Plots() {
             </div>
 
         {/* Summary Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-6 gap-6 mb-8">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Total Plots</CardTitle>
@@ -2782,16 +2782,33 @@ export default function Plots() {
               </p>
             </CardContent>
           </Card>
-          <Card>
+          <Card className="md:col-span-2">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Total Harvest</CardTitle>
               <Package className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-green-600" data-testid="text-total-harvest">
-                {totalHarvestedKg.toFixed(1)} kg
+              <div className="grid grid-cols-3 gap-4">
+                <div className="text-center">
+                  <p className="text-xs text-muted-foreground mb-1">Grade A</p>
+                  <p className="text-lg font-bold text-green-600" data-testid="text-grade-a-harvest">
+                    {dashboardMetrics?.totalGradeAKg?.toFixed(1) || '0.0'} kg
+                  </p>
+                </div>
+                <div className="text-center">
+                  <p className="text-xs text-muted-foreground mb-1">Grade B</p>
+                  <p className="text-lg font-bold text-blue-600" data-testid="text-grade-b-harvest">
+                    {dashboardMetrics?.totalGradeBKg?.toFixed(1) || '0.0'} kg
+                  </p>
+                </div>
+                <div className="text-center">
+                  <p className="text-xs text-muted-foreground mb-1">Total</p>
+                  <p className="text-lg font-bold text-gray-900 dark:text-white" data-testid="text-total-harvest">
+                    {totalHarvestedKg.toFixed(1)} kg
+                  </p>
+                </div>
               </div>
-              <p className="text-xs text-muted-foreground">
+              <p className="text-xs text-muted-foreground mt-2 text-center">
                 All plots combined
               </p>
             </CardContent>
