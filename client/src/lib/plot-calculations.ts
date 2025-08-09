@@ -89,7 +89,9 @@ export function calculatePlotMetrics(plot: Plot, referenceDate: Date = new Date(
   const currentCycleHarvest = parseFloat(plot.harvestAmountKg?.toString() || "0");
   const totalHarvest = parseFloat(plot.totalHarvestedKg?.toString() || "0");
   
-  // Completed cycles calculation (matching dashboard logic)
+  // Completed cycles calculation - now matches dashboard logic
+  // NOTE: This is a simplified frontend calculation based on status
+  // The actual dashboard uses harvest log data for accurate counting
   let completedCycles = 0;
   if (plot.status === 'harvesting') {
     completedCycles = plot.currentCycle;

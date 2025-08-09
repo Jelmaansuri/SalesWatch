@@ -510,7 +510,7 @@ export class DatabaseStorage implements IStorage {
     const allCustomers = await this.getCustomers();
     const totalCustomers = allCustomers.length;
     
-    // Calculate completed cycles from all plots
+    // Calculate completed cycles based on actual harvest data, not plot status
     const allPlots = await db.select().from(plots);
     console.log('Dashboard calculation - all plots:', allPlots.map(p => ({ 
       name: p.name, 
@@ -519,32 +519,31 @@ export class DatabaseStorage implements IStorage {
       totalHarvestedKg: p.totalHarvestedKg 
     })));
     
-    const completedCycles = allPlots.reduce((sum, plot) => {
-      let cyclesForThisPlot = 0;
-      // For plots with "harvested" status, the currentCycle represents completed cycles
-      // For other statuses, we only count cycles that have been fully harvested (currentCycle - 1)
-      if (plot.status === 'harvested') {
-        cyclesForThisPlot = plot.currentCycle;
-      } else if (plot.currentCycle > 1) {
-        // For plots in other statuses, count previously completed cycles
-        cyclesForThisPlot = plot.currentCycle - 1;
-      }
+    let completedCycles = 0;
+    
+    // Count cycles with actual harvest data for each plot
+    for (const plot of allPlots) {
+      const plotHarvestLogs = await db.select().from(harvestLogs).where(eq(harvestLogs.plotId, plot.id));
       
-      console.log(`Plot ${plot.name}: status=${plot.status}, currentCycle=${plot.currentCycle}, contributing ${cyclesForThisPlot} cycles`);
-      return sum + cyclesForThisPlot;
-    }, 0);
+      // Count unique cycles that have harvest data  
+      const cyclesWithHarvest = new Set(plotHarvestLogs.map(log => log.cycleNumber));
+      const completedCyclesForPlot = cyclesWithHarvest.size;
+      
+      console.log(`Plot ${plot.name}: status=${plot.status}, currentCycle=${plot.currentCycle}, cycles with harvest data=${completedCyclesForPlot}`);
+      completedCycles += completedCyclesForPlot;
+    }
     
     console.log('Total completed cycles calculated:', completedCycles);
     
-    // Calculate total harvest amount across all plots
-    const totalHarvestKg = allPlots.reduce((sum, plot) => {
-      if (plot.totalHarvestedKg) {
-        const harvestAmount = typeof plot.totalHarvestedKg === 'string' ? 
-          parseFloat(plot.totalHarvestedKg) : plot.totalHarvestedKg;
-        return sum + harvestAmount;
-      }
-      return sum;
+    // Calculate total harvest amount from actual harvest log data
+    const allHarvestLogs = await db.select().from(harvestLogs);
+    const totalHarvestKg = allHarvestLogs.reduce((sum, log) => {
+      const gradeAKg = parseFloat(log.gradeAKg || "0");
+      const gradeBKg = parseFloat(log.gradeBKg || "0");
+      return sum + gradeAKg + gradeBKg;
     }, 0);
+    
+    console.log('Total harvest calculated from harvest logs:', totalHarvestKg);
 
     const orderStatusCounts = {
       unpaid: allSales.filter(s => s.status === 'unpaid').length,

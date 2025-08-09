@@ -2663,15 +2663,20 @@ export default function Plots() {
   );
   const harvestedPlots = plots.filter((plot: Plot) => plot.status === "harvesting");
   const totalPolybags = plots.reduce((sum: number, plot: Plot) => sum + plot.polybagCount, 0);
-  const totalHarvestedKg = plots.reduce((sum: number, plot: Plot) => 
-    sum + parseFloat(plot.totalHarvestedKg?.toString() || "0"), 0
-  );
+  // Use dashboard data for total harvest to ensure synchronization  
+  const totalHarvestedKg = dashboardMetrics?.totalHarvestKg || 0;
   
   // Dashboard calculations are now working correctly
   // All plot totals are automatically updated when harvest events are recorded
   
-  // Calculate completed cycles using the centralized calculation logic
-  const completedCycles = calculateTotalCompletedCycles(plots);
+  // Fetch actual completed cycles from dashboard API to ensure synchronization
+  const { data: dashboardMetrics } = useQuery({
+    queryKey: ["/api/analytics/dashboard"],
+    staleTime: 0,
+  });
+  
+  // Use dashboard data for completed cycles to ensure synchronization
+  const completedCycles = dashboardMetrics?.completedCycles || 0;
   
   // Plots needing attention (netting open due or ready for harvest)
   const plotsNeedingAttention = plots.filter((plot: Plot) => {
