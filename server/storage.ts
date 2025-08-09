@@ -521,12 +521,25 @@ export class DatabaseStorage implements IStorage {
     
     let completedCycles = 0;
     
-    // Count total harvest events across all plots as completed cycles
-    // Each harvest event represents a completed cycle
-    const allHarvestEvents = await db.select().from(harvestLogs);
-    completedCycles = allHarvestEvents.length;
-    
-    console.log(`Total harvest events (completed cycles): ${completedCycles}`);
+    // Count completed cycles based on plot status and harvest data
+    // For each plot, count actual completed cycles
+    for (const plot of allPlots) {
+      const plotHarvestLogs = await db.select().from(harvestLogs).where(eq(harvestLogs.plotId, plot.id));
+      
+      let plotCompletedCycles = 0;
+      
+      if (plotHarvestLogs.length > 0) {
+        // If plot has harvest events, count unique cycles with harvest data
+        const cyclesWithHarvest = new Set(plotHarvestLogs.map(log => log.cycleNumber));
+        plotCompletedCycles = cyclesWithHarvest.size;
+      } else {
+        // If no harvest events, count completed cycles based on current cycle
+        plotCompletedCycles = Math.max(0, plot.currentCycle - 1);
+      }
+      
+      console.log(`Plot ${plot.name}: currentCycle=${plot.currentCycle}, harvest events=${plotHarvestLogs.length}, completed cycles=${plotCompletedCycles}`);
+      completedCycles += plotCompletedCycles;
+    }
     
     console.log('Total completed cycles calculated:', completedCycles);
     
