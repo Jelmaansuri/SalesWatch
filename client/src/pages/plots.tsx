@@ -188,9 +188,18 @@ function PlotCard({ plot, onEdit, onDelete, onHarvest, onNextCycle }: {
   }, 0);
 
   const cycleHarvestKg = cycleHarvestLogs.reduce((total, log) => {
-    const gradeAKg = parseFloat(log.gradeAKg || "0");
-    const gradeBKg = parseFloat(log.gradeBKg || "0");
+    const gradeAKg = parseFloat(log.grade_a_kg || log.gradeAKg || "0");
+    const gradeBKg = parseFloat(log.grade_b_kg || log.gradeBKg || "0");
     return total + gradeAKg + gradeBKg;
+  }, 0);
+
+  // Calculate Grade A and Grade B totals for current cycle
+  const cycleGradeAKg = cycleHarvestLogs.reduce((total, log) => {
+    return total + parseFloat(log.grade_a_kg || log.gradeAKg || "0");
+  }, 0);
+
+  const cycleGradeBKg = cycleHarvestLogs.reduce((total, log) => {
+    return total + parseFloat(log.grade_b_kg || log.gradeBKg || "0");
   }, 0);
 
   // Calculate overall plot harvest totals from all cycles
@@ -201,9 +210,18 @@ function PlotCard({ plot, onEdit, onDelete, onHarvest, onNextCycle }: {
   }, 0);
 
   const overallHarvestKg = allPlotHarvestLogs.reduce((total, log) => {
-    const gradeAKg = parseFloat(log.gradeAKg || "0");
-    const gradeBKg = parseFloat(log.gradeBKg || "0");
+    const gradeAKg = parseFloat(log.grade_a_kg || log.gradeAKg || "0");
+    const gradeBKg = parseFloat(log.grade_b_kg || log.gradeBKg || "0");
     return total + gradeAKg + gradeBKg;
+  }, 0);
+
+  // Calculate overall Grade A and Grade B totals for all cycles
+  const overallGradeAKg = allPlotHarvestLogs.reduce((total, log) => {
+    return total + parseFloat(log.grade_a_kg || log.gradeAKg || "0");
+  }, 0);
+
+  const overallGradeBKg = allPlotHarvestLogs.reduce((total, log) => {
+    return total + parseFloat(log.grade_b_kg || log.gradeBKg || "0");
   }, 0);
 
   // Calculate totals by cycle for summary
@@ -216,8 +234,8 @@ function PlotCard({ plot, onEdit, onDelete, onHarvest, onNextCycle }: {
         cycleMap[cycle] = { kg: 0, value: 0, events: 0 };
       }
       
-      const gradeAKg = parseFloat(log.gradeAKg || "0");
-      const gradeBKg = parseFloat(log.gradeBKg || "0");
+      const gradeAKg = parseFloat(log.grade_a_kg || log.gradeAKg || "0");
+      const gradeBKg = parseFloat(log.grade_b_kg || log.gradeBKg || "0");
       const gradeATotal = parseFloat(log.totalAmountGradeA || "0");
       const gradeBTotal = parseFloat(log.totalAmountGradeB || "0");
       
@@ -486,6 +504,14 @@ function PlotCard({ plot, onEdit, onDelete, onHarvest, onNextCycle }: {
                   Cycle {selectedCycle} Summary:
                 </div>
                 <div className="flex justify-between items-center text-xs">
+                  <span className="text-gray-600 dark:text-gray-400">Grade A:</span>
+                  <span className="font-medium text-green-600">{formatHarvestAmount(cycleGradeAKg)} kg</span>
+                </div>
+                <div className="flex justify-between items-center text-xs">
+                  <span className="text-gray-600 dark:text-gray-400">Grade B:</span>
+                  <span className="font-medium text-green-600">{formatHarvestAmount(cycleGradeBKg)} kg</span>
+                </div>
+                <div className="flex justify-between items-center text-xs">
                   <span className="text-gray-600 dark:text-gray-400">Total Weight:</span>
                   <span className="font-medium text-green-600">{formatHarvestAmount(cycleHarvestKg)} kg</span>
                 </div>
@@ -511,6 +537,14 @@ function PlotCard({ plot, onEdit, onDelete, onHarvest, onNextCycle }: {
               <div className="space-y-1 border-t pt-2 mt-2">
                 <div className="text-xs font-medium text-purple-700 dark:text-purple-300 mb-1">
                   Plot Total Summary:
+                </div>
+                <div className="flex justify-between items-center text-xs">
+                  <span className="text-gray-600 dark:text-gray-400">Grade A Total:</span>
+                  <span className="font-semibold text-purple-600">{formatHarvestAmount(overallGradeAKg)} kg</span>
+                </div>
+                <div className="flex justify-between items-center text-xs">
+                  <span className="text-gray-600 dark:text-gray-400">Grade B Total:</span>
+                  <span className="font-semibold text-purple-600">{formatHarvestAmount(overallGradeBKg)} kg</span>
                 </div>
                 <div className="flex justify-between items-center text-xs">
                   <span className="text-gray-600 dark:text-gray-400">All Cycles Weight:</span>
