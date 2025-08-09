@@ -62,13 +62,19 @@ const harvestSchema = z.object({
 
 type HarvestFormData = z.infer<typeof harvestSchema>;
 
-// Harvest Log Schema for new harvest logs
+// Enhanced Harvest Log Schema matching the detailed format from PDF
 const harvestLogSchema = z.object({
   plotId: z.string(),
   cycleNumber: z.number().min(1),
   harvestDate: z.date(),
-  amountKg: z.number().min(0.01, "Amount must be at least 0.01 kg"),
-  notes: z.string().optional(),
+  gradeAKg: z.number().min(0, "Grade A amount must be 0 or more"),
+  gradeBKg: z.number().min(0, "Grade B amount must be 0 or more"),
+  pricePerKgGradeA: z.number().min(0, "Price per kg Grade A must be 0 or more"),
+  pricePerKgGradeB: z.number().min(0, "Price per kg Grade B must be 0 or more"),
+  totalAmountGradeA: z.number().min(0, "Total Grade A amount must be 0 or more"),
+  totalAmountGradeB: z.number().min(0, "Total Grade B amount must be 0 or more"),
+  grandTotal: z.number().min(0, "Grand total must be 0 or more"),
+  comments: z.string().optional(),
 });
 
 // Next Cycle Schema
@@ -116,6 +122,25 @@ function PlotCard({ plot, onEdit, onDelete, onHarvest, onNextCycle }: {
 }) {
   // State for selected cycle in this plot card
   const [selectedCycle, setSelectedCycle] = useState(plot.currentCycle);
+  
+  // Query harvest logs for the selected cycle
+  const { data: cycleHarvestLogs = [] } = useQuery({
+    queryKey: [`/api/harvest-logs/plot/${plot.id}/cycle/${selectedCycle}`],
+    enabled: !!plot.id && selectedCycle > 0,
+  });
+
+  // Calculate cycle-specific harvest totals
+  const cycleHarvestTotals = cycleHarvestLogs.reduce((total, log) => {
+    const gradeATotal = parseFloat(log.totalAmountGradeA || "0");
+    const gradeBTotal = parseFloat(log.totalAmountGradeB || "0");
+    return total + gradeATotal + gradeBTotal;
+  }, 0);
+
+  const cycleHarvestKg = cycleHarvestLogs.reduce((total, log) => {
+    const gradeAKg = parseFloat(log.gradeAKg || "0");
+    const gradeBKg = parseFloat(log.gradeBKg || "0");
+    return total + gradeAKg + gradeBKg;
+  }, 0);
   
   // Use centralized PROGENY AGROTECH calculation logic
   const metrics = calculatePlotMetrics(plot);
@@ -367,17 +392,33 @@ function PlotCard({ plot, onEdit, onDelete, onHarvest, onNextCycle }: {
               </div>
             )}
             
-            {/* Harvest Amount if Available */}
-            {plot.status === "harvested" && currentCycleHarvest > 0 && (
-              <div className="flex justify-between items-center text-xs">
-                <span className="text-gray-600 dark:text-gray-400">This Cycle:</span>
-                <span className="font-medium text-green-600">{formatHarvestAmount(currentCycleHarvest)} kg</span>
+            {/* Selected Cycle Harvest Data */}
+            {cycleHarvestKg > 0 && (
+              <div className="space-y-1">
+                <div className="flex justify-between items-center text-xs">
+                  <span className="text-gray-600 dark:text-gray-400">Cycle {selectedCycle} Harvest:</span>
+                  <span className="font-medium text-green-600">{formatHarvestAmount(cycleHarvestKg)} kg</span>
+                </div>
+                <div className="flex justify-between items-center text-xs">
+                  <span className="text-gray-600 dark:text-gray-400">Cycle {selectedCycle} Value:</span>
+                  <span className="font-medium text-green-600">RM {cycleHarvestTotals.toFixed(2)}</span>
+                </div>
+                <div className="text-xs text-blue-600 dark:text-blue-400">
+                  {cycleHarvestLogs.length} harvest {cycleHarvestLogs.length === 1 ? 'entry' : 'entries'} recorded
+                </div>
+              </div>
+            )}
+            
+            {/* No data message for cycle */}
+            {selectedCycle > 0 && cycleHarvestKg === 0 && (
+              <div className="text-xs text-gray-500 dark:text-gray-400 italic">
+                No harvest data recorded for Cycle {selectedCycle}
               </div>
             )}
             
             {/* Total Harvest if Available */}
             {totalHarvest > 0 && (
-              <div className="flex justify-between items-center text-xs">
+              <div className="flex justify-between items-center text-xs border-t pt-1 mt-1">
                 <span className="text-gray-600 dark:text-gray-400">Total Harvested:</span>
                 <span className="font-semibold text-green-700">{formatHarvestAmount(totalHarvest)} kg</span>
               </div>
@@ -482,10 +523,30 @@ function HarvestLogForm({ plot, selectedCycle, onSuccess }: {
       plotId: plot.id,
       cycleNumber: selectedCycle,
       harvestDate: new Date(),
-      amountKg: 0,
-      notes: "",
+      gradeAKg: 0,
+      gradeBKg: 0,
+      pricePerKgGradeA: 7.00, // Default price from PDF
+      pricePerKgGradeB: 4.00, // Default price from PDF
+      totalAmountGradeA: 0,
+      totalAmountGradeB: 0,
+      grandTotal: 0,
+      comments: "",
     },
   });
+
+  // Watch form values to calculate totals automatically
+  const watchedValues = form.watch();
+  
+  // Auto-calculate totals when quantities or prices change
+  React.useEffect(() => {
+    const gradeATotal = (watchedValues.gradeAKg || 0) * (watchedValues.pricePerKgGradeA || 0);
+    const gradeBTotal = (watchedValues.gradeBKg || 0) * (watchedValues.pricePerKgGradeB || 0);
+    const grandTotal = gradeATotal + gradeBTotal;
+    
+    form.setValue("totalAmountGradeA", gradeATotal);
+    form.setValue("totalAmountGradeB", gradeBTotal);
+    form.setValue("grandTotal", grandTotal);
+  }, [watchedValues.gradeAKg, watchedValues.gradeBKg, watchedValues.pricePerKgGradeA, watchedValues.pricePerKgGradeB, form]);
 
   const mutation = useMutation({
     mutationFn: async (data: z.infer<typeof harvestLogSchema>) => {
@@ -500,9 +561,10 @@ function HarvestLogForm({ plot, selectedCycle, onSuccess }: {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/plots"] });
       queryClient.invalidateQueries({ queryKey: ["/api/harvest-logs"] });
+      queryClient.invalidateQueries({ queryKey: [`/api/harvest-logs/plot/${plot.id}/cycle`] });
       toast({
         title: "Harvest Recorded",
-        description: `Harvest log for Cycle ${selectedCycle} recorded successfully`,
+        description: `Detailed harvest log for Cycle ${selectedCycle} recorded successfully with Grade A/B tracking.`,
       });
       onSuccess();
     },
@@ -561,35 +623,171 @@ function HarvestLogForm({ plot, selectedCycle, onSuccess }: {
           )}
         />
 
-        <FormField
-          control={form.control}
-          name="amountKg"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Harvest Amount (kg)</FormLabel>
-              <FormControl>
-                <Input
-                  type="number"
-                  step="0.01"
-                  placeholder="0.00"
-                  {...field}
-                  onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
-                />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
+        {/* Grade A Section */}
+        <div className="grid grid-cols-3 gap-4 p-4 border rounded-lg bg-green-50 dark:bg-green-950">
+          <h4 className="col-span-3 font-semibold text-green-800 dark:text-green-200">Grade A Ginger</h4>
+          
+          <FormField
+            control={form.control}
+            name="gradeAKg"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Grade A (kg)</FormLabel>
+                <FormControl>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    placeholder="0.00"
+                    {...field}
+                    onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="pricePerKgGradeA"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Price/kg (RM)</FormLabel>
+                <FormControl>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    placeholder="7.00"
+                    {...field}
+                    onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="totalAmountGradeA"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Total (RM)</FormLabel>
+                <FormControl>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    readOnly
+                    className="bg-gray-100 dark:bg-gray-800"
+                    {...field}
+                    value={field.value?.toFixed(2) || "0.00"}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
+
+        {/* Grade B Section */}
+        <div className="grid grid-cols-3 gap-4 p-4 border rounded-lg bg-yellow-50 dark:bg-yellow-950">
+          <h4 className="col-span-3 font-semibold text-yellow-800 dark:text-yellow-200">Grade B Ginger</h4>
+          
+          <FormField
+            control={form.control}
+            name="gradeBKg"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Grade B (kg)</FormLabel>
+                <FormControl>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    placeholder="0.00"
+                    {...field}
+                    onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="pricePerKgGradeB"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Price/kg (RM)</FormLabel>
+                <FormControl>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    placeholder="4.00"
+                    {...field}
+                    onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="totalAmountGradeB"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Total (RM)</FormLabel>
+                <FormControl>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    readOnly
+                    className="bg-gray-100 dark:bg-gray-800"
+                    {...field}
+                    value={field.value?.toFixed(2) || "0.00"}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
+
+        {/* Grand Total */}
+        <div className="p-4 border rounded-lg bg-blue-50 dark:bg-blue-950">
+          <FormField
+            control={form.control}
+            name="grandTotal"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel className="text-lg font-semibold text-blue-800 dark:text-blue-200">Grand Total (RM)</FormLabel>
+                <FormControl>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    readOnly
+                    className="bg-gray-100 dark:bg-gray-800 text-lg font-bold"
+                    {...field}
+                    value={field.value?.toFixed(2) || "0.00"}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
 
         <FormField
           control={form.control}
-          name="notes"
+          name="comments"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Notes (Optional)</FormLabel>
+              <FormLabel>Comments (Optional)</FormLabel>
               <FormControl>
                 <Textarea
-                  placeholder="Any additional notes about this harvest..."
+                  placeholder="e.g., P.B, Pel, or other notes..."
                   {...field}
                 />
               </FormControl>

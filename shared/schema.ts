@@ -141,7 +141,7 @@ export const invoices = pgTable("invoices", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
-// Harvest logs table for detailed harvest tracking
+// Harvest logs table for detailed harvest tracking (matches PDF format)
 export const harvestLogs = pgTable("harvest_logs", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").notNull().references(() => users.id),
@@ -150,9 +150,11 @@ export const harvestLogs = pgTable("harvest_logs", {
   harvestDate: timestamp("harvest_date").notNull(), // Tarikh
   gradeAKg: decimal("grade_a_kg", { precision: 10, scale: 2 }).default("0.00"), // Gred A, kg
   gradeBKg: decimal("grade_b_kg", { precision: 10, scale: 2 }).default("0.00"), // Gred B, kg
-  pricePerKg: decimal("price_per_kg", { precision: 10, scale: 2 }).default("0.00"), // Harga/kg
-  totalKg: decimal("total_kg", { precision: 10, scale: 2 }).notNull(), // Calculated: gradeAKg + gradeBKg
-  totalValue: decimal("total_value", { precision: 10, scale: 2 }).default("0.00"), // Calculated: totalKg * pricePerKg
+  pricePerKgGradeA: decimal("price_per_kg_grade_a", { precision: 10, scale: 2 }).default("7.00"), // Harga/kg Grade A
+  pricePerKgGradeB: decimal("price_per_kg_grade_b", { precision: 10, scale: 2 }).default("4.00"), // Harga/kg Grade B
+  totalAmountGradeA: decimal("total_amount_grade_a", { precision: 10, scale: 2 }).default("0.00"), // Harga A
+  totalAmountGradeB: decimal("total_amount_grade_b", { precision: 10, scale: 2 }).default("0.00"), // Harga B
+  grandTotal: decimal("grand_total", { precision: 10, scale: 2 }).default("0.00"), // Jumlah,RM
   comments: text("comments"), // Komen
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
@@ -241,13 +243,14 @@ export const insertUserSettingsSchema = createInsertSchema(userSettings).omit({
   footerNotes: z.string().nullable().transform(val => val || ""),
 });
 
-// Harvest logs insert schema
+// Harvest logs insert schema (matches detailed PDF format)
 export const insertHarvestLogSchema = createInsertSchema(harvestLogs).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
-  totalKg: true, // Auto-calculated
-  totalValue: true, // Auto-calculated
+  totalAmountGradeA: true, // Auto-calculated
+  totalAmountGradeB: true, // Auto-calculated
+  grandTotal: true, // Auto-calculated
 }).extend({
   userId: z.string().optional(), // Allow userId to be set by server
   harvestDate: z.union([
@@ -256,7 +259,8 @@ export const insertHarvestLogSchema = createInsertSchema(harvestLogs).omit({
   ]),
   gradeAKg: z.number().min(0, "Grade A weight must be positive").default(0),
   gradeBKg: z.number().min(0, "Grade B weight must be positive").default(0),
-  pricePerKg: z.number().min(0, "Price per kg must be positive").default(0),
+  pricePerKgGradeA: z.number().min(0, "Price per kg Grade A must be positive").default(7.00),
+  pricePerKgGradeB: z.number().min(0, "Price per kg Grade B must be positive").default(4.00),
   comments: z.string().optional(),
 });
 

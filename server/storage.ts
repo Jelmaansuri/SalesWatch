@@ -1093,24 +1093,28 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createHarvestLog(harvestLogData: InsertHarvestLog): Promise<HarvestLog> {
-    // Calculate total kg and value
+    // Calculate total amounts based on detailed grade structure
     const gradeAKg = harvestLogData.gradeAKg || 0;
     const gradeBKg = harvestLogData.gradeBKg || 0;
-    const pricePerKg = harvestLogData.pricePerKg || 0;
-    const totalKg = gradeAKg + gradeBKg;
-    const totalValue = totalKg * pricePerKg;
+    const pricePerKgGradeA = harvestLogData.pricePerKgGradeA || 7.00;
+    const pricePerKgGradeB = harvestLogData.pricePerKgGradeB || 4.00;
+    
+    const totalAmountGradeA = gradeAKg * pricePerKgGradeA;
+    const totalAmountGradeB = gradeBKg * pricePerKgGradeB;
+    const grandTotal = totalAmountGradeA + totalAmountGradeB;
 
     const [newHarvestLog] = await db.insert(harvestLogs).values({
-      id: randomUUID(),
-      userId: harvestLogData.userId,
+      userId: harvestLogData.userId || "",
       plotId: harvestLogData.plotId,
       cycleNumber: harvestLogData.cycleNumber,
       harvestDate: harvestLogData.harvestDate,
       gradeAKg: gradeAKg.toString(),
       gradeBKg: gradeBKg.toString(),
-      pricePerKg: pricePerKg.toString(),
-      totalKg: totalKg.toString(),
-      totalValue: totalValue.toString(),
+      pricePerKgGradeA: pricePerKgGradeA.toString(),
+      pricePerKgGradeB: pricePerKgGradeB.toString(),
+      totalAmountGradeA: totalAmountGradeA.toString(),
+      totalAmountGradeB: totalAmountGradeB.toString(),
+      grandTotal: grandTotal.toString(),
       comments: harvestLogData.comments || "",
     }).returning();
     
@@ -1128,7 +1132,7 @@ export class DatabaseStorage implements IStorage {
 
   async deleteHarvestLog(id: string): Promise<boolean> {
     const result = await db.delete(harvestLogs).where(eq(harvestLogs.id, id));
-    return result.rowCount > 0;
+    return result.rowCount! > 0;
   }
 
   async getHarvestLogsByUserId(userId: string): Promise<HarvestLog[]> {

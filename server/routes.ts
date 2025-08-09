@@ -1708,6 +1708,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Harvest Logs routes (protected)
+  // Get harvest logs by plot and cycle
+  app.get("/api/harvest-logs/plot/:plotId/cycle/:cycleNumber", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ message: "User not authenticated" });
+      }
+      
+      const { plotId, cycleNumber } = req.params;
+      
+      // Check if user can access this plot's harvest logs
+      const plot = await storage.getPlot(plotId);
+      if (!plot) {
+        return res.status(404).json({ message: "Plot not found" });
+      }
+      
+      const { canViewSharedData } = await import("./userWhitelist");
+      if (!canViewSharedData(userId, plot.userId)) {
+        return res.status(403).json({ message: "Not authorized to view harvest logs for this plot" });
+      }
+      
+      const harvestLogs = await storage.getHarvestLogsByPlotAndCycle(plotId, parseInt(cycleNumber));
+      res.json(harvestLogs);
+    } catch (error) {
+      console.error("Error fetching harvest logs for plot and cycle:", error);
+      res.status(500).json({ message: "Failed to fetch harvest logs" });
+    }
+  });
+
   app.get("/api/harvest-logs/:plotId", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user?.claims?.sub;
