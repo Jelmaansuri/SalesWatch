@@ -226,11 +226,11 @@ function InvoicesContent() {
         
         return (
           <Select value={value} onValueChange={(newStatus) => handleInvoiceStatusChange(item.id, newStatus)}>
-            <SelectTrigger className="w-auto border-0 bg-transparent p-0 h-auto">
+            <SelectTrigger className="w-auto border-0 bg-transparent p-0 h-auto min-w-[120px]">
               <SelectValue>
-                <div className={`${getVibrantInvoiceDesign(value)} px-2 py-1 rounded-full cursor-pointer hover:shadow-xl transition-shadow inline-flex items-center justify-center text-xs font-medium`}>
+                <span className="text-sm font-medium cursor-pointer">
                   {value?.charAt(0).toUpperCase() + value?.slice(1)}
-                </div>
+                </span>
               </SelectValue>
             </SelectTrigger>
             <SelectContent>
@@ -600,7 +600,7 @@ function InvoicesContent() {
             columns={invoiceColumns}
             filters={invoiceFilters}
             searchPlaceholder="Search by invoice number, customer, or company..."
-            defaultSort={{ key: "createdAt", direction: "asc" }}
+            defaultSort={{ key: "createdAt", direction: "desc" }}
             isLoading={isLoading}
             emptyMessage="No invoices found. Create your first invoice to get started!"
           />
