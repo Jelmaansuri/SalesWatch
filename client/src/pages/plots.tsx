@@ -113,6 +113,47 @@ interface Plot {
   updatedAt: string;
 }
 
+// HarvestEventDialog Component
+function HarvestEventDialog({ plot, selectedCycle }: {
+  plot: Plot;
+  selectedCycle: number;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+
+  const handleSuccess = () => {
+    setIsOpen(false); // Close the dialog
+  };
+
+  return (
+    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+      <DialogTrigger asChild>
+        <Button 
+          size="sm" 
+          variant="default"
+          className="w-full text-xs bg-green-600 hover:bg-green-700 text-white"
+          data-testid={`button-add-harvest-${plot.id}`}
+        >
+          <Package className="h-3 w-3 mr-1" />
+          Add Harvest Event - Cycle {selectedCycle}
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Add Harvest Event for {plot.name}</DialogTitle>
+          <div className="text-sm text-gray-600 dark:text-gray-400">
+            Recording harvest event for Cycle {selectedCycle}
+          </div>
+        </DialogHeader>
+        <HarvestLogForm 
+          plot={plot} 
+          selectedCycle={selectedCycle}
+          onSuccess={handleSuccess}
+        />
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function PlotCard({ plot, onEdit, onDelete, onHarvest, onNextCycle }: { 
   plot: Plot; 
   onEdit: (plot: Plot) => void; 
@@ -504,35 +545,10 @@ function PlotCard({ plot, onEdit, onDelete, onHarvest, onNextCycle }: {
         {/* Multiple Harvest Events System - Available for all plots that can have harvest events */}
         {(plot.status === "planted" || plot.status === "growing" || plot.status === "ready_for_harvest" || plot.status === "harvesting") && (
           <div className="space-y-2 mt-4">
-            <Dialog>
-              <DialogTrigger asChild>
-                <Button 
-                  size="sm" 
-                  variant="default"
-                  className="w-full text-xs bg-green-600 hover:bg-green-700 text-white"
-                  data-testid={`button-add-harvest-${plot.id}`}
-                >
-                  <Package className="h-3 w-3 mr-1" />
-                  Add Harvest Event - Cycle {selectedCycle}
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-                <DialogHeader>
-                  <DialogTitle>Add Harvest Event for {plot.name}</DialogTitle>
-                  <div className="text-sm text-gray-600 dark:text-gray-400">
-                    Recording harvest event for Cycle {selectedCycle}
-                  </div>
-                </DialogHeader>
-                <HarvestLogForm 
-                  plot={plot} 
-                  selectedCycle={selectedCycle}
-                  onSuccess={() => {
-                    // Dialog will close automatically via DialogTrigger
-                    // Data will be refreshed via query invalidation
-                  }}
-                />
-              </DialogContent>
-            </Dialog>
+            <HarvestEventDialog 
+              plot={plot} 
+              selectedCycle={selectedCycle}
+            />
             
             {/* View Harvest Summary Table */}
             {cycleHarvestKg > 0 && (
