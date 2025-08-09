@@ -235,7 +235,7 @@ export default function Sales() {
         
         return (
           <Select value={value} onValueChange={(newStatus) => handleStatusChange(item.id, newStatus)}>
-            <SelectTrigger className="w-auto border-0 bg-transparent p-0 h-auto min-w-[120px]">
+            <SelectTrigger className="w-auto border-0 bg-transparent p-0 h-auto min-w-[160px]">
               <SelectValue>
                 <span className="text-sm font-medium cursor-pointer">
                   {ORDER_STATUS_LABELS[value as keyof typeof ORDER_STATUS_LABELS]}
@@ -1072,7 +1072,7 @@ export default function Sales() {
                                 inputMode="numeric"
                                 pattern="[0-9]*"
                                 className="h-8 text-xs text-right"
-                                value={item.quantity.toString()}
+                                value={(item.quantity || 0).toString()}
                                 onChange={(e) => {
                                   const value = e.target.value;
                                   // Only allow numeric input
