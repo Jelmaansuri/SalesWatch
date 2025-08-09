@@ -310,8 +310,19 @@ function PlotCard({ plot, onEdit, onDelete, onHarvest, onNextCycle }: {
   // Parse dates for display
   const plantingDate = parseISO(plot.plantingDate);
   const expectedHarvestDate = parseISO(plot.expectedHarvestDate);
-  const actualHarvestDate = plot.actualHarvestDate ? parseISO(plot.actualHarvestDate) : null;
   const nettingOpenDate = plot.nettingOpenDate ? parseISO(plot.nettingOpenDate) : null;
+  
+  // Calculate actual harvest date for the selected cycle (first harvest event of that cycle)
+  const selectedCycleActualHarvestDate = React.useMemo(() => {
+    if (cycleHarvestLogs.length === 0) return null;
+    
+    // Sort by harvest date and get the earliest one for this cycle
+    const sortedLogs = cycleHarvestLogs.sort((a, b) => 
+      new Date(a.harvestDate).getTime() - new Date(b.harvestDate).getTime()
+    );
+    
+    return parseISO(sortedLogs[0].harvestDate);
+  }, [cycleHarvestLogs]);
 
 
   return (
@@ -450,9 +461,9 @@ function PlotCard({ plot, onEdit, onDelete, onHarvest, onNextCycle }: {
             <span data-testid={`text-expected-harvest-${plot.id}`}>{formatPlotDate(expectedHarvestDate)}</span>
           </div>
           <div className="flex justify-between">
-            <span className="text-gray-600 dark:text-gray-400">Actual Harvest:</span>
-            <span className={actualHarvestDate ? "text-green-600 dark:text-green-400" : "text-gray-500 dark:text-gray-500"} data-testid={`text-actual-harvest-${plot.id}`}>
-              {actualHarvestDate ? formatPlotDate(actualHarvestDate) : "Not available"}
+            <span className="text-gray-600 dark:text-gray-400">Actual Harvest (Cycle {selectedCycle}):</span>
+            <span className={selectedCycleActualHarvestDate ? "text-green-600 dark:text-green-400" : "text-gray-500 dark:text-gray-500"} data-testid={`text-actual-harvest-${plot.id}`}>
+              {selectedCycleActualHarvestDate ? formatPlotDate(selectedCycleActualHarvestDate) : "Not available"}
             </span>
           </div>
           {nettingOpenDate && (
