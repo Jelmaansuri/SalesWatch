@@ -32,6 +32,7 @@ import { formatCurrency } from "@/lib/currency";
 import { ORDER_STATUS_LABELS, ORDER_STATUS_COLORS, PLATFORM_SOURCE_LABELS } from "@/lib/types";
 import { Plus, Edit, Trash2, ShoppingCart, User, Package, FileText, CalendarIcon, X } from "lucide-react";
 import AddSaleModal from "@/components/modals/add-sale-modal";
+import { EnhancedDataTable, type ColumnDef, type FilterConfig } from "@/components/ui/enhanced-data-table";
 import type { SaleWithDetails, Customer, Product } from "@shared/schema";
 import { z } from "zod";
 
@@ -132,6 +133,212 @@ export default function Sales() {
       id: group[0].id // Use first sale's ID for operations
     }));
   }, [salesData]);
+
+  // Column definitions for the enhanced data table
+  const salesColumns: ColumnDef<any>[] = [
+    {
+      key: "customer",
+      label: "Customer",
+      sortable: true,
+      searchable: true,
+      accessor: (item) => item.customer.name,
+      render: (value, item) => (
+        <div className="flex items-center">
+          <User className="h-4 w-4 mr-2 text-gray-400" />
+          {item.customer.name}
+        </div>
+      ),
+    },
+    {
+      key: "products",
+      label: "Products",
+      searchable: true,
+      accessor: (item) => item.items.map((i: any) => i.product.name).join(", "),
+      render: (value, item) => (
+        <div className="flex flex-col space-y-1">
+          {item.items.map((saleItem: any, index: number) => (
+            <div key={index} className="flex items-center">
+              <Package className="h-3 w-3 mr-2 text-gray-400" />
+              <span className="text-sm">{saleItem.product.name}</span>
+            </div>
+          ))}
+        </div>
+      ),
+    },
+    {
+      key: "quantity",
+      label: "Qty",
+      sortable: true,
+      accessor: (item) => item.items.reduce((sum: number, i: any) => sum + i.quantity, 0),
+      render: (value, item) => (
+        <div className="flex flex-col space-y-1">
+          {item.items.map((saleItem: any, index: number) => (
+            <span key={index} className="text-sm">{saleItem.quantity}</span>
+          ))}
+        </div>
+      ),
+    },
+    {
+      key: "totalAmount",
+      label: "Total Amount",
+      sortable: true,
+      accessor: (item) => item.totalAmount,
+      render: (value) => (
+        <span className="font-medium text-green-600">
+          {formatCurrency(value)}
+        </span>
+      ),
+    },
+    {
+      key: "totalProfit", 
+      label: "Profit",
+      sortable: true,
+      accessor: (item) => item.totalProfit,
+      render: (value) => (
+        <span className="font-medium text-blue-600">
+          {formatCurrency(value)}
+        </span>
+      ),
+    },
+    {
+      key: "status",
+      label: "Status",
+      sortable: true,
+      filterable: true,
+      accessor: (item) => item.status,
+      filterOptions: Object.entries(ORDER_STATUS_LABELS).map(([value, label]) => ({
+        value,
+        label
+      })),
+      render: (value) => (
+        <Badge className={`${ORDER_STATUS_COLORS[value]} text-white`}>
+          {ORDER_STATUS_LABELS[value]}
+        </Badge>
+      ),
+    },
+    {
+      key: "platformSource",
+      label: "Platform",
+      sortable: true,
+      filterable: true,
+      accessor: (item) => item.platformSource,
+      filterOptions: Object.entries(PLATFORM_SOURCE_LABELS).map(([value, label]) => ({
+        value,
+        label
+      })),
+      render: (value) => (
+        <Badge variant="outline">
+          {PLATFORM_SOURCE_LABELS[value]}
+        </Badge>
+      ),
+    },
+    {
+      key: "saleDate",
+      label: "Sale Date",
+      sortable: true,
+      accessor: (item) => item.saleDate,
+      render: (value) => value ? format(new Date(value), "dd/MM/yyyy") : "-",
+    },
+    {
+      key: "invoiceStatus",
+      label: "Invoice Status",
+      sortable: true,
+      filterable: true,
+      accessor: (item) => getInvoiceStatus(item.id).status,
+      filterOptions: [
+        { value: "Not Generated", label: "Not Generated" },
+        { value: "Draft", label: "Draft" },
+        { value: "Sent", label: "Sent" },
+        { value: "Paid", label: "Paid" },
+        { value: "Overdue", label: "Overdue" },
+        { value: "Cancelled", label: "Cancelled" },
+      ],
+      render: (value, item) => {
+        const invoiceStatus = getInvoiceStatus(item.id);
+        return (
+          <Badge variant={invoiceStatus.badge as any}>
+            {invoiceStatus.status}
+          </Badge>
+        );
+      },
+    },
+    {
+      key: "actions",
+      label: "Actions",
+      render: (value, item) => (
+        <div className="flex space-x-2">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => handleEdit(item)}
+            data-testid={`button-edit-sale-${item.id}`}
+          >
+            <Edit className="h-4 w-4" />
+          </Button>
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button
+                size="sm"
+                variant="outline"
+                data-testid={`button-delete-sale-${item.id}`}
+              >
+                <Trash2 className="h-4 w-4 text-red-500" />
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Delete Sale</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Are you sure you want to delete this sale? This action cannot be undone.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={() => handleDelete(item.id)}
+                  className="bg-red-600 hover:bg-red-700"
+                >
+                  Delete
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </div>
+      ),
+    },
+  ];
+
+  // Filter configuration
+  const salesFilters: FilterConfig[] = [
+    {
+      key: "status",
+      label: "Status",
+      options: Object.entries(ORDER_STATUS_LABELS).map(([value, label]) => ({
+        value,
+        label
+      })),
+    },
+    {
+      key: "platformSource", 
+      label: "Platform",
+      options: Object.entries(PLATFORM_SOURCE_LABELS).map(([value, label]) => ({
+        value,
+        label
+      })),
+    },
+    {
+      key: "invoiceStatus",
+      label: "Invoice Status",
+      options: [
+        { value: "Not Generated", label: "Not Generated" },
+        { value: "Draft", label: "Draft" },
+        { value: "Sent", label: "Sent" },
+        { value: "Paid", label: "Paid" },
+        { value: "Overdue", label: "Overdue" },
+        { value: "Cancelled", label: "Cancelled" },
+      ],
+    },
+  ];
 
   // For backward compatibility, still use 'sales' for non-grouped operations
   const sales = salesData;
@@ -481,6 +688,10 @@ export default function Sales() {
       saleDate: new Date(sale.saleDate),
     });
     setIsEditDialogOpen(true);
+  };
+
+  const handleDelete = (saleId: string) => {
+    deleteSaleMutation.mutate(saleId);
   };
 
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -1000,207 +1211,18 @@ export default function Sales() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            {isLoading ? (
-              <div className="flex items-center justify-center h-32">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-              </div>
-            ) : sales.length === 0 ? (
-              <div className="text-center py-8">
-                <ShoppingCart className="mx-auto h-12 w-12 text-gray-400 dark:text-gray-600 mb-4" />
-                <p className="text-gray-600 dark:text-gray-300 mb-4">No sales recorded yet</p>
-                <Button onClick={() => setIsAddModalOpen(true)}>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Record Your First Sale
-                </Button>
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="min-w-[120px]">Customer</TableHead>
-                      <TableHead className="min-w-[120px]">Product</TableHead>
-                      <TableHead className="min-w-[70px]">Qty</TableHead>
-                      <TableHead className="min-w-[80px]">Unit Price</TableHead>
-                      <TableHead className="min-w-[80px]">Discount</TableHead>
-                      <TableHead className="min-w-[90px]">Price After Discount</TableHead>
-                      <TableHead className="min-w-[80px]">Total</TableHead>
-                      <TableHead className="min-w-[70px]">Profit</TableHead>
-                      <TableHead className="min-w-[80px]">Status</TableHead>
-                      <TableHead className="min-w-[80px]">Platform</TableHead>
-                      <TableHead className="min-w-[90px]">Date</TableHead>
-                      <TableHead className="min-w-[100px]">Invoice Status</TableHead>
-                      <TableHead className="min-w-[100px]">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                <TableBody>
-                  {groupedSales.map((saleGroup) => (
-                    <TableRow key={saleGroup.groupKey}>
-                      <TableCell>
-                        <div className="flex items-center">
-                          <User className="h-4 w-4 mr-2 text-gray-400" />
-                          {saleGroup.customer.name}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex flex-col space-y-1">
-                          {saleGroup.items.map((item, index) => (
-                            <div key={index} className="flex items-center">
-                              <Package className="h-3 w-3 mr-2 text-gray-400" />
-                              <span className="text-sm">{item.product.name}</span>
-                            </div>
-                          ))}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex flex-col space-y-1">
-                          {saleGroup.items.map((item, index) => (
-                            <span key={index} className="text-sm">{item.quantity}</span>
-                          ))}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex flex-col space-y-1">
-                          {saleGroup.items.map((item, index) => (
-                            <span key={index} className="text-sm">{formatCurrency(item.unitPrice)}</span>
-                          ))}
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-orange-600">
-                        <div className="flex flex-col space-y-1">
-                          {saleGroup.items.map((item, index) => (
-                            <span key={index} className="text-sm">{formatCurrency(item.discountAmount)}</span>
-                          ))}
-                        </div>
-                      </TableCell>
-                      <TableCell className="font-medium text-blue-600">
-                        <div className="flex flex-col space-y-1">
-                          {saleGroup.items.map((item, index) => (
-                            <span key={index} className="text-sm">
-                              {formatCurrency((parseFloat(item.unitPrice) - parseFloat(item.discountAmount)).toString())}
-                            </span>
-                          ))}
-                        </div>
-                      </TableCell>
-                      <TableCell className="font-medium">
-                        {formatCurrency(saleGroup.totalAmount.toString())}
-                      </TableCell>
-                      <TableCell className={saleGroup.totalProfit >= 0 ? "text-green-600" : "text-red-600"}>
-                        {formatCurrency(saleGroup.totalProfit.toString())}
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="secondary" className={ORDER_STATUS_COLORS[saleGroup.status as keyof typeof ORDER_STATUS_COLORS]}>
-                          {ORDER_STATUS_LABELS[saleGroup.status as keyof typeof ORDER_STATUS_LABELS]}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <span className="text-sm text-gray-600 dark:text-gray-400">
-                          {PLATFORM_SOURCE_LABELS[saleGroup.platformSource as keyof typeof PLATFORM_SOURCE_LABELS]}
-                        </span>
-                      </TableCell>
-                      <TableCell>
-                        {saleGroup.saleDate ? new Date(saleGroup.saleDate).toLocaleDateString() : new Date(saleGroup.createdAt).toLocaleDateString()}
-                      </TableCell>
-                      <TableCell>
-                        {(() => {
-                          const invoiceStatus = getInvoiceStatus(saleGroup.items[0].id);
-                          return (
-                            <span className={`text-sm font-medium ${invoiceStatus.color}`}>
-                              {invoiceStatus.status}
-                            </span>
-                          );
-                        })()}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center space-x-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleGenerateInvoice(saleGroup.items[0])}
-                            disabled={generateInvoiceMutation.isPending}
-                            title="Generate Invoice"
-                          >
-                            <FileText className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleEdit(saleGroup.items[0])}
-                          >
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                              <Button variant="outline" size="sm">
-                                <Trash2 className="h-4 w-4 text-red-600" />
-                              </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                              <AlertDialogHeader>
-                                <AlertDialogTitle>Delete Sale Group</AlertDialogTitle>
-                                <AlertDialogDescription>
-                                  Are you sure you want to delete this sale group ({saleGroup.items.length} items)? This action cannot be undone.
-                                </AlertDialogDescription>
-                              </AlertDialogHeader>
-                              <AlertDialogFooter>
-                                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                <AlertDialogAction
-                                  onClick={async () => {
-                                    // Delete all items in the group sequentially to avoid race conditions
-                                    const itemsToDelete = [...saleGroup.items];
-                                    let successCount = 0;
-                                    let errorCount = 0;
-                                    
-                                    for (const item of itemsToDelete) {
-                                      try {
-                                        await new Promise((resolve, reject) => {
-                                          deleteSaleMutation.mutate(item.id, {
-                                            onSuccess: () => {
-                                              successCount++;
-                                              resolve(true);
-                                            },
-                                            onError: (error) => {
-                                              // Don't show individual error toasts for group deletion
-                                              // Only count errors that aren't "already deleted"
-                                              if (!error.message?.includes("404:")) {
-                                                errorCount++;
-                                              }
-                                              resolve(false); // Continue with other deletions
-                                            }
-                                          });
-                                        });
-                                      } catch (e) {
-                                        errorCount++;
-                                      }
-                                    }
-                                    
-                                    // Show final summary
-                                    if (successCount > 0) {
-                                      toast({
-                                        title: "Success",
-                                        description: `${successCount} sale(s) deleted successfully${errorCount > 0 ? ` (${errorCount} already deleted)` : ''}`,
-                                      });
-                                    }
-                                    
-                                    // Force refresh data after all deletions
-                                    queryClient.refetchQueries({ queryKey: ["/api/sales"] });
-                                    queryClient.refetchQueries({ queryKey: ["/api/products"] });
-                                  }}
-                                  className="bg-red-600 hover:bg-red-700"
-                                >
-                                  Delete Group
-                                </AlertDialogAction>
-                              </AlertDialogFooter>
-                            </AlertDialogContent>
-                          </AlertDialog>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-            )}
+            <EnhancedDataTable
+              data={groupedSales}
+              columns={salesColumns}
+              isLoading={isLoading}
+              searchPlaceholder="Search sales by customer, product..."
+              defaultSortKey="createdAt"
+              defaultSortOrder="desc"
+              filters={salesFilters}
+              emptyMessage="No sales recorded yet"
+              testIdPrefix="sales"
+              globalSearch={true}
+            />
           </CardContent>
         </Card>
       </div>
