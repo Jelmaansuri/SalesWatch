@@ -2758,10 +2758,38 @@ export default function Plots() {
       return response.status === 204 ? null : response.json();
     },
     onSuccess: (_, deletedPlotId) => {
-      // Optimistic update - remove from cache
+      // FIRST: Capture the deleted plot data before removing it
+      const currentPlots = queryClient.getQueryData(["/api/plots"]) as Plot[] | undefined;
+      const deletedPlot = currentPlots?.find(plot => plot.id === deletedPlotId);
+      
+      // THEN: Optimistic update - remove from cache
       queryClient.setQueryData(["/api/plots"], (oldData: Plot[] | undefined) => {
         return oldData ? oldData.filter(plot => plot.id !== deletedPlotId) : oldData;
       });
+      
+      // Update dashboard metrics optimistically to remove deleted plot's data
+      if (deletedPlot) {
+        queryClient.setQueryData(["/api/analytics/dashboard"], (oldData: any) => {
+          if (!oldData) return oldData;
+          
+          const deletedHarvest = parseFloat(deletedPlot.totalHarvestedKg || "0");
+          const deletedCycles = deletedPlot.currentCycle > 1 ? deletedPlot.currentCycle - 1 : 0; // Completed cycles
+          
+          console.log(`🗑️ Removing deleted plot "${deletedPlot.name}" data from dashboard:`, {
+            deletedHarvest,
+            deletedCycles,
+            currentDashboard: oldData
+          });
+          
+          return {
+            ...oldData,
+            completedCycles: Math.max(0, Number(oldData.completedCycles || 0) - deletedCycles),
+            totalHarvestKg: Math.max(0, Number(oldData.totalHarvestKg || 0) - deletedHarvest),
+            totalGradeAKg: Math.max(0, Number(oldData.totalGradeAKg || 0) - deletedHarvest), // Assuming all harvest was Grade A
+            totalGradeBKg: Math.max(0, Number(oldData.totalGradeBKg || 0)) // Keep Grade B unchanged for now
+          };
+        });
+      }
       
       toast({ 
         title: "Success", 
