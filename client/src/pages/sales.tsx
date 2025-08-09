@@ -744,40 +744,54 @@ export default function Sales() {
 
 
 
-  const handleEdit = (sale: SaleWithDetails) => {
-    setEditingSale(sale);
-    
-    // Check if this sale is part of a group
-    const groupMatch = sale.notes?.match(/\[GROUP:([^\]]+)\]/);
-    const groupId = groupMatch ? groupMatch[1] : null;
-    
-    // If it's part of a group, find all sales in the group
-    let groupedSales = [sale];
-    if (groupId && sales) {
-      groupedSales = sales.filter((s: SaleWithDetails) => 
-        s.notes?.includes(`[GROUP:${groupId}]`) && s.customerId === sale.customerId
-      );
+  const handleEdit = async (sale: SaleWithDetails) => {
+    try {
+      // Fetch the latest data for this sale record
+      const latestSaleData = await apiRequest(`/api/sales/${sale.id}`, "GET");
+      
+      setEditingSale(latestSaleData);
+      
+      // Check if this sale is part of a group
+      const groupMatch = latestSaleData.notes?.match(/\[GROUP:([^\]]+)\]/);
+      const groupId = groupMatch ? groupMatch[1] : null;
+      
+      // If it's part of a group, find all sales in the group using fresh data
+      let groupedSales = [latestSaleData];
+      if (groupId && sales) {
+        // Refetch sales data to get the latest group information
+        const latestSales = await apiRequest("/api/sales", "GET");
+        groupedSales = latestSales.filter((s: SaleWithDetails) => 
+          s.notes?.includes(`[GROUP:${groupId}]`) && s.customerId === latestSaleData.customerId
+        );
+      }
+      
+      // Convert grouped sales to product items format
+      const productItems = groupedSales.map(s => ({
+        productId: s.productId,
+        quantity: s.quantity,
+        unitPrice: s.unitPrice,
+        discountAmount: s.discountAmount || "0.00"
+      }));
+      
+      setEditProductItems(productItems);
+      
+      // Set form values from the latest sale data
+      form.reset({
+        customerId: latestSaleData.customerId,
+        status: latestSaleData.status,
+        platformSource: latestSaleData.platformSource,
+        notes: latestSaleData.notes ? latestSaleData.notes.replace(/\s*\[GROUP:[^\]]+\]/g, '').trim() : "",
+        saleDate: new Date(latestSaleData.saleDate),
+      });
+      setIsEditDialogOpen(true);
+    } catch (error) {
+      console.error("Error fetching latest sale data:", error);
+      toast({
+        title: "Error",
+        description: "Failed to fetch latest sale data",
+        variant: "destructive",
+      });
     }
-    
-    // Convert grouped sales to product items format
-    const productItems = groupedSales.map(s => ({
-      productId: s.productId,
-      quantity: s.quantity,
-      unitPrice: s.unitPrice,
-      discountAmount: s.discountAmount || "0.00"
-    }));
-    
-    setEditProductItems(productItems);
-    
-    // Set form values from the main sale
-    form.reset({
-      customerId: sale.customerId,
-      status: sale.status,
-      platformSource: sale.platformSource,
-      notes: sale.notes ? sale.notes.replace(/\s*\[GROUP:[^\]]+\]/g, '').trim() : "",
-      saleDate: new Date(sale.saleDate),
-    });
-    setIsEditDialogOpen(true);
   };
 
   const handleDelete = (saleId: string) => {
