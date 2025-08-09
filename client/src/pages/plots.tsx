@@ -2650,10 +2650,10 @@ function HarvestSummaryTable({ plot, selectedCycle, harvestLogs }: HarvestSummar
     .sort((a, b) => new Date(a.harvestDate).getTime() - new Date(b.harvestDate).getTime());
 
   // Calculate totals
-  const totalGradeA = sortedLogs.reduce((sum, log) => sum + (log.gradeAKg || 0), 0);
-  const totalGradeB = sortedLogs.reduce((sum, log) => sum + (log.gradeBKg || 0), 0);
-  const totalValueGradeA = sortedLogs.reduce((sum, log) => sum + ((log.gradeAKg || 0) * (log.pricePerKgGradeA || log.priceGradeA || 0)), 0);
-  const totalValueGradeB = sortedLogs.reduce((sum, log) => sum + ((log.gradeBKg || 0) * (log.pricePerKgGradeB || log.priceGradeB || 0)), 0);
+  const totalGradeA = sortedLogs.reduce((sum, log) => sum + Number(log.gradeAKg || 0), 0);
+  const totalGradeB = sortedLogs.reduce((sum, log) => sum + Number(log.gradeBKg || 0), 0);
+  const totalValueGradeA = sortedLogs.reduce((sum, log) => sum + (Number(log.gradeAKg || 0) * Number(log.pricePerKgGradeA || log.priceGradeA || 0)), 0);
+  const totalValueGradeB = sortedLogs.reduce((sum, log) => sum + (Number(log.gradeBKg || 0) * Number(log.pricePerKgGradeB || log.priceGradeB || 0)), 0);
   const grandTotal = totalValueGradeA + totalValueGradeB;
 
   return (
@@ -2693,8 +2693,8 @@ function HarvestSummaryTable({ plot, selectedCycle, harvestLogs }: HarvestSummar
           </thead>
           <tbody>
             {sortedLogs.map((log, index) => {
-              const gradeATotal = (log.gradeAKg || 0) * (log.pricePerKgGradeA || log.priceGradeA || 0);
-              const gradeBTotal = (log.gradeBKg || 0) * (log.pricePerKgGradeB || log.priceGradeB || 0);
+              const gradeATotal = (log.gradeAKg || 0) * Number(log.pricePerKgGradeA || log.priceGradeA || 0);
+              const gradeBTotal = (log.gradeBKg || 0) * Number(log.pricePerKgGradeB || log.priceGradeB || 0);
               const rowTotal = gradeATotal + gradeBTotal;
               
               return (
@@ -2709,9 +2709,9 @@ function HarvestSummaryTable({ plot, selectedCycle, harvestLogs }: HarvestSummar
                     {log.gradeBKg > 0 ? log.gradeBKg : ""}
                   </td>
                   <td className="border border-gray-300 px-2 py-2 text-center">
-                    {log.gradeAKg > 0 ? `RM${(log.pricePerKgGradeA || 0).toFixed(2)}` : ""}
+                    {log.gradeAKg > 0 ? `RM${Number(log.pricePerKgGradeA || log.priceGradeA || 0).toFixed(2)}` : ""}
                     {log.gradeBKg > 0 && log.gradeAKg > 0 ? " / " : ""}
-                    {log.gradeBKg > 0 ? `RM${(log.pricePerKgGradeB || 0).toFixed(2)}` : ""}
+                    {log.gradeBKg > 0 ? `RM${Number(log.pricePerKgGradeB || log.priceGradeB || 0).toFixed(2)}` : ""}
                   </td>
                   <td className="border border-gray-300 px-2 py-2 text-right">
                     {gradeATotal > 0 ? `RM${gradeATotal.toFixed(2)}` : ""}
