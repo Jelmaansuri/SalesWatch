@@ -291,15 +291,26 @@ function PlotCard({ plot, onEdit, onDelete, onHarvest, onNextCycle }: {
   
   // Calculate cycle-specific metrics based on selected cycle
   const cycleSpecificMetrics = React.useMemo(() => {
-    // For current cycle, use the actual planting date from the plot
-    // For previous cycles, calculate based on 30-day intervals (PROGENY standard)
+    // Parse cycle history to get cycle-specific dates
+    let cycleHistory: Array<{cycle: number, harvest: number, plantingDate?: string, harvestDate?: string}> = [];
+    try {
+      cycleHistory = JSON.parse(plot.cycleHistory || "[]");
+    } catch (e) {
+      cycleHistory = [];
+    }
+    
+    // Find cycle-specific data
+    const cycleData = cycleHistory.find(entry => entry.cycle === selectedCycle);
     let cyclePlantingDate: Date;
     
     if (selectedCycle === plot.currentCycle) {
-      // Use the actual planting date from the plot for the current cycle
+      // For current cycle, use the actual planting date from the plot
       cyclePlantingDate = parseISO(plot.plantingDate);
+    } else if (cycleData && cycleData.plantingDate) {
+      // For previous cycles, use stored cycle-specific planting date
+      cyclePlantingDate = parseISO(cycleData.plantingDate);
     } else {
-      // For past cycles, calculate based on 30-day intervals from the original date
+      // Fallback: calculate based on 30-day intervals from the original date
       const cycleOffset = (selectedCycle - 1) * 30; // 30 days between cycles
       cyclePlantingDate = addDays(parseISO(plot.plantingDate), cycleOffset);
     }
@@ -1144,6 +1155,28 @@ function NextCycleForm({ plot, nextCycle, onSuccess }: {
 
   const mutation = useMutation({
     mutationFn: async (data: z.infer<typeof nextCycleSchema>) => {
+      // Parse existing cycle history to preserve previous cycle data
+      let cycleHistory: Array<{cycle: number, harvest: number, plantingDate?: string, harvestDate?: string}> = [];
+      try {
+        cycleHistory = JSON.parse(plot.cycleHistory || "[]");
+      } catch (e) {
+        cycleHistory = [];
+      }
+      
+      // Store the current cycle info before moving to next cycle (if the plot had actual harvest data)
+      if (plot.harvestAmountKg && parseFloat(plot.harvestAmountKg) > 0) {
+        const currentCycleInfo = {
+          cycle: plot.currentCycle,
+          harvest: parseFloat(plot.harvestAmountKg),
+          plantingDate: plot.plantingDate,
+          harvestDate: plot.actualHarvestDate || new Date().toISOString()
+        };
+        
+        // Remove any existing entry for this cycle and add the updated one
+        cycleHistory = cycleHistory.filter(entry => entry.cycle !== plot.currentCycle);
+        cycleHistory.push(currentCycleInfo);
+      }
+      
       const payload = {
         currentCycle: nextCycle,
         status: "plot_preparation",
@@ -1157,6 +1190,7 @@ function NextCycleForm({ plot, nextCycle, onSuccess }: {
         isMultiCycle: true,
         actualHarvestDate: null,
         harvestAmountKg: null,
+        cycleHistory: JSON.stringify(cycleHistory), // Preserve cycle history with dates
       };
 
       const response = await fetch(`/api/plots/${plot.id}`, {
@@ -1187,7 +1221,7 @@ function NextCycleForm({ plot, nextCycle, onSuccess }: {
       
       toast({
         title: "Next Cycle Started",
-        description: `${plot.name} has been set up for Cycle ${nextCycle}`,
+        description: `${plot.name} has been set up for Cycle ${nextCycle} with your selected date`,
         duration: 3000, // Auto-dismiss after 3 seconds
       });
       onSuccess();
@@ -2429,11 +2463,13 @@ export default function Plots() {
       
       console.log(`Plot ${harvestingPlot.name}: Cycle ${harvestingPlot.currentCycle} - Previous cycles total: ${totalFromPreviousCycles}kg, Current cycle: ${data.harvestAmountKg}kg, New total: ${newTotal}kg`);
       
-      // Update cycle history with current cycle harvest
+      // Update cycle history with current cycle harvest (preserve cycle-specific dates)
       const updatedHistory = cycleHistory.filter(entry => entry.cycle !== harvestingPlot.currentCycle);
       updatedHistory.push({
         cycle: harvestingPlot.currentCycle,
-        harvest: data.harvestAmountKg
+        harvest: data.harvestAmountKg,
+        plantingDate: harvestingPlot.plantingDate, // Store actual planting date used for this cycle
+        harvestDate: data.actualHarvestDate.toISOString() // Store actual harvest date
       });
 
       let payload: any = {
@@ -2447,6 +2483,18 @@ export default function Plots() {
       // If proceeding to next cycle, setup next cycle data (auto-convert to multi-cycle)
       if (data.proceedToNextCycle) {
         const nextPlantingDate = addDays(data.actualHarvestDate, 30); // 30-day rest period
+        // Store current cycle info before moving to next cycle
+        const currentCycleInfo = {
+          cycle: harvestingPlot.currentCycle,
+          harvest: data.harvestAmountKg,
+          plantingDate: harvestingPlot.plantingDate,
+          harvestDate: data.actualHarvestDate.toISOString()
+        };
+        
+        // Update history to include current cycle with complete date info
+        const finalHistory = updatedHistory.filter(entry => entry.cycle !== harvestingPlot.currentCycle);
+        finalHistory.push(currentCycleInfo);
+        
         payload = {
           ...payload,
           currentCycle: harvestingPlot.currentCycle + 1,
@@ -2458,6 +2506,7 @@ export default function Plots() {
           nettingOpenDate: addDays(nextPlantingDate, harvestingPlot.daysToOpenNetting).toISOString(),
           actualHarvestDate: null,
           harvestAmountKg: null, // Reset current cycle harvest amount for new cycle
+          cycleHistory: JSON.stringify(finalHistory), // Store complete cycle history with dates
           // CRITICAL: totalHarvestedKg remains as newTotal to preserve accumulation
         };
         console.log(`Plot ${harvestingPlot.name}: Starting next cycle ${harvestingPlot.currentCycle + 1} - Total accumulated: ${newTotal}kg`);
@@ -2691,10 +2740,10 @@ export default function Plots() {
       // Don't try to parse JSON for 204 responses
       return response.status === 204 ? null : response.json();
     },
-    onSuccess: () => {
+    onSuccess: (_, deletedPlotId) => {
       // Optimistic update - remove from cache
       queryClient.setQueryData(["/api/plots"], (oldData: Plot[] | undefined) => {
-        return oldData ? oldData.filter(plot => plot.id !== deletingPlot?.id) : oldData;
+        return oldData ? oldData.filter(plot => plot.id !== deletedPlotId) : oldData;
       });
       
       toast({ 
