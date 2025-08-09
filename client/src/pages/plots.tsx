@@ -289,23 +289,43 @@ function PlotCard({ plot, onEdit, onDelete, onHarvest, onNextCycle }: {
     return cycleMap;
   }, [allPlotHarvestLogs]);
   
-  // Use centralized PROGENY AGROTECH calculation logic
-  const metrics = calculatePlotMetrics(plot);
-  const {
-    daysSincePlanting,
-    dapDays,
-    wapWeeks,
-    harvestProgress, 
-    calculatedHarvestDate,
-    calculatedNettingDate,
-    daysToHarvest,
-    daysToOpenShade,
-    isShadeOpeningSoon,
-    shouldOpenNetting,
-    isReadyForHarvest,
-    currentCycleHarvest,
-    totalHarvest
-  } = metrics;
+  // Calculate cycle-specific metrics based on selected cycle
+  const cycleSpecificMetrics = React.useMemo(() => {
+    // For cycle 1, use the original planting date
+    // For subsequent cycles, calculate based on 30-day intervals (PROGENY standard)
+    const cycleOffset = (selectedCycle - 1) * 30; // 30 days between cycles
+    const cyclePlantingDate = addDays(parseISO(plot.plantingDate), cycleOffset);
+    const cycleExpectedHarvestDate = addDays(cyclePlantingDate, plot.daysToMaturity);
+    const cycleNettingDate = addDays(cyclePlantingDate, plot.daysToOpenNetting);
+    
+    // Calculate DAP (Days After Planting) for selected cycle
+    const cycleDapDays = differenceInDays(new Date(), cyclePlantingDate);
+    const cycleWapWeeks = Math.floor(cycleDapDays / 7);
+    
+    // Calculate progress and remaining days for selected cycle
+    const cycleDaysToHarvest = differenceInDays(cycleExpectedHarvestDate, new Date());
+    const cycleDaysToOpenShade = differenceInDays(cycleNettingDate, new Date());
+    const cycleHarvestProgress = Math.min(100, Math.max(0, (cycleDapDays / plot.daysToMaturity) * 100));
+    
+    // Alerts for selected cycle
+    const cycleIsShadeOpeningSoon = cycleDaysToOpenShade <= 3 && cycleDaysToOpenShade > 0;
+    const cycleShouldOpenNetting = cycleDaysToOpenShade <= 0 && cycleDaysToHarvest > 0;
+    const cycleIsReadyForHarvest = cycleDaysToHarvest <= 0;
+    
+    return {
+      cyclePlantingDate,
+      cycleExpectedHarvestDate,
+      cycleNettingDate,
+      cycleDapDays,
+      cycleWapWeeks,
+      cycleDaysToHarvest,
+      cycleDaysToOpenShade,
+      cycleHarvestProgress,
+      cycleIsShadeOpeningSoon,
+      cycleShouldOpenNetting,
+      cycleIsReadyForHarvest
+    };
+  }, [selectedCycle, plot.plantingDate, plot.daysToMaturity, plot.daysToOpenNetting]);
 
   // Parse dates for display
   const plantingDate = parseISO(plot.plantingDate);
@@ -373,92 +393,102 @@ function PlotCard({ plot, onEdit, onDelete, onHarvest, onNextCycle }: {
       </CardHeader>
       
       <CardContent className="space-y-4">
-        {/* PROGENY Standard Metrics: DAP and WAP Display */}
+        {/* PROGENY Standard Metrics: DAP and WAP Display - Cycle Specific */}
         <div className="grid grid-cols-2 gap-4">
           <div className="bg-green-50 dark:bg-green-900/20 p-3 rounded-lg">
             <div className="text-2xl font-bold text-green-700 dark:text-green-400" data-testid={`text-dap-${plot.id}`}>
-              {dapDays}
+              {cycleSpecificMetrics.cycleDapDays}
             </div>
             <div className="text-sm text-green-600 dark:text-green-500">
-              {dapDays < 0 ? "Days Until Planting" : "DAP (Days After Planting)"}
+              {cycleSpecificMetrics.cycleDapDays < 0 ? "Days Until Planting" : "DAP (Days After Planting)"}
+              <div className="text-xs">Cycle {selectedCycle}</div>
             </div>
           </div>
           <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg">
             <div className="text-2xl font-bold text-blue-700 dark:text-blue-400" data-testid={`text-wap-${plot.id}`}>
-              {wapWeeks}
+              {cycleSpecificMetrics.cycleWapWeeks}
             </div>
             <div className="text-sm text-blue-600 dark:text-blue-500">
-              {wapWeeks < 0 ? "Weeks Until Planting" : "WAP (Weeks After Planting)"}
+              {cycleSpecificMetrics.cycleWapWeeks < 0 ? "Weeks Until Planting" : "WAP (Weeks After Planting)"}
+              <div className="text-xs">Cycle {selectedCycle}</div>
             </div>
           </div>
         </div>
         
-        {/* Calculated Dates Display */}
+        {/* Calculated Dates Display - Cycle Specific */}
         <div className="grid grid-cols-2 gap-4">
           <div className="bg-amber-50 dark:bg-amber-900/20 p-3 rounded-lg">
             <div className="text-sm font-medium text-amber-700 dark:text-amber-400" data-testid={`text-harvest-date-${plot.id}`}>
-              {format(calculatedHarvestDate, "MMM dd, yyyy")}
+              {format(cycleSpecificMetrics.cycleExpectedHarvestDate, "MMM dd, yyyy")}
             </div>
-            <div className="text-xs text-amber-600 dark:text-amber-500">Expected Harvest Date</div>
+            <div className="text-xs text-amber-600 dark:text-amber-500">
+              Expected Harvest Date
+              <div>Cycle {selectedCycle}</div>
+            </div>
           </div>
           <div className="bg-purple-50 dark:bg-purple-900/20 p-3 rounded-lg">
             <div className="text-sm font-medium text-purple-700 dark:text-purple-400" data-testid={`text-netting-date-${plot.id}`}>
-              {format(calculatedNettingDate, "MMM dd, yyyy")}
+              {format(cycleSpecificMetrics.cycleNettingDate, "MMM dd, yyyy")}
             </div>
-            <div className="text-xs text-purple-600 dark:text-purple-500">Netting Open Date</div>
+            <div className="text-xs text-purple-600 dark:text-purple-500">
+              Netting Open Date
+              <div>Cycle {selectedCycle}</div>
+            </div>
           </div>
         </div>
         
-        {/* Days Remaining Tracking */}
+        {/* Days Remaining Tracking - Cycle Specific */}
         <div className="grid grid-cols-2 gap-4">
           <div className="bg-orange-50 dark:bg-orange-900/20 p-3 rounded-lg">
             <div className="text-xl font-bold text-orange-700 dark:text-orange-400" data-testid={`text-days-harvest-${plot.id}`}>
-              {daysToHarvest}
+              {cycleSpecificMetrics.cycleDaysToHarvest}
             </div>
             <div className="text-sm text-orange-600 dark:text-orange-500">
-              {dapDays < 0 ? "Days Until Harvest (from planting)" : "Days Remaining to Harvest"}
+              {cycleSpecificMetrics.cycleDapDays < 0 ? "Days Until Harvest (from planting)" : "Days Remaining to Harvest"}
+              <div className="text-xs">Cycle {selectedCycle}</div>
             </div>
           </div>
           <div className={cn("p-3 rounded-lg", 
-            isShadeOpeningSoon ? "bg-red-50 dark:bg-red-900/20" : "bg-purple-50 dark:bg-purple-900/20"
+            cycleSpecificMetrics.cycleIsShadeOpeningSoon ? "bg-red-50 dark:bg-red-900/20" : "bg-purple-50 dark:bg-purple-900/20"
           )}>
             <div className={cn("text-xl font-bold", 
-              isShadeOpeningSoon ? "text-red-700 dark:text-red-400" : "text-purple-700 dark:text-purple-400"
+              cycleSpecificMetrics.cycleIsShadeOpeningSoon ? "text-red-700 dark:text-red-400" : "text-purple-700 dark:text-purple-400"
             )} data-testid={`text-days-shade-${plot.id}`}>
-              {daysToOpenShade}
+              {cycleSpecificMetrics.cycleDaysToOpenShade}
             </div>
             <div className={cn("text-sm", 
-              isShadeOpeningSoon ? "text-red-600 dark:text-red-500" : "text-purple-600 dark:text-purple-500"
+              cycleSpecificMetrics.cycleIsShadeOpeningSoon ? "text-red-600 dark:text-red-500" : "text-purple-600 dark:text-purple-500"
             )}>
-              {dapDays < 0 ? "Days Until Shade Opening (from planting)" : "Days to Open Shade"}
+              {cycleSpecificMetrics.cycleDapDays < 0 ? "Days Until Shade Opening (from planting)" : "Days to Open Shade"}
+              <div className="text-xs">Cycle {selectedCycle}</div>
             </div>
           </div>
         </div>
 
-        {/* Harvest Progress (PROGENY Standard) */}
+        {/* Harvest Progress (PROGENY Standard) - Cycle Specific */}
         <div className="space-y-2">
           <div className="flex justify-between text-sm">
-            <span>Progress to Harvest</span>
-            <span>{Math.round(harvestProgress)}%</span>
+            <span>Progress to Harvest (Cycle {selectedCycle})</span>
+            <span>{Math.round(cycleSpecificMetrics.cycleHarvestProgress)}%</span>
           </div>
-          <Progress value={harvestProgress} className="w-full" />
+          <Progress value={cycleSpecificMetrics.cycleHarvestProgress} className="w-full" />
           <div className="text-xs text-gray-500 dark:text-gray-400">
-            {daysToHarvest > 0 
-              ? `${daysToHarvest} days remaining to harvest`
+            {cycleSpecificMetrics.cycleDaysToHarvest > 0 
+              ? `${cycleSpecificMetrics.cycleDaysToHarvest} days remaining to harvest`
               : "Ready for harvest!"
             }
           </div>
         </div>
 
-        {/* Key Dates */}
+        {/* Key Dates - Cycle Specific */}
         <div className="grid grid-cols-1 gap-3 text-sm">
           <div className="flex justify-between">
-            <span className="text-gray-600 dark:text-gray-400">Planted:</span>
-            <span data-testid={`text-planted-date-${plot.id}`}>{formatPlotDate(plantingDate)}</span>
+            <span className="text-gray-600 dark:text-gray-400">Planted (Cycle {selectedCycle}):</span>
+            <span data-testid={`text-planted-date-${plot.id}`}>{formatPlotDate(cycleSpecificMetrics.cyclePlantingDate)}</span>
           </div>
           <div className="flex justify-between">
-            <span className="text-gray-600 dark:text-gray-400">Expected Harvest:</span>
-            <span data-testid={`text-expected-harvest-${plot.id}`}>{formatPlotDate(expectedHarvestDate)}</span>
+            <span className="text-gray-600 dark:text-gray-400">Expected Harvest (Cycle {selectedCycle}):</span>
+            <span data-testid={`text-expected-harvest-${plot.id}`}>{formatPlotDate(cycleSpecificMetrics.cycleExpectedHarvestDate)}</span>
           </div>
           <div className="flex justify-between">
             <span className="text-gray-600 dark:text-gray-400">Actual Harvest (Cycle {selectedCycle}):</span>
@@ -466,43 +496,41 @@ function PlotCard({ plot, onEdit, onDelete, onHarvest, onNextCycle }: {
               {selectedCycleActualHarvestDate ? formatPlotDate(selectedCycleActualHarvestDate) : "Not available"}
             </span>
           </div>
-          {nettingOpenDate && (
-            <div className="flex justify-between">
-              <span className="text-gray-600 dark:text-gray-400">Netting Open:</span>
-              <span className={cn(
-                shouldOpenNetting ? "text-orange-600 dark:text-orange-400 font-medium" : ""
-              )} data-testid={`text-netting-date-${plot.id}`}>
-                {formatPlotDate(nettingOpenDate)}
-                {shouldOpenNetting && " (Due!)"}
-              </span>
-            </div>
-          )}
+          <div className="flex justify-between">
+            <span className="text-gray-600 dark:text-gray-400">Netting Open (Cycle {selectedCycle}):</span>
+            <span className={cn(
+              cycleSpecificMetrics.cycleShouldOpenNetting ? "text-orange-600 dark:text-orange-400 font-medium" : ""
+            )} data-testid={`text-netting-date-${plot.id}`}>
+              {formatPlotDate(cycleSpecificMetrics.cycleNettingDate)}
+              {cycleSpecificMetrics.cycleShouldOpenNetting && " (Due!)"}
+            </span>
+          </div>
         </div>
 
-        {/* PROGENY Alert System */}
-        {isShadeOpeningSoon && (
+        {/* PROGENY Alert System - Cycle Specific */}
+        {cycleSpecificMetrics.cycleIsShadeOpeningSoon && (
           <div className="flex items-center gap-2 p-2 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-800">
             <AlertTriangle className="h-4 w-4 text-red-600 dark:text-red-400" />
             <span className="text-sm text-red-700 dark:text-red-300 font-medium">
-              Urgent: Open shade in {daysToOpenShade} days!
+              Urgent: Open shade in {cycleSpecificMetrics.cycleDaysToOpenShade} days (Cycle {selectedCycle})!
             </span>
           </div>
         )}
 
-        {shouldOpenNetting && (
+        {cycleSpecificMetrics.cycleShouldOpenNetting && (
           <div className="flex items-center gap-2 p-2 bg-orange-50 dark:bg-orange-900/20 rounded-lg border border-orange-200 dark:border-orange-800">
             <AlertTriangle className="h-4 w-4 text-orange-600 dark:text-orange-400" />
             <span className="text-sm text-orange-700 dark:text-orange-300">
-              Time to open shade netting for protection!
+              Time to open shade netting for protection (Cycle {selectedCycle})!
             </span>
           </div>
         )}
 
-        {isReadyForHarvest && (
+        {cycleSpecificMetrics.cycleIsReadyForHarvest && (
           <div className="flex items-center gap-2 p-2 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
             <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
             <span className="text-sm text-green-700 dark:text-green-300">
-              Harvest day reached! Ready for collection.
+              Harvest day reached! Ready for collection (Cycle {selectedCycle}).
             </span>
           </div>
         )}
