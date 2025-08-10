@@ -3337,6 +3337,20 @@ function InteractiveHarvestTable({ plot, selectedCycle, harvestLogs }: Interacti
   const exportToPDF = async () => {
     setIsGeneratingPDF(true);
     try {
+      // Pre-calculate all formatted values for the PDF
+      const formattedGrandTotal = formatMYR(grandTotal).replace('MYR', 'RM');
+      const formattedTotalValueGradeA = formatMYR(totalValueGradeA).replace('MYR', 'RM');
+      const formattedTotalValueGradeB = formatMYR(totalValueGradeB).replace('MYR', 'RM');
+      const formattedRevenuePerKg = formatMYR(grandTotal / (totalGradeA + totalGradeB)).replace('MYR', 'RM');
+      
+      // Pre-calculate formatted values for each harvest log
+      const formattedLogs = sortedLogs.map(log => ({
+        ...log,
+        formattedPriceGradeA: formatMYR(log.pricePerKgGradeA || log.priceGradeA || 0).replace('MYR', 'RM'),
+        formattedPriceGradeB: formatMYR(log.pricePerKgGradeB || log.priceGradeB || 0).replace('MYR', 'RM'),
+        formattedTotal: formatMYR((log.totalAmountGradeA || 0) + (log.totalAmountGradeB || 0)).replace('MYR', 'RM')
+      }));
+      
       // Create a temporary container for PDF content
       const printContainer = document.createElement('div');
       printContainer.style.position = 'absolute';
@@ -3374,7 +3388,7 @@ function InteractiveHarvestTable({ plot, selectedCycle, harvestLogs }: Interacti
               <div style="font-size: 12px; opacity: 0.9;">Total Weight (kg)</div>
             </div>
             <div style="background: linear-gradient(135deg, #8b5cf6, #7c3aed); color: white; padding: 20px; border-radius: 12px; text-align: center; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
-              <div style="font-size: 28px; font-weight: 700; margin-bottom: 5px;">${formatMYR(grandTotal).replace('MYR', 'RM')}</div>
+              <div style="font-size: 28px; font-weight: 700; margin-bottom: 5px;">${formattedGrandTotal}</div>
               <div style="font-size: 12px; opacity: 0.9;">Total Revenue</div>
             </div>
             <div style="background: linear-gradient(135deg, #f59e0b, #d97706); color: white; padding: 20px; border-radius: 12px; text-align: center; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
@@ -3441,14 +3455,14 @@ function InteractiveHarvestTable({ plot, selectedCycle, harvestLogs }: Interacti
                 </tr>
               </thead>
               <tbody>
-                ${sortedLogs.map((log, index) => `
+                ${formattedLogs.map((log, index) => `
                   <tr style="border-bottom: 1px solid #e2e8f0; ${index % 2 === 0 ? 'background: #f8fafc;' : 'background: white;'} transition: background-color 0.2s;">
                     <td style="padding: 12px 8px; color: #374151; font-weight: 500;">${format(new Date(log.harvestDate), "dd MMM yyyy")}</td>
                     <td style="padding: 12px 8px; text-align: center; color: #059669; font-weight: 600;">${log.gradeAKg.toFixed(1)}</td>
-                    <td style="padding: 12px 8px; text-align: center; color: #374151;">${formatMYR(log.pricePerKgGradeA).replace('MYR', 'RM')}</td>
+                    <td style="padding: 12px 8px; text-align: center; color: #374151;">${log.formattedPriceGradeA}</td>
                     <td style="padding: 12px 8px; text-align: center; color: #0ea5e9; font-weight: 600;">${log.gradeBKg.toFixed(1)}</td>
-                    <td style="padding: 12px 8px; text-align: center; color: #374151;">${formatMYR(log.pricePerKgGradeB).replace('MYR', 'RM')}</td>
-                    <td style="padding: 12px 8px; text-align: right; color: #7c3aed; font-weight: 700;">${formatMYR(log.totalAmountGradeA + log.totalAmountGradeB).replace('MYR', 'RM')}</td>
+                    <td style="padding: 12px 8px; text-align: center; color: #374151;">${log.formattedPriceGradeB}</td>
+                    <td style="padding: 12px 8px; text-align: right; color: #7c3aed; font-weight: 700;">${log.formattedTotal}</td>
                     <td style="padding: 12px 8px; color: #64748b; font-style: ${log.comments ? 'normal' : 'italic'};">${log.comments || 'No notes'}</td>
                   </tr>
                 `).join('')}
@@ -3460,7 +3474,7 @@ function InteractiveHarvestTable({ plot, selectedCycle, harvestLogs }: Interacti
                   <td style="padding: 15px 8px; text-align: center;">-</td>
                   <td style="padding: 15px 8px; text-align: center; font-size: 14px;">${totalGradeB.toFixed(1)} kg</td>
                   <td style="padding: 15px 8px; text-align: center;">-</td>
-                  <td style="padding: 15px 8px; text-align: right; font-size: 16px;">${formatMYR(grandTotal).replace('MYR', 'RM')}</td>
+                  <td style="padding: 15px 8px; text-align: right; font-size: 16px;">${formattedGrandTotal}</td>
                   <td style="padding: 15px 8px;">${sortedLogs.length} events</td>
                 </tr>
               </tfoot>
@@ -3506,7 +3520,7 @@ function InteractiveHarvestTable({ plot, selectedCycle, harvestLogs }: Interacti
                   </div>
                   <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #f1f5f9;">
                     <span style="color: #64748b;">Revenue per kg</span>
-                    <span style="color: #374151; font-weight: 600;">${formatMYR(grandTotal / (totalGradeA + totalGradeB)).replace('MYR', 'RM')}</span>
+                    <span style="color: #374151; font-weight: 600;">${formattedRevenuePerKg}</span>
                   </div>
                   <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #f1f5f9;">
                     <span style="color: #64748b;">Harvest Period</span>
