@@ -3334,85 +3334,192 @@ function InteractiveHarvestTable({ plot, selectedCycle, harvestLogs }: Interacti
       printContainer.style.left = '-9999px';
       printContainer.style.width = '210mm'; // A4 width
       printContainer.style.backgroundColor = 'white';
-      printContainer.style.padding = '20px';
-      printContainer.style.fontFamily = 'Arial, sans-serif';
+      printContainer.style.padding = '0';
+      printContainer.style.fontFamily = 'system-ui, -apple-system, "Segoe UI", sans-serif';
       
-      // Create PDF content
+      // Create modern PDF content with professional styling
       printContainer.innerHTML = `
-        <div style="text-align: center; margin-bottom: 30px;">
-          <h1 style="color: #16a34a; font-size: 24px; margin: 0;">PROGENY AGROTECH</h1>
-          <h2 style="color: #16a34a; font-size: 20px; margin: 10px 0;">Harvest Report</h2>
+        <!-- Header Section with Gradient -->
+        <div style="background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%); color: white; padding: 40px 30px; text-align: center; position: relative; overflow: hidden;">
+          <div style="position: relative; z-index: 2;">
+            <h1 style="font-size: 32px; margin: 0; font-weight: 700; letter-spacing: -0.5px;">PROGENY AGROTECH</h1>
+            <div style="width: 60px; height: 3px; background: linear-gradient(90deg, #10b981, #06d6a0); margin: 15px auto;"></div>
+            <h2 style="font-size: 20px; margin: 15px 0 0 0; font-weight: 400; opacity: 0.9;">Harvest Performance Report</h2>
+            <p style="font-size: 14px; margin: 10px 0 0 0; opacity: 0.7;">Generated on ${format(new Date(), "dd MMMM yyyy 'at' HH:mm")}</p>
+          </div>
+          <!-- Decorative Elements -->
+          <div style="position: absolute; top: -50px; right: -50px; width: 120px; height: 120px; background: rgba(16, 185, 129, 0.1); border-radius: 50%; z-index: 1;"></div>
+          <div style="position: absolute; bottom: -30px; left: -30px; width: 80px; height: 80px; background: rgba(6, 214, 160, 0.1); border-radius: 50%; z-index: 1;"></div>
         </div>
-        
-        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; margin-bottom: 30px; background-color: #f0fdf4; padding: 15px; border-radius: 8px;">
-          <div>
-            <h3 style="color: #15803d; font-size: 14px; margin: 0 0 10px 0; font-weight: bold;">Plot Information</h3>
-            <p style="margin: 3px 0; font-size: 12px;"><strong>Plot:</strong> ${plot.name}</p>
-            <p style="margin: 3px 0; font-size: 12px;"><strong>Location:</strong> ${plot.location}</p>
-            <p style="margin: 3px 0; font-size: 12px;"><strong>Polybags:</strong> ${plot.polybagCount}</p>
-          </div>
-          <div>
-            <h3 style="color: #15803d; font-size: 14px; margin: 0 0 10px 0; font-weight: bold;">Cycle Information</h3>
-            <p style="margin: 3px 0; font-size: 12px;"><strong>Cycle:</strong> ${selectedCycle}</p>
-            <p style="margin: 3px 0; font-size: 12px;"><strong>Planting Date:</strong> ${format(cyclePlantingDate, "dd/MM/yyyy")}</p>
-          </div>
-          <div>
-            <h3 style="color: #15803d; font-size: 14px; margin: 0 0 10px 0; font-weight: bold;">Harvest Summary</h3>
-            <p style="margin: 3px 0; font-size: 12px;"><strong>Total Events:</strong> ${sortedLogs.length}</p>
-            <p style="margin: 3px 0; font-size: 12px;"><strong>Total Weight:</strong> ${(totalGradeA + totalGradeB).toFixed(1)} kg</p>
-            <p style="margin: 3px 0; font-size: 12px;"><strong>Total Revenue:</strong> RM ${grandTotal.toFixed(2)}</p>
+
+        <!-- Executive Summary Cards -->
+        <div style="padding: 30px; background: #f8fafc;">
+          <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; margin-bottom: 30px;">
+            <div style="background: linear-gradient(135deg, #10b981, #059669); color: white; padding: 20px; border-radius: 12px; text-align: center; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+              <div style="font-size: 28px; font-weight: 700; margin-bottom: 5px;">${sortedLogs.length}</div>
+              <div style="font-size: 12px; opacity: 0.9;">Total Harvest Events</div>
+            </div>
+            <div style="background: linear-gradient(135deg, #3b82f6, #2563eb); color: white; padding: 20px; border-radius: 12px; text-align: center; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+              <div style="font-size: 28px; font-weight: 700; margin-bottom: 5px;">${(totalGradeA + totalGradeB).toFixed(1)}</div>
+              <div style="font-size: 12px; opacity: 0.9;">Total Weight (kg)</div>
+            </div>
+            <div style="background: linear-gradient(135deg, #8b5cf6, #7c3aed); color: white; padding: 20px; border-radius: 12px; text-align: center; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+              <div style="font-size: 28px; font-weight: 700; margin-bottom: 5px;">RM ${grandTotal.toFixed(0)}</div>
+              <div style="font-size: 12px; opacity: 0.9;">Total Revenue</div>
+            </div>
+            <div style="background: linear-gradient(135deg, #f59e0b, #d97706); color: white; padding: 20px; border-radius: 12px; text-align: center; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+              <div style="font-size: 28px; font-weight: 700; margin-bottom: 5px;">${selectedCycle}</div>
+              <div style="font-size: 12px; opacity: 0.9;">Current Cycle</div>
+            </div>
           </div>
         </div>
-        
-        <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 11px;">
-          <thead>
-            <tr style="background-color: #f3f4f6;">
-              <th style="border: 1px solid #d1d5db; padding: 8px; text-align: center;">Date</th>
-              <th style="border: 1px solid #d1d5db; padding: 8px; text-align: center;">Grade A (kg)</th>
-              <th style="border: 1px solid #d1d5db; padding: 8px; text-align: center;">Grade B (kg)</th>
-              <th style="border: 1px solid #d1d5db; padding: 8px; text-align: center;">Price A (RM/kg)</th>
-              <th style="border: 1px solid #d1d5db; padding: 8px; text-align: center;">Price B (RM/kg)</th>
-              <th style="border: 1px solid #d1d5db; padding: 8px; text-align: center;">Value A (RM)</th>
-              <th style="border: 1px solid #d1d5db; padding: 8px; text-align: center;">Value B (RM)</th>
-              <th style="border: 1px solid #d1d5db; padding: 8px; text-align: center;">Total (RM)</th>
-              <th style="border: 1px solid #d1d5db; padding: 8px; text-align: center;">Comments</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${sortedLogs.map((log, index) => {
-              const gradeATotal = Number(log.gradeAKg || 0) * Number(log.pricePerKgGradeA || log.priceGradeA || 0);
-              const gradeBTotal = Number(log.gradeBKg || 0) * Number(log.pricePerKgGradeB || log.priceGradeB || 0);
-              const rowTotal = gradeATotal + gradeBTotal;
-              return `
-                <tr style="background-color: ${index % 2 === 0 ? '#ffffff' : '#f9fafb'};">
-                  <td style="border: 1px solid #d1d5db; padding: 6px; text-align: center;">${format(new Date(log.harvestDate), "dd/MM/yyyy")}</td>
-                  <td style="border: 1px solid #d1d5db; padding: 6px; text-align: center;">${log.gradeAKg > 0 ? log.gradeAKg : "-"}</td>
-                  <td style="border: 1px solid #d1d5db; padding: 6px; text-align: center;">${log.gradeBKg > 0 ? log.gradeBKg : "-"}</td>
-                  <td style="border: 1px solid #d1d5db; padding: 6px; text-align: center;">${log.gradeAKg > 0 ? `RM${Number(log.pricePerKgGradeA || log.priceGradeA || 0).toFixed(2)}` : "-"}</td>
-                  <td style="border: 1px solid #d1d5db; padding: 6px; text-align: center;">${log.gradeBKg > 0 ? `RM${Number(log.pricePerKgGradeB || log.priceGradeB || 0).toFixed(2)}` : "-"}</td>
-                  <td style="border: 1px solid #d1d5db; padding: 6px; text-align: center; font-weight: bold;">${gradeATotal > 0 ? `RM${gradeATotal.toFixed(2)}` : "-"}</td>
-                  <td style="border: 1px solid #d1d5db; padding: 6px; text-align: center; font-weight: bold;">${gradeBTotal > 0 ? `RM${gradeBTotal.toFixed(2)}` : "-"}</td>
-                  <td style="border: 1px solid #d1d5db; padding: 6px; text-align: center; font-weight: bold; color: #16a34a;">${rowTotal.toFixed(2)}</td>
-                  <td style="border: 1px solid #d1d5db; padding: 6px; text-align: center; max-width: 80px; overflow: hidden; text-overflow: ellipsis;">${log.comments || "-"}</td>
+
+        <!-- Plot Information Section -->
+        <div style="padding: 0 30px 30px 30px;">
+          <div style="background: white; border-radius: 16px; padding: 25px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); border: 1px solid #e2e8f0; margin-bottom: 25px;">
+            <h3 style="color: #1e293b; font-size: 18px; margin: 0 0 20px 0; font-weight: 600; display: flex; align-items: center;">
+              <span style="background: #10b981; color: white; width: 24px; height: 24px; border-radius: 6px; display: inline-flex; align-items: center; justify-content: center; margin-right: 10px; font-size: 12px;">📍</span>
+              Plot Information
+            </h3>
+            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px;">
+              <div>
+                <div style="color: #64748b; font-size: 12px; font-weight: 500; margin-bottom: 4px;">PLOT NAME</div>
+                <div style="color: #1e293b; font-size: 16px; font-weight: 600;">${plot.name}</div>
+              </div>
+              <div>
+                <div style="color: #64748b; font-size: 12px; font-weight: 500; margin-bottom: 4px;">LOCATION</div>
+                <div style="color: #1e293b; font-size: 16px; font-weight: 600;">${plot.location}</div>
+              </div>
+              <div>
+                <div style="color: #64748b; font-size: 12px; font-weight: 500; margin-bottom: 4px;">POLYBAG COUNT</div>
+                <div style="color: #1e293b; font-size: 16px; font-weight: 600;">${plot.polybagCount.toLocaleString()}</div>
+              </div>
+              <div>
+                <div style="color: #64748b; font-size: 12px; font-weight: 500; margin-bottom: 4px;">CYCLE NUMBER</div>
+                <div style="color: #1e293b; font-size: 16px; font-weight: 600;">Cycle ${selectedCycle}</div>
+              </div>
+              <div>
+                <div style="color: #64748b; font-size: 12px; font-weight: 500; margin-bottom: 4px;">PLANTING DATE</div>
+                <div style="color: #1e293b; font-size: 16px; font-weight: 600;">${format(cyclePlantingDate, "dd MMM yyyy")}</div>
+              </div>
+              <div>
+                <div style="color: #64748b; font-size: 12px; font-weight: 500; margin-bottom: 4px;">CROP TYPE</div>
+                <div style="color: #1e293b; font-size: 16px; font-weight: 600; text-transform: capitalize;">${plot.cropType}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Harvest Data Table Section -->
+        <div style="padding: 0 30px 30px 30px;">
+          <div style="background: white; border-radius: 16px; padding: 25px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); border: 1px solid #e2e8f0;">
+            <h3 style="color: #1e293b; font-size: 18px; margin: 0 0 20px 0; font-weight: 600; display: flex; align-items: center;">
+              <span style="background: #3b82f6; color: white; width: 24px; height: 24px; border-radius: 6px; display: inline-flex; align-items: center; justify-content: center; margin-right: 10px; font-size: 12px;">📊</span>
+              Detailed Harvest Records
+            </h3>
+            
+            <table style="width: 100%; border-collapse: collapse; font-size: 12px;">
+              <thead>
+                <tr style="background: linear-gradient(135deg, #f1f5f9, #e2e8f0);">
+                  <th style="padding: 12px 8px; text-align: left; font-weight: 600; color: #475569; border-bottom: 2px solid #cbd5e1;">Date</th>
+                  <th style="padding: 12px 8px; text-align: center; font-weight: 600; color: #475569; border-bottom: 2px solid #cbd5e1;">Grade A (kg)</th>
+                  <th style="padding: 12px 8px; text-align: center; font-weight: 600; color: #475569; border-bottom: 2px solid #cbd5e1;">Price/kg (A)</th>
+                  <th style="padding: 12px 8px; text-align: center; font-weight: 600; color: #475569; border-bottom: 2px solid #cbd5e1;">Grade B (kg)</th>
+                  <th style="padding: 12px 8px; text-align: center; font-weight: 600; color: #475569; border-bottom: 2px solid #cbd5e1;">Price/kg (B)</th>
+                  <th style="padding: 12px 8px; text-align: right; font-weight: 600; color: #475569; border-bottom: 2px solid #cbd5e1;">Total Revenue</th>
+                  <th style="padding: 12px 8px; text-align: left; font-weight: 600; color: #475569; border-bottom: 2px solid #cbd5e1;">Notes</th>
                 </tr>
-              `;
-            }).join('')}
-            <tr style="background-color: #dcfce7; font-weight: bold; border-top: 2px solid #16a34a;">
-              <td style="border: 1px solid #16a34a; padding: 8px; text-align: center;">TOTAL</td>
-              <td style="border: 1px solid #16a34a; padding: 8px; text-align: center;">${totalGradeA.toFixed(1)}</td>
-              <td style="border: 1px solid #16a34a; padding: 8px; text-align: center;">${totalGradeB.toFixed(1)}</td>
-              <td style="border: 1px solid #16a34a; padding: 8px;"></td>
-              <td style="border: 1px solid #16a34a; padding: 8px;"></td>
-              <td style="border: 1px solid #16a34a; padding: 8px; text-align: center;">RM${totalValueGradeA.toFixed(2)}</td>
-              <td style="border: 1px solid #16a34a; padding: 8px; text-align: center;">RM${totalValueGradeB.toFixed(2)}</td>
-              <td style="border: 1px solid #16a34a; padding: 8px; text-align: center; font-size: 13px; color: #15803d;">RM${grandTotal.toFixed(2)}</td>
-              <td style="border: 1px solid #16a34a; padding: 8px;"></td>
-            </tr>
-          </tbody>
-        </table>
-        
-        <div style="margin-top: 30px; text-align: center; font-size: 10px; color: #6b7280;">
-          <p>Generated on ${format(new Date(), "dd/MM/yyyy 'at' HH:mm")}</p>
+              </thead>
+              <tbody>
+                ${sortedLogs.map((log, index) => `
+                  <tr style="border-bottom: 1px solid #e2e8f0; ${index % 2 === 0 ? 'background: #f8fafc;' : 'background: white;'} transition: background-color 0.2s;">
+                    <td style="padding: 12px 8px; color: #374151; font-weight: 500;">${format(new Date(log.harvestDate), "dd MMM yyyy")}</td>
+                    <td style="padding: 12px 8px; text-align: center; color: #059669; font-weight: 600;">${log.gradeAKg.toFixed(1)}</td>
+                    <td style="padding: 12px 8px; text-align: center; color: #374151;">RM ${log.pricePerKgGradeA.toFixed(2)}</td>
+                    <td style="padding: 12px 8px; text-align: center; color: #0ea5e9; font-weight: 600;">${log.gradeBKg.toFixed(1)}</td>
+                    <td style="padding: 12px 8px; text-align: center; color: #374151;">RM ${log.pricePerKgGradeB.toFixed(2)}</td>
+                    <td style="padding: 12px 8px; text-align: right; color: #7c3aed; font-weight: 700;">RM ${(log.totalAmountGradeA + log.totalAmountGradeB).toFixed(2)}</td>
+                    <td style="padding: 12px 8px; color: #64748b; font-style: ${log.comments ? 'normal' : 'italic'};">${log.comments || 'No notes'}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+              <tfoot>
+                <tr style="background: linear-gradient(135deg, #1e293b, #334155); color: white; font-weight: 700;">
+                  <td style="padding: 15px 8px; font-weight: 700;">TOTALS</td>
+                  <td style="padding: 15px 8px; text-align: center; font-size: 14px;">${totalGradeA.toFixed(1)} kg</td>
+                  <td style="padding: 15px 8px; text-align: center;">-</td>
+                  <td style="padding: 15px 8px; text-align: center; font-size: 14px;">${totalGradeB.toFixed(1)} kg</td>
+                  <td style="padding: 15px 8px; text-align: center;">-</td>
+                  <td style="padding: 15px 8px; text-align: right; font-size: 16px;">RM ${grandTotal.toFixed(2)}</td>
+                  <td style="padding: 15px 8px;">${sortedLogs.length} events</td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        </div>
+
+        <!-- Performance Analytics Section -->
+        <div style="padding: 0 30px 30px 30px;">
+          <div style="background: white; border-radius: 16px; padding: 25px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); border: 1px solid #e2e8f0; margin-bottom: 25px;">
+            <h3 style="color: #1e293b; font-size: 18px; margin: 0 0 20px 0; font-weight: 600; display: flex; align-items: center;">
+              <span style="background: #f59e0b; color: white; width: 24px; height: 24px; border-radius: 6px; display: inline-flex; align-items: center; justify-content: center; margin-right: 10px; font-size: 12px;">📈</span>
+              Performance Analytics
+            </h3>
+            <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 25px;">
+              <div>
+                <h4 style="color: #64748b; font-size: 14px; font-weight: 600; margin: 0 0 15px 0;">GRADE DISTRIBUTION</h4>
+                <div style="margin-bottom: 12px;">
+                  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                    <span style="color: #374151; font-weight: 500;">Grade A</span>
+                    <span style="color: #059669; font-weight: 700;">${totalGradeA.toFixed(1)} kg (${((totalGradeA / (totalGradeA + totalGradeB)) * 100).toFixed(1)}%)</span>
+                  </div>
+                  <div style="background: #e2e8f0; border-radius: 6px; height: 8px; overflow: hidden;">
+                    <div style="background: linear-gradient(90deg, #10b981, #059669); height: 100%; width: ${(totalGradeA / (totalGradeA + totalGradeB)) * 100}%; border-radius: 6px;"></div>
+                  </div>
+                </div>
+                <div>
+                  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                    <span style="color: #374151; font-weight: 500;">Grade B</span>
+                    <span style="color: #0ea5e9; font-weight: 700;">${totalGradeB.toFixed(1)} kg (${((totalGradeB / (totalGradeA + totalGradeB)) * 100).toFixed(1)}%)</span>
+                  </div>
+                  <div style="background: #e2e8f0; border-radius: 6px; height: 8px; overflow: hidden;">
+                    <div style="background: linear-gradient(90deg, #3b82f6, #0ea5e9); height: 100%; width: ${(totalGradeB / (totalGradeA + totalGradeB)) * 100}%; border-radius: 6px;"></div>
+                  </div>
+                </div>
+              </div>
+              <div>
+                <h4 style="color: #64748b; font-size: 14px; font-weight: 600; margin: 0 0 15px 0;">KEY METRICS</h4>
+                <div style="space-y: 8px;">
+                  <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #f1f5f9;">
+                    <span style="color: #64748b;">Average per Event</span>
+                    <span style="color: #374151; font-weight: 600;">${((totalGradeA + totalGradeB) / sortedLogs.length).toFixed(1)} kg</span>
+                  </div>
+                  <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #f1f5f9;">
+                    <span style="color: #64748b;">Revenue per kg</span>
+                    <span style="color: #374151; font-weight: 600;">RM ${(grandTotal / (totalGradeA + totalGradeB)).toFixed(2)}</span>
+                  </div>
+                  <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #f1f5f9;">
+                    <span style="color: #64748b;">Harvest Period</span>
+                    <span style="color: #374151; font-weight: 600;">${sortedLogs.length > 1 ? differenceInDays(new Date(sortedLogs[sortedLogs.length - 1].harvestDate), new Date(sortedLogs[0].harvestDate)) + ' days' : '1 day'}</span>
+                  </div>
+                  <div style="display: flex; justify-content: space-between; padding: 8px 0;">
+                    <span style="color: #64748b;">Yield per Polybag</span>
+                    <span style="color: #374151; font-weight: 600;">${((totalGradeA + totalGradeB) / plot.polybagCount * 1000).toFixed(1)} g</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Footer Section -->
+        <div style="background: linear-gradient(135deg, #f8fafc, #e2e8f0); padding: 25px 30px; text-align: center; border-top: 1px solid #cbd5e1;">
+          <div style="color: #64748b; font-size: 12px; margin-bottom: 8px;">
+            This report was automatically generated by PROGENY AGROTECH Management System
+          </div>
+          <div style="color: #64748b; font-size: 11px;">
+            Report ID: ${plot.id.substring(0, 8).toUpperCase()} | Generated: ${format(new Date(), "dd/MM/yyyy HH:mm:ss")} | Cycle: ${selectedCycle}
+          </div>
         </div>
       `;
       
