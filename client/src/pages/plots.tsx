@@ -3295,6 +3295,32 @@ function InteractiveHarvestTable({ plot, selectedCycle, harvestLogs }: Interacti
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
+  // Edit form setup
+  const editForm = useForm({
+    defaultValues: {
+      harvestDate: new Date(),
+      gradeAKg: 0,
+      gradeBKg: 0,
+      priceGradeA: 0,
+      priceGradeB: 0,
+      comments: ""
+    }
+  });
+
+  // Update form values when editing log changes
+  useEffect(() => {
+    if (editingLog) {
+      editForm.reset({
+        harvestDate: new Date(editingLog.harvestDate),
+        gradeAKg: Number(editingLog.gradeAKg || 0),
+        gradeBKg: Number(editingLog.gradeBKg || 0),
+        priceGradeA: Number(editingLog.pricePerKgGradeA || editingLog.priceGradeA || 0),
+        priceGradeB: Number(editingLog.pricePerKgGradeB || editingLog.priceGradeB || 0),
+        comments: editingLog.comments || ""
+      });
+    }
+  }, [editingLog, editForm]);
+
   // Sort harvest logs by date
   const sortedLogs = harvestLogs.sort((a, b) => new Date(a.harvestDate).getTime() - new Date(b.harvestDate).getTime());
 
@@ -3308,6 +3334,45 @@ function InteractiveHarvestTable({ plot, selectedCycle, harvestLogs }: Interacti
   const handleEdit = (log: any) => {
     setEditingLog(log);
     setShowEditModal(true);
+  };
+
+  const handleUpdateHarvest = async (data: any) => {
+    try {
+      const response = await fetch(`/api/harvest-logs/${editingLog.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          harvestDate: data.harvestDate.toISOString(),
+          gradeAKg: data.gradeAKg,
+          gradeBKg: data.gradeBKg,
+          pricePerKgGradeA: data.priceGradeA,
+          pricePerKgGradeB: data.priceGradeB,
+          comments: data.comments || null
+        }),
+      });
+
+      if (!response.ok) throw new Error('Failed to update harvest log');
+
+      toast({
+        title: "Success",
+        description: "Harvest log updated successfully",
+      });
+
+      // Refresh the harvest logs
+      queryClient.invalidateQueries({ queryKey: [`/api/harvest-logs/${plot.id}`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/harvest-logs/plot/${plot.id}/cycle/${selectedCycle}`] });
+      
+      setShowEditModal(false);
+      setEditingLog(null);
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update harvest log",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleDelete = async (logId: string) => {
@@ -3539,13 +3604,141 @@ function InteractiveHarvestTable({ plot, selectedCycle, harvestLogs }: Interacti
       
       {/* Edit Modal */}
       <Dialog open={showEditModal} onOpenChange={setShowEditModal}>
-        <DialogContent>
+        <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>Edit Harvest Log</DialogTitle>
+            <DialogDescription>
+              Update harvest data for {editingLog ? format(new Date(editingLog.harvestDate), "MMM dd, yyyy") : ""}
+            </DialogDescription>
           </DialogHeader>
-          <div className="p-4">
-            <p>Edit functionality is under development.</p>
-          </div>
+          
+          {editingLog && (
+            <Form {...editForm}>
+              <form onSubmit={editForm.handleSubmit(handleUpdateHarvest)} className="space-y-4">
+                <FormField
+                  control={editForm.control}
+                  name="harvestDate"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Harvest Date</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="date"
+                          {...field}
+                          value={field.value ? format(new Date(field.value), "yyyy-MM-dd") : ""}
+                          onChange={(e) => field.onChange(e.target.value ? new Date(e.target.value) : null)}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={editForm.control}
+                    name="gradeAKg"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Grade A (kg)</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            step="0.1"
+                            {...field}
+                            onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : 0)}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={editForm.control}
+                    name="gradeBKg"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Grade B (kg)</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            step="0.1"
+                            {...field}
+                            onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : 0)}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={editForm.control}
+                    name="priceGradeA"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Price/kg Grade A (RM)</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            {...field}
+                            onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : 0)}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={editForm.control}
+                    name="priceGradeB"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Price/kg Grade B (RM)</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            {...field}
+                            onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : 0)}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                <FormField
+                  control={editForm.control}
+                  name="comments"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Comments</FormLabel>
+                      <FormControl>
+                        <Input {...field} placeholder="Optional harvest notes..." />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <DialogFooter>
+                  <Button type="button" variant="outline" onClick={() => setShowEditModal(false)}>
+                    Cancel
+                  </Button>
+                  <Button type="submit" className="bg-blue-600 hover:bg-blue-700">
+                    Update Harvest Log
+                  </Button>
+                </DialogFooter>
+              </form>
+            </Form>
+          )}
         </DialogContent>
       </Dialog>
     </div>
