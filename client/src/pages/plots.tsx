@@ -89,6 +89,16 @@ const harvestLogSchema = z.object({
   comments: z.string().optional(),
 });
 
+// Edit Harvest Log Schema
+const editHarvestSchema = z.object({
+  harvestDate: z.date(),
+  gradeAKg: z.number().min(0, "Grade A amount must be 0 or more"),
+  gradeBKg: z.number().min(0, "Grade B amount must be 0 or more"),
+  priceGradeA: z.number().min(0, "Price per kg Grade A must be 0 or more"),
+  priceGradeB: z.number().min(0, "Price per kg Grade B must be 0 or more"),
+  comments: z.string().optional(),
+});
+
 // Next Cycle Schema
 const nextCycleSchema = z.object({
   plantingDate: z.date(),
@@ -3296,7 +3306,8 @@ function InteractiveHarvestTable({ plot, selectedCycle, harvestLogs }: Interacti
   const { toast } = useToast();
 
   // Edit form setup
-  const editForm = useForm({
+  const editForm = useForm<z.infer<typeof editHarvestSchema>>({
+    resolver: zodResolver(editHarvestSchema),
     defaultValues: {
       harvestDate: new Date(),
       gradeAKg: 0,
@@ -3336,7 +3347,10 @@ function InteractiveHarvestTable({ plot, selectedCycle, harvestLogs }: Interacti
     setShowEditModal(true);
   };
 
-  const handleUpdateHarvest = async (data: any) => {
+  const handleUpdateHarvest = async (data: z.infer<typeof editHarvestSchema>) => {
+    console.log('🔄 Edit form submitting data:', data);
+    console.log('🔍 Edit form errors:', editForm.formState.errors);
+    
     try {
       const response = await fetch(`/api/harvest-logs/${editingLog.id}`, {
         method: 'PUT',
@@ -3353,7 +3367,11 @@ function InteractiveHarvestTable({ plot, selectedCycle, harvestLogs }: Interacti
         }),
       });
 
-      if (!response.ok) throw new Error('Failed to update harvest log');
+      if (!response.ok) {
+        const errorData = await response.text();
+        console.error('❌ Update request failed:', response.status, errorData);
+        throw new Error(`Failed to update harvest log: ${response.status}`);
+      }
 
       toast({
         title: "Success",
@@ -3367,6 +3385,7 @@ function InteractiveHarvestTable({ plot, selectedCycle, harvestLogs }: Interacti
       setShowEditModal(false);
       setEditingLog(null);
     } catch (error: any) {
+      console.error('❌ Update harvest error:', error);
       toast({
         title: "Error",
         description: error.message || "Failed to update harvest log",
