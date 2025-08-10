@@ -68,6 +68,11 @@
   }
 }
 
+/* Invoice specific styles - remove underlines from contact info */
+.no-underline {
+  text-decoration: none !important;
+}
+
 /* Malaysian Business Theme Classes */
 .my-blue {
   color: var(--my-blue);

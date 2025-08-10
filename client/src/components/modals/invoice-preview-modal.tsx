@@ -252,10 +252,10 @@ export function InvoicePreviewModal({ open, onOpenChange, invoice }: InvoicePrev
                       <p className="whitespace-pre-line">{getBusinessInfo().address}</p>
                     )}
                     {getBusinessInfo().phone && (
-                      <p>Tel: {getBusinessInfo().phone}</p>
+                      <p className="no-underline">Tel: {getBusinessInfo().phone}</p>
                     )}
                     {getBusinessInfo().email && (
-                      <p>Email: {getBusinessInfo().email}</p>
+                      <p className="no-underline">Email: {getBusinessInfo().email}</p>
                     )}
                     {getBusinessInfo().registration && (
                       <p>SSM No: {getBusinessInfo().registration}</p>
@@ -276,8 +276,8 @@ export function InvoicePreviewModal({ open, onOpenChange, invoice }: InvoicePrev
                 {invoice.customer.company && (
                   <p>{invoice.customer.company}</p>
                 )}
-                <p>{invoice.customer.email}</p>
-                <p>{invoice.customer.phone}</p>
+                <p className="no-underline">{invoice.customer.email}</p>
+                <p className="no-underline">{invoice.customer.phone}</p>
                 {invoice.customer.address && (
                   <p className="mt-2">{invoice.customer.address}</p>
                 )}
