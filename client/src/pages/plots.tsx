@@ -3446,35 +3446,108 @@ function InteractiveHarvestTable({ plot, selectedCycle, harvestLogs }: Interacti
   };
 
   return (
-    <MainLayout>
-      <div className="space-y-6">
-        <div className="flex justify-between items-center">
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Agricultural Plots</h1>
-          <Dialog open={showDialog} onOpenChange={setShowDialog}>
-            <DialogTrigger asChild>
-              <Button onClick={() => handleCreateNew()}>
-                <Plus className="w-4 h-4 mr-2" />
-                Add New Plot
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-              <DialogHeader>
-                <DialogTitle>{editingPlot ? "Edit Plot" : "Create New Plot"}</DialogTitle>
-                <DialogDescription>
-                  {editingPlot ? "Update plot information" : "Add a new agricultural plot to your management system"}
-                </DialogDescription>
-              </DialogHeader>
-              <PlotForm />
-            </DialogContent>
-          </Dialog>
+    <div className="space-y-4">
+      {sortedLogs.length === 0 ? (
+        <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+          No harvest data available for this cycle.
         </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {plots?.map((plot: any) => (
-            <PlotCard key={plot.id} plot={plot} />
-          ))}
-        </div>
-      </div>
-    </MainLayout>
+      ) : (
+        <>
+          <div className="overflow-x-auto">
+            <table className="min-w-full border border-gray-300 rounded-lg">
+              <thead className="bg-gray-50 dark:bg-gray-800">
+                <tr>
+                  <th className="border border-gray-300 px-4 py-2 text-left">Date</th>
+                  <th className="border border-gray-300 px-4 py-2 text-center">Grade A (kg)</th>
+                  <th className="border border-gray-300 px-4 py-2 text-center">Grade B (kg)</th>
+                  <th className="border border-gray-300 px-4 py-2 text-center">Price/kg (A)</th>
+                  <th className="border border-gray-300 px-4 py-2 text-center">Price/kg (B)</th>
+                  <th className="border border-gray-300 px-4 py-2 text-center">Total (RM)</th>
+                  <th className="border border-gray-300 px-4 py-2 text-left">Comments</th>
+                  <th className="border border-gray-300 px-4 py-2 text-center">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {sortedLogs.map((log: any) => {
+                  const gradeATotal = (Number(log.gradeAKg) || 0) * (Number(log.pricePerKgGradeA || log.priceGradeA) || 0);
+                  const gradeBTotal = (Number(log.gradeBKg) || 0) * (Number(log.pricePerKgGradeB || log.priceGradeB) || 0);
+                  const rowTotal = gradeATotal + gradeBTotal;
+                  
+                  return (
+                    <tr key={log.id} className="hover:bg-gray-50 dark:hover:bg-gray-800">
+                      <td className="border border-gray-300 px-4 py-2">{format(new Date(log.harvestDate), "dd MMM yyyy")}</td>
+                      <td className="border border-gray-300 px-4 py-2 text-center text-green-600 font-semibold">{log.gradeAKg > 0 ? log.gradeAKg : "-"}</td>
+                      <td className="border border-gray-300 px-4 py-2 text-center text-blue-600 font-semibold">{log.gradeBKg > 0 ? log.gradeBKg : "-"}</td>
+                      <td className="border border-gray-300 px-4 py-2 text-center">{log.gradeAKg > 0 ? formatMYR(Number(log.pricePerKgGradeA || log.priceGradeA || 0)) : "-"}</td>
+                      <td className="border border-gray-300 px-4 py-2 text-center">{log.gradeBKg > 0 ? formatMYR(Number(log.pricePerKgGradeB || log.priceGradeB || 0)) : "-"}</td>
+                      <td className="border border-gray-300 px-4 py-2 text-center font-bold text-purple-600">{formatMYR(rowTotal)}</td>
+                      <td className="border border-gray-300 px-4 py-2 text-sm text-gray-600">{log.comments || "-"}</td>
+                      <td className="border border-gray-300 px-4 py-2 text-center">
+                        <div className="flex justify-center space-x-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleEdit(log)}
+                            className="text-blue-600 hover:text-blue-800"
+                          >
+                            <Edit className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleDelete(log.id)}
+                            className="text-red-600 hover:text-red-800"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+                <tr className="bg-gray-100 dark:bg-gray-700 font-semibold">
+                  <td className="border border-gray-300 px-4 py-2 font-bold">TOTALS</td>
+                  <td className="border border-gray-300 px-2 py-2 text-center">{totalGradeA}</td>
+                  <td className="border border-gray-300 px-2 py-2 text-center">{totalGradeB}</td>
+                  <td className="border border-gray-300 px-2 py-2"></td>
+                  <td className="border border-gray-300 px-2 py-2"></td>
+                  <td className="border border-gray-300 px-2 py-2 text-center text-lg">{formatMYR(grandTotal)}</td>
+                  <td className="border border-gray-300 px-2 py-2"></td>
+                  <td className="border border-gray-300 px-2 py-2"></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          
+          <div className="flex justify-between items-center mt-4">
+            <div className="text-center space-y-2 text-sm text-gray-600 dark:text-gray-400">
+              <div>Total harvest events: {sortedLogs.length}</div>
+              <div>Total weight: {(totalGradeA + totalGradeB).toFixed(1)} kg</div>
+              <div>Total revenue: {formatMYR(grandTotal)}</div>
+            </div>
+            
+            <Button
+              onClick={exportToPDF}
+              disabled={isGeneratingPDF}
+              className="bg-green-600 hover:bg-green-700"
+            >
+              {isGeneratingPDF ? "Generating..." : "Export to PDF"}
+            </Button>
+          </div>
+        </>
+      )}
+      
+      {/* Edit Modal */}
+      <Dialog open={showEditModal} onOpenChange={setShowEditModal}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Harvest Log</DialogTitle>
+          </DialogHeader>
+          <div className="p-4">
+            <p>Edit functionality is under development.</p>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
   );
 }
