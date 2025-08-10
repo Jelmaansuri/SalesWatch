@@ -1868,22 +1868,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ message: "User not authenticated" });
       }
       
+      console.log(`🔄 Updating harvest log ${req.params.id} with data:`, JSON.stringify(req.body, null, 2));
+      
       // Check if harvest log exists and user can edit it
       const existingLog = await storage.getHarvestLogsByUserId(userId);
       const targetLog = existingLog.find(log => log.id === req.params.id);
       if (!targetLog) {
+        console.log(`❌ Harvest log ${req.params.id} not found for user ${userId}`);
         return res.status(404).json({ message: "Harvest log not found" });
       }
+      
+      console.log(`✅ Found existing harvest log:`, JSON.stringify(targetLog, null, 2));
       
       const { canEditSharedData } = await import("./userWhitelist");
       if (!canEditSharedData(userId, targetLog.userId)) {
+        console.log(`❌ User ${userId} not authorized to edit harvest log owned by ${targetLog.userId}`);
         return res.status(403).json({ message: "Not authorized to edit this harvest log" });
       }
       
+      console.log(`✅ User ${userId} authorized to edit harvest log`);
+      
       const updatedLog = await storage.updateHarvestLog(req.params.id, req.body);
       if (!updatedLog) {
+        console.log(`❌ Failed to update harvest log ${req.params.id} in storage`);
         return res.status(404).json({ message: "Harvest log not found" });
       }
+      
+      console.log(`✅ Successfully updated harvest log:`, JSON.stringify(updatedLog, null, 2));
       
       // Recalculate total harvested weight for the plot after update
       const allHarvestLogs = await storage.getHarvestLogs(targetLog.plotId);
