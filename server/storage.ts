@@ -1141,6 +1141,11 @@ export class DatabaseStorage implements IStorage {
     // Recalculate totals if weight or price values are being updated
     let updateData = { ...updates, updatedAt: new Date() };
     
+    // Convert harvestDate string to Date object if needed
+    if (updates.harvestDate && typeof updates.harvestDate === 'string') {
+      updateData.harvestDate = new Date(updates.harvestDate);
+    }
+    
     if (updates.gradeAKg !== undefined || updates.gradeBKg !== undefined || 
         updates.pricePerKgGradeA !== undefined || updates.pricePerKgGradeB !== undefined) {
       
