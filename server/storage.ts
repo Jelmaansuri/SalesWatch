@@ -1138,9 +1138,40 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateHarvestLog(id: string, updates: Partial<HarvestLog>): Promise<HarvestLog | undefined> {
+    // Recalculate totals if weight or price values are being updated
+    let updateData = { ...updates, updatedAt: new Date() };
+    
+    if (updates.gradeAKg !== undefined || updates.gradeBKg !== undefined || 
+        updates.pricePerKgGradeA !== undefined || updates.pricePerKgGradeB !== undefined) {
+      
+      // Get current data to fill in missing values
+      const [currentLog] = await db.select().from(harvestLogs).where(eq(harvestLogs.id, id));
+      if (!currentLog) return undefined;
+      
+      const gradeAKg = parseFloat((updates.gradeAKg || currentLog.gradeAKg || "0").toString());
+      const gradeBKg = parseFloat((updates.gradeBKg || currentLog.gradeBKg || "0").toString());
+      const pricePerKgGradeA = parseFloat((updates.pricePerKgGradeA || currentLog.pricePerKgGradeA || "7.00").toString());
+      const pricePerKgGradeB = parseFloat((updates.pricePerKgGradeB || currentLog.pricePerKgGradeB || "4.00").toString());
+      
+      const totalAmountGradeA = gradeAKg * pricePerKgGradeA;
+      const totalAmountGradeB = gradeBKg * pricePerKgGradeB;
+      const grandTotal = totalAmountGradeA + totalAmountGradeB;
+      
+      updateData = {
+        ...updateData,
+        gradeAKg: gradeAKg.toString(),
+        gradeBKg: gradeBKg.toString(),
+        pricePerKgGradeA: pricePerKgGradeA.toString(),
+        pricePerKgGradeB: pricePerKgGradeB.toString(),
+        totalAmountGradeA: totalAmountGradeA.toString(),
+        totalAmountGradeB: totalAmountGradeB.toString(),
+        grandTotal: grandTotal.toString()
+      };
+    }
+    
     const [updatedHarvestLog] = await db
       .update(harvestLogs)
-      .set({ ...updates, updatedAt: new Date() })
+      .set(updateData)
       .where(eq(harvestLogs.id, id))
       .returning();
     return updatedHarvestLog || undefined;
