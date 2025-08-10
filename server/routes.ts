@@ -825,14 +825,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
-      // Restore inventory before deleting sale
-      await storage.updateProductStock(saleToDelete.productId, saleToDelete.quantity);
+      // Check if this is a multi-product sale by looking at the group
+      const groupMatch = saleToDelete.notes?.match(/\[GROUP:([^\]]+)\]/);
       
-      const deleted = await storage.deleteSale(req.params.id);
-      console.log("Delete result:", deleted);
-      if (!deleted) {
-        return res.status(404).json({ message: "Sale not found" });
+      if (groupMatch) {
+        // This is part of a multi-product sale - get all sales in the group
+        const groupId = groupMatch[1];
+        const allGroupSales = await storage.getSales();
+        const groupSales = allGroupSales.filter((sale: any) => 
+          sale.notes?.includes(`[GROUP:${groupId}]`)
+        );
+        
+        console.log(`Restoring inventory for multi-product sale group: ${groupId} (${groupSales.length} products)`);
+        
+        // Restore inventory for each product in the group
+        for (const sale of groupSales) {
+          await storage.updateProductStock(sale.productId, sale.quantity);
+          console.log(`Restored ${sale.quantity} units for product ${sale.productId}`);
+          
+          // Delete each sale in the group
+          await storage.deleteSale(sale.id);
+          console.log(`Deleted sale ${sale.id}`);
+        }
+      } else {
+        // Single product sale - restore inventory for this product only
+        console.log(`Restoring inventory for single product: ${saleToDelete.quantity} units of product ${saleToDelete.productId}`);
+        await storage.updateProductStock(saleToDelete.productId, saleToDelete.quantity);
+        
+        // Delete the single sale
+        const deleted = await storage.deleteSale(req.params.id);
+        if (!deleted) {
+          return res.status(404).json({ message: "Sale not found" });
+        }
       }
+      
+      console.log("Inventory restoration and sale deletion completed successfully");
       res.status(204).send();
     } catch (error) {
       console.error("Error deleting sale:", error);
