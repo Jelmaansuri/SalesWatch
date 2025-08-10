@@ -210,6 +210,8 @@ function PlotCard({ plot, onEdit, onDelete, onHarvest, onNextCycle }: {
 }) {
   // State for selected cycle in this plot card
   const [selectedCycle, setSelectedCycle] = useState(plot.currentCycle);
+  // State for harvest dialog
+  const [showHarvestDialog, setShowHarvestDialog] = useState(false);
   
   // Auto-update selected cycle when plot's current cycle changes (after next cycle progression)
   React.useEffect(() => {
@@ -705,7 +707,7 @@ function PlotCard({ plot, onEdit, onDelete, onHarvest, onNextCycle }: {
 
         {/* Manage Harvest Data - Always Available for All Plots */}
         <div className="space-y-2 mt-4">
-          <Dialog>
+          <Dialog open={showHarvestDialog} onOpenChange={setShowHarvestDialog}>
             <DialogTrigger asChild>
               <Button 
                 size="sm" 
