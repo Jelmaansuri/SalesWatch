@@ -33,6 +33,16 @@ import {
   formatHarvestAmount
 } from "@/lib/plot-calculations";
 
+// Malaysian currency formatting utility following MAS accounting standards
+const formatMYR = (amount: number): string => {
+  return new Intl.NumberFormat('en-MY', {
+    style: 'currency',
+    currency: 'MYR',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  }).format(amount);
+};
+
 const plotFormSchema = z.object({
   userId: z.string().optional(),
   name: z.string().min(1, "Name is required"),
@@ -3364,7 +3374,7 @@ function InteractiveHarvestTable({ plot, selectedCycle, harvestLogs }: Interacti
               <div style="font-size: 12px; opacity: 0.9;">Total Weight (kg)</div>
             </div>
             <div style="background: linear-gradient(135deg, #8b5cf6, #7c3aed); color: white; padding: 20px; border-radius: 12px; text-align: center; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
-              <div style="font-size: 28px; font-weight: 700; margin-bottom: 5px;">RM ${grandTotal.toFixed(0)}</div>
+              <div style="font-size: 28px; font-weight: 700; margin-bottom: 5px;">${formatMYR(grandTotal).replace('MYR', 'RM')}</div>
               <div style="font-size: 12px; opacity: 0.9;">Total Revenue</div>
             </div>
             <div style="background: linear-gradient(135deg, #f59e0b, #d97706); color: white; padding: 20px; border-radius: 12px; text-align: center; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
@@ -3435,10 +3445,10 @@ function InteractiveHarvestTable({ plot, selectedCycle, harvestLogs }: Interacti
                   <tr style="border-bottom: 1px solid #e2e8f0; ${index % 2 === 0 ? 'background: #f8fafc;' : 'background: white;'} transition: background-color 0.2s;">
                     <td style="padding: 12px 8px; color: #374151; font-weight: 500;">${format(new Date(log.harvestDate), "dd MMM yyyy")}</td>
                     <td style="padding: 12px 8px; text-align: center; color: #059669; font-weight: 600;">${log.gradeAKg.toFixed(1)}</td>
-                    <td style="padding: 12px 8px; text-align: center; color: #374151;">RM ${log.pricePerKgGradeA.toFixed(2)}</td>
+                    <td style="padding: 12px 8px; text-align: center; color: #374151;">${formatMYR(log.pricePerKgGradeA).replace('MYR', 'RM')}</td>
                     <td style="padding: 12px 8px; text-align: center; color: #0ea5e9; font-weight: 600;">${log.gradeBKg.toFixed(1)}</td>
-                    <td style="padding: 12px 8px; text-align: center; color: #374151;">RM ${log.pricePerKgGradeB.toFixed(2)}</td>
-                    <td style="padding: 12px 8px; text-align: right; color: #7c3aed; font-weight: 700;">RM ${(log.totalAmountGradeA + log.totalAmountGradeB).toFixed(2)}</td>
+                    <td style="padding: 12px 8px; text-align: center; color: #374151;">${formatMYR(log.pricePerKgGradeB).replace('MYR', 'RM')}</td>
+                    <td style="padding: 12px 8px; text-align: right; color: #7c3aed; font-weight: 700;">${formatMYR(log.totalAmountGradeA + log.totalAmountGradeB).replace('MYR', 'RM')}</td>
                     <td style="padding: 12px 8px; color: #64748b; font-style: ${log.comments ? 'normal' : 'italic'};">${log.comments || 'No notes'}</td>
                   </tr>
                 `).join('')}
@@ -3450,7 +3460,7 @@ function InteractiveHarvestTable({ plot, selectedCycle, harvestLogs }: Interacti
                   <td style="padding: 15px 8px; text-align: center;">-</td>
                   <td style="padding: 15px 8px; text-align: center; font-size: 14px;">${totalGradeB.toFixed(1)} kg</td>
                   <td style="padding: 15px 8px; text-align: center;">-</td>
-                  <td style="padding: 15px 8px; text-align: right; font-size: 16px;">RM ${grandTotal.toFixed(2)}</td>
+                  <td style="padding: 15px 8px; text-align: right; font-size: 16px;">${formatMYR(grandTotal).replace('MYR', 'RM')}</td>
                   <td style="padding: 15px 8px;">${sortedLogs.length} events</td>
                 </tr>
               </tfoot>
@@ -3496,7 +3506,7 @@ function InteractiveHarvestTable({ plot, selectedCycle, harvestLogs }: Interacti
                   </div>
                   <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #f1f5f9;">
                     <span style="color: #64748b;">Revenue per kg</span>
-                    <span style="color: #374151; font-weight: 600;">RM ${(grandTotal / (totalGradeA + totalGradeB)).toFixed(2)}</span>
+                    <span style="color: #374151; font-weight: 600;">${formatMYR(grandTotal / (totalGradeA + totalGradeB)).replace('MYR', 'RM')}</span>
                   </div>
                   <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #f1f5f9;">
                     <span style="color: #64748b;">Harvest Period</span>
@@ -3621,7 +3631,7 @@ function InteractiveHarvestTable({ plot, selectedCycle, harvestLogs }: Interacti
             <h3 className="font-semibold text-green-800 dark:text-green-200">Harvest Summary</h3>
             <p><span className="font-medium">Total Events:</span> {sortedLogs.length}</p>
             <p><span className="font-medium">Total Weight:</span> {(totalGradeA + totalGradeB).toFixed(1)} kg</p>
-            <p><span className="font-medium">Total Revenue:</span> RM {grandTotal.toFixed(2)}</p>
+            <p><span className="font-medium">Total Revenue:</span> {formatMYR(grandTotal).replace('MYR', 'RM')}</p>
           </div>
         </div>
       </div>
@@ -3662,19 +3672,19 @@ function InteractiveHarvestTable({ plot, selectedCycle, harvestLogs }: Interacti
                       {log.gradeBKg > 0 ? log.gradeBKg : "-"}
                     </td>
                     <td className="px-4 py-3 text-center">
-                      {log.gradeAKg > 0 ? `RM${Number(log.pricePerKgGradeA || log.priceGradeA || 0).toFixed(2)}` : "-"}
+                      {log.gradeAKg > 0 ? formatMYR(Number(log.pricePerKgGradeA || log.priceGradeA || 0)).replace('MYR', 'RM') : "-"}
                     </td>
                     <td className="px-4 py-3 text-center">
-                      {log.gradeBKg > 0 ? `RM${Number(log.pricePerKgGradeB || log.priceGradeB || 0).toFixed(2)}` : "-"}
+                      {log.gradeBKg > 0 ? formatMYR(Number(log.pricePerKgGradeB || log.priceGradeB || 0)).replace('MYR', 'RM') : "-"}
                     </td>
                     <td className="px-4 py-3 text-center font-medium">
-                      {gradeATotal > 0 ? `RM${gradeATotal.toFixed(2)}` : "-"}
+                      {gradeATotal > 0 ? formatMYR(gradeATotal).replace('MYR', 'RM') : "-"}
                     </td>
                     <td className="px-4 py-3 text-center font-medium">
-                      {gradeBTotal > 0 ? `RM${gradeBTotal.toFixed(2)}` : "-"}
+                      {gradeBTotal > 0 ? formatMYR(gradeBTotal).replace('MYR', 'RM') : "-"}
                     </td>
                     <td className="px-4 py-3 text-center font-bold text-green-600">
-                      RM{rowTotal.toFixed(2)}
+                      {formatMYR(rowTotal).replace('MYR', 'RM')}
                     </td>
                     <td className="px-4 py-3 text-center max-w-32 truncate">
                       {log.comments || "-"}
@@ -3710,10 +3720,10 @@ function InteractiveHarvestTable({ plot, selectedCycle, harvestLogs }: Interacti
                 <td className="px-4 py-3 text-center">{totalGradeB.toFixed(1)}</td>
                 <td className="px-4 py-3"></td>
                 <td className="px-4 py-3"></td>
-                <td className="px-4 py-3 text-center">RM{totalValueGradeA.toFixed(2)}</td>
-                <td className="px-4 py-3 text-center">RM{totalValueGradeB.toFixed(2)}</td>
+                <td className="px-4 py-3 text-center">{formatMYR(totalValueGradeA).replace('MYR', 'RM')}</td>
+                <td className="px-4 py-3 text-center">{formatMYR(totalValueGradeB).replace('MYR', 'RM')}</td>
                 <td className="px-4 py-3 text-center text-lg text-green-700 dark:text-green-300">
-                  RM{grandTotal.toFixed(2)}
+                  {formatMYR(grandTotal).replace('MYR', 'RM')}
                 </td>
                 <td className="px-4 py-3"></td>
                 <td className="px-4 py-3"></td>
