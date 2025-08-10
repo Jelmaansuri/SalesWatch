@@ -2427,6 +2427,7 @@ function NextCycleModal({
 
 export default function Plots() {
   const [showForm, setShowForm] = useState(false);
+  const [showDialog, setShowDialog] = useState(false);
   const [editingPlot, setEditingPlot] = useState<Plot | undefined>();
   const [harvestModalOpen, setHarvestModalOpen] = useState(false);
   const [harvestingPlot, setHarvestingPlot] = useState<Plot | null>(null);
@@ -2446,6 +2447,11 @@ export default function Plots() {
   const handleNextCycle = (plot: Plot) => {
     setNextCyclePlot(plot);
     setNextCycleModalOpen(true);
+  };
+
+  const handleCreateNew = () => {
+    setEditingPlot(undefined);
+    setShowDialog(true);
   };
 
   const handleNextCycleSubmit = (data: PlotFormData) => {
