@@ -1662,7 +1662,7 @@ function PlotForm({
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Status</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <Select onValueChange={field.onChange} value={field.value}>
                       <FormControl>
                         <SelectTrigger data-testid="select-plot-status">
                           <SelectValue placeholder="Select status" />
@@ -1674,6 +1674,7 @@ function PlotForm({
                         <SelectItem value="growing">Growing</SelectItem>
                         <SelectItem value="ready_for_harvest">Ready for Harvest</SelectItem>
                         <SelectItem value="harvesting">Harvesting</SelectItem>
+                        <SelectItem value="harvested">Harvested</SelectItem>
                         <SelectItem value="dormant">Dormant</SelectItem>
                       </SelectContent>
                     </Select>
