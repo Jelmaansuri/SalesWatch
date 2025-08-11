@@ -417,7 +417,7 @@ function PlotCard({ plot, onEdit, onDelete, onHarvest, onNextCycle }: {
       }
       
       // If no harvest data, check if the cycle was ready for harvest but not completed
-      if (cycleIsReadyForHarvest && selectedCycleActualHarvestDate === null) {
+      if (cycleDaysToHarvest <= 0 && selectedCycleActualHarvestDate === null) {
         return "ready_to_harvest";
       }
       
@@ -427,7 +427,7 @@ function PlotCard({ plot, onEdit, onDelete, onHarvest, onNextCycle }: {
     
     // For future cycles (shouldn't happen in normal flow)
     return "plot_preparation";
-  }, [selectedCycle, plot.currentCycle, plot.status, plot.cycleHistory, cycleHarvestLogs, cycleIsReadyForHarvest, selectedCycleActualHarvestDate]);
+  }, [selectedCycle, plot.currentCycle, plot.status, plot.cycleHistory, cycleHarvestLogs, cycleDaysToHarvest, selectedCycleActualHarvestDate]);
 
 
   return (
