@@ -2944,11 +2944,28 @@ export default function Plots() {
       const cycleData = cycleHistory.find(entry => entry.cycle === selectedCycle);
       
       if (cycleData && cycleData.plantingDate) {
-        // Create a modified plot object with cycle-specific dates
+        // Determine cycle-specific status
+        let cycleStatus = "plot_preparation"; // Default for past cycles
+        
+        // If this cycle has a harvest date, it was completed
+        if (cycleData.harvestDate) {
+          cycleStatus = "harvested";
+        } else if (selectedCycle < plot.currentCycle) {
+          // Past cycle without harvest date - likely was harvested but not recorded properly
+          cycleStatus = "harvested";
+        } else if (selectedCycle === plot.currentCycle) {
+          // Current cycle - use the plot's current status
+          cycleStatus = plot.status;
+        }
+        
+        // Create a modified plot object with cycle-specific dates and status
         const cycleSpecificPlot = {
           ...plot,
           plantingDate: cycleData.plantingDate,
           currentCycle: selectedCycle,
+          status: cycleStatus,
+          // Set actual harvest date if available for this cycle
+          actualHarvestDate: cycleData.harvestDate || null,
           // Calculate expected harvest date for this cycle
           expectedHarvestDate: addDays(parseISO(cycleData.plantingDate), plot.daysToMaturity).toISOString(),
           // Calculate netting open date for this cycle  
