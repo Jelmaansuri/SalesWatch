@@ -5,7 +5,7 @@ PROGENY AGROTECH Management System is a comprehensive business management platfo
 
 **UNIFIED BUSINESS ACCESS**: The system operates as a single business account where two whitelisted users (afiqsyahmifaridun@gmail.com and progenyagrotech@gmail.com) share identical access to ALL business data, settings, and functionality across every module including sales, customers, products, plots, and invoices.
 
-**RECENT ENHANCEMENTS (Aug 2025)**: Enhanced Invoice Module with advanced table functionality matching Sales module, improved Plot Cycle Date Flexibility allowing past, present, and future date selection for agricultural planning with proper plot card reflection of selected dates, and **Complete Harvest Data Edit Functionality** with full CRUD operations including form validation, auto-calculation of totals, and Malaysian currency formatting.
+**RECENT ENHANCEMENTS (Aug 2025)**: Enhanced Invoice Module with advanced table functionality matching Sales module, improved Plot Cycle Date Flexibility allowing past, present, and future date selection for agricultural planning with proper plot card reflection of selected dates, **Complete Harvest Data Edit Functionality** with full CRUD operations including form validation, auto-calculation of totals, and Malaysian currency formatting, and **Fixed Harvest Log Duplication Issue** by standardizing React Query cache keys and improving cache invalidation logic.
 
 ## User Preferences
 Preferred communication style: Simple, everyday language.
