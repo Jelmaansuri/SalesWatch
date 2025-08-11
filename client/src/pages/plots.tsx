@@ -394,6 +394,41 @@ function PlotCard({ plot, onEdit, onDelete, onHarvest, onNextCycle }: {
     return parseISO(sortedLogs[0].harvestDate);
   }, [cycleHarvestLogs]);
 
+  // Calculate cycle-specific status based on selected cycle
+  const getCycleSpecificStatus = React.useMemo(() => {
+    // If this is the current cycle, use the plot's current status
+    if (selectedCycle === plot.currentCycle) {
+      return plot.status;
+    }
+    
+    // For past cycles, check if they were completed (have harvest logs or cycle history)
+    if (selectedCycle < plot.currentCycle) {
+      // Check cycle history for completion
+      const cycleHistory = plot.cycleHistory ? JSON.parse(plot.cycleHistory) : [];
+      const cycleData = cycleHistory.find((entry: any) => entry.cycle === selectedCycle);
+      
+      if (cycleData && cycleData.harvest > 0) {
+        return "harvested";
+      }
+      
+      // Check if there are harvest logs for this cycle
+      if (cycleHarvestLogs.length > 0) {
+        return "harvested";
+      }
+      
+      // If no harvest data, check if the cycle was ready for harvest but not completed
+      if (cycleDaysToHarvest <= 0 && selectedCycleActualHarvestDate === null) {
+        return "ready_to_harvest";
+      }
+      
+      // If past maturity date but not harvested, show as growing (incomplete)
+      return "growing";
+    }
+    
+    // For future cycles (shouldn't happen in normal flow)
+    return "plot_preparation";
+  }, [selectedCycle, plot.currentCycle, plot.status, plot.cycleHistory, cycleHarvestLogs, cycleDaysToHarvest, selectedCycleActualHarvestDate]);
+
 
   return (
     <Card className="relative overflow-hidden">
@@ -412,14 +447,12 @@ function PlotCard({ plot, onEdit, onDelete, onHarvest, onNextCycle }: {
             </CardDescription>
           </div>
           <div className="flex flex-col items-end gap-1">
-            <Badge className={cn("text-white", getStatusColor(plot.status))}>
-              {getStatusLabel(plot.status)}
+            <Badge className={cn("text-white", getStatusColor(getCycleSpecificStatus))}>
+              {getStatusLabel(getCycleSpecificStatus)}
             </Badge>
-            {plot.isMultiCycle && (
-              <div className="text-xs text-blue-600 dark:text-blue-400 font-medium">
-                Multi-Cycle
-              </div>
-            )}
+            <div className="text-xs text-blue-600 dark:text-blue-400 font-medium">
+              {plot.isMultiCycle ? `Cycle ${selectedCycle} of ∞` : `Cycle ${selectedCycle}`}
+            </div>
             <div className="flex gap-1">
               <Button
                 variant="ghost"
