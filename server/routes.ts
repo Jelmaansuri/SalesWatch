@@ -470,6 +470,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const totalAmount = ((unitPrice - discountAmount) * quantity).toFixed(2);
       const profit = ((unitPrice - discountAmount - costPrice) * quantity).toFixed(2);
 
+      // Restore inventory for the original product (that's being replaced)
+      await storage.updateProductStock(existingSale.productId, existingSale.quantity);
+      
       // Update inventory for the first product (main sale)
       await storage.updateProductStock(firstProduct.productId, -firstProduct.quantity);
 
