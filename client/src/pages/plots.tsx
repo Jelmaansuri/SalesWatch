@@ -394,6 +394,34 @@ function PlotCard({ plot, onEdit, onDelete, onHarvest, onNextCycle }: {
     return parseISO(sortedLogs[0].harvestDate);
   }, [cycleHarvestLogs]);
 
+  // Determine cycle-specific status based on selected cycle
+  const getCycleSpecificStatus = React.useMemo(() => {
+    // If this is the current cycle, use the plot's overall status
+    if (selectedCycle === plot.currentCycle) {
+      return {
+        status: plot.status,
+        label: getStatusLabel(plot.status),
+        color: getStatusColor(plot.status)
+      };
+    }
+    
+    // For previous cycles, determine status based on harvest data
+    if (cycleHarvestLogs.length > 0) {
+      // Has harvest data - cycle is completed/harvesting
+      return {
+        status: "harvesting",
+        label: "Harvesting",
+        color: "bg-orange-500 hover:bg-orange-600"
+      };
+    } else {
+      // No harvest data - cycle was completed but no harvest recorded
+      return {
+        status: "completed",
+        label: "Completed",
+        color: "bg-green-500 hover:bg-green-600"
+      };
+    }
+  }, [selectedCycle, plot.currentCycle, plot.status, cycleHarvestLogs]);
 
   return (
     <Card className="relative overflow-hidden">
@@ -412,8 +440,8 @@ function PlotCard({ plot, onEdit, onDelete, onHarvest, onNextCycle }: {
             </CardDescription>
           </div>
           <div className="flex flex-col items-end gap-1">
-            <Badge className={cn("text-white", getStatusColor(plot.status))}>
-              {getStatusLabel(plot.status)}
+            <Badge className={cn("text-white", getCycleSpecificStatus.color)}>
+              {getCycleSpecificStatus.label}
             </Badge>
             {plot.isMultiCycle && (
               <div className="text-xs text-blue-600 dark:text-blue-400 font-medium">
