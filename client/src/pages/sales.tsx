@@ -335,15 +335,30 @@ export default function Sales() {
           >
             <Edit className="h-4 w-4" />
           </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => handleGenerateInvoice(item)}
-            className="text-green-600 hover:text-green-700 hover:bg-green-50"
-            data-testid={`button-generate-invoice-${item.id}`}
-          >
-            <FileText className="h-4 w-4" />
-          </Button>
+          {(() => {
+            const existingInvoice = invoicesData.find((inv: any) => inv.saleId === item.id);
+            const hasInvoice = !!existingInvoice;
+            
+            return (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => handleGenerateInvoice(item)}
+                className={hasInvoice 
+                  ? "text-gray-400 hover:text-gray-400 cursor-not-allowed opacity-50" 
+                  : "text-green-600 hover:text-green-700 hover:bg-green-50"
+                }
+                disabled={hasInvoice}
+                title={hasInvoice 
+                  ? `Invoice ${existingInvoice.invoiceNumber} already generated` 
+                  : "Generate invoice for this sale"
+                }
+                data-testid={`button-generate-invoice-${item.id}`}
+              >
+                <FileText className="h-4 w-4" />
+              </Button>
+            );
+          })()}
           <AlertDialog>
             <AlertDialogTrigger asChild>
               <Button
@@ -713,6 +728,19 @@ export default function Sales() {
   });
 
   const handleGenerateInvoice = (sale: SaleWithDetails) => {
+    // Check if invoice already exists for this sale
+    const existingInvoice = invoicesData.find((inv: any) => inv.saleId === sale.id);
+    
+    if (existingInvoice) {
+      toast({
+        title: "Invoice Already Generated",
+        description: `Invoice ${existingInvoice.invoiceNumber} has already been generated for this sales record.`,
+        variant: "default",
+        duration: 5000,
+      });
+      return;
+    }
+
     setPendingSale(sale);
     previewInvoiceNumberMutation.mutate();
   };
