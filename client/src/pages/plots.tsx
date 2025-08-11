@@ -213,7 +213,7 @@ function NextCycleDialog({ plot }: { plot: Plot }) {
 
 function PlotCard({ plot, onEdit, onDelete, onHarvest, onNextCycle }: { 
   plot: Plot; 
-  onEdit: (plot: Plot) => void; 
+  onEdit: (plot: Plot, selectedCycle?: number) => void; 
   onDelete: (plotId: string) => void; 
   onHarvest?: (plot: Plot) => void;
   onNextCycle?: (plot: Plot) => void;
@@ -452,7 +452,7 @@ function PlotCard({ plot, onEdit, onDelete, onHarvest, onNextCycle }: {
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => onEdit(plot)}
+                onClick={() => onEdit(plot, selectedCycle)}
                 data-testid={`button-edit-plot-${plot.id}`}
               >
                 <Edit className="h-4 w-4" />
@@ -2929,7 +2929,39 @@ export default function Plots() {
     }
   };
 
-  const handleEdit = (plot: Plot) => {
+  const handleEdit = (plot: Plot, selectedCycle?: number) => {
+    // Create a cycle-specific plot object if a cycle is specified
+    if (selectedCycle && selectedCycle !== plot.currentCycle) {
+      // Parse cycle history to get cycle-specific data
+      let cycleHistory: Array<{cycle: number, harvest: number, plantingDate?: string, harvestDate?: string}> = [];
+      try {
+        cycleHistory = JSON.parse(plot.cycleHistory || "[]");
+      } catch (e) {
+        cycleHistory = [];
+      }
+      
+      // Find cycle-specific data
+      const cycleData = cycleHistory.find(entry => entry.cycle === selectedCycle);
+      
+      if (cycleData && cycleData.plantingDate) {
+        // Create a modified plot object with cycle-specific dates
+        const cycleSpecificPlot = {
+          ...plot,
+          plantingDate: cycleData.plantingDate,
+          currentCycle: selectedCycle,
+          // Calculate expected harvest date for this cycle
+          expectedHarvestDate: addDays(parseISO(cycleData.plantingDate), plot.daysToMaturity).toISOString(),
+          // Calculate netting open date for this cycle  
+          nettingOpenDate: addDays(parseISO(cycleData.plantingDate), plot.daysToOpenNetting).toISOString(),
+        };
+        
+        setEditingPlot(cycleSpecificPlot);
+        setShowForm(true);
+        return;
+      }
+    }
+    
+    // Default behavior - edit current cycle or overall plot
     setEditingPlot(plot);
     setShowForm(true);
   };
