@@ -830,12 +830,12 @@ function HarvestLogForm({ plot, selectedCycle, onSuccess }: {
     onSuccess: async (newHarvestLog) => {
       // Optimistic updates for instant UI response
       try {
-        // 1. Update harvest logs cache
-        queryClient.setQueryData([`/api/harvest-logs/${plot.id}`], (oldData: any) => {
+        // 1. Update harvest logs cache with consistent array-based query keys
+        queryClient.setQueryData(['/api/harvest-logs', plot.id], (oldData: any) => {
           return oldData ? [...oldData, newHarvestLog] : [newHarvestLog];
         });
         
-        queryClient.setQueryData([`/api/harvest-logs/plot/${plot.id}/cycle/${selectedCycle}`], (oldData: any) => {
+        queryClient.setQueryData(['/api/harvest-logs/plot', plot.id, 'cycle', selectedCycle], (oldData: any) => {
           return oldData ? [...oldData, newHarvestLog] : [newHarvestLog];
         });
         
