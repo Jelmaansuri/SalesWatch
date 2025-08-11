@@ -769,8 +769,16 @@ function PlotCard({ plot, onEdit, onDelete, onHarvest, onNextCycle }: {
           </Dialog>
         </div>
 
-        {/* Status-based Harvest Events System - Available for plots that can have harvest events */}
-        {(plot.status === "planted" || plot.status === "growing" || plot.status === "ready_for_harvest" || plot.status === "harvesting") && (
+        {/* Cycle-based Harvest Events System - Available for any cycle that can accept harvest events */}
+        {(() => {
+          // For current cycle: use plot status to determine availability
+          if (selectedCycle === plot.currentCycle) {
+            return (plot.status === "planted" || plot.status === "growing" || plot.status === "ready_for_harvest" || plot.status === "harvesting");
+          }
+          
+          // For previous cycles: always allow harvest event recording (for data correction/addition)
+          return true;
+        })() && (
           <div className="space-y-2 mt-2">
             <HarvestEventDialog 
               plot={plot} 
