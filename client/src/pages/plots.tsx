@@ -240,47 +240,51 @@ function PlotCard({ plot, onEdit, onDelete, onHarvest, onNextCycle }: {
     enabled: !!plot.id,
   });
 
+  // Type assertions for the harvest logs
+  const typedCycleHarvestLogs = cycleHarvestLogs as any[];
+  const typedAllPlotHarvestLogs = allPlotHarvestLogs as any[];
+
   // Calculate cycle-specific harvest totals
-  const cycleHarvestTotals = cycleHarvestLogs.reduce((total, log) => {
+  const cycleHarvestTotals = typedCycleHarvestLogs.reduce((total: number, log: any) => {
     const gradeATotal = parseFloat(log.totalAmountGradeA || "0");
     const gradeBTotal = parseFloat(log.totalAmountGradeB || "0");
     return total + gradeATotal + gradeBTotal;
   }, 0);
 
-  const cycleHarvestKg = cycleHarvestLogs.reduce((total, log) => {
+  const cycleHarvestKg = typedCycleHarvestLogs.reduce((total: number, log: any) => {
     const gradeAKg = parseFloat(log.grade_a_kg || log.gradeAKg || "0");
     const gradeBKg = parseFloat(log.grade_b_kg || log.gradeBKg || "0");
     return total + gradeAKg + gradeBKg;
   }, 0);
 
   // Calculate Grade A and Grade B totals for current cycle
-  const cycleGradeAKg = cycleHarvestLogs.reduce((total, log) => {
+  const cycleGradeAKg = typedCycleHarvestLogs.reduce((total: number, log: any) => {
     return total + parseFloat(log.grade_a_kg || log.gradeAKg || "0");
   }, 0);
 
-  const cycleGradeBKg = cycleHarvestLogs.reduce((total, log) => {
+  const cycleGradeBKg = typedCycleHarvestLogs.reduce((total: number, log: any) => {
     return total + parseFloat(log.grade_b_kg || log.gradeBKg || "0");
   }, 0);
 
   // Calculate overall plot harvest totals from all cycles
-  const overallHarvestTotals = allPlotHarvestLogs.reduce((total, log) => {
+  const overallHarvestTotals = typedAllPlotHarvestLogs.reduce((total: number, log: any) => {
     const gradeATotal = parseFloat(log.totalAmountGradeA || "0");
     const gradeBTotal = parseFloat(log.totalAmountGradeB || "0");
     return total + gradeATotal + gradeBTotal;
   }, 0);
 
-  const overallHarvestKg = allPlotHarvestLogs.reduce((total, log) => {
+  const overallHarvestKg = typedAllPlotHarvestLogs.reduce((total: number, log: any) => {
     const gradeAKg = parseFloat(log.grade_a_kg || log.gradeAKg || "0");
     const gradeBKg = parseFloat(log.grade_b_kg || log.gradeBKg || "0");
     return total + gradeAKg + gradeBKg;
   }, 0);
 
   // Calculate overall Grade A and Grade B totals for all cycles
-  const overallGradeAKg = allPlotHarvestLogs.reduce((total, log) => {
+  const overallGradeAKg = typedAllPlotHarvestLogs.reduce((total: number, log: any) => {
     return total + parseFloat(log.grade_a_kg || log.gradeAKg || "0");
   }, 0);
 
-  const overallGradeBKg = allPlotHarvestLogs.reduce((total, log) => {
+  const overallGradeBKg = typedAllPlotHarvestLogs.reduce((total: number, log: any) => {
     return total + parseFloat(log.grade_b_kg || log.gradeBKg || "0");
   }, 0);
 
@@ -288,7 +292,7 @@ function PlotCard({ plot, onEdit, onDelete, onHarvest, onNextCycle }: {
   const cycleWiseTotals = React.useMemo(() => {
     const cycleMap: { [key: number]: { kg: number; value: number; events: number } } = {};
     
-    allPlotHarvestLogs.forEach(log => {
+    typedAllPlotHarvestLogs.forEach((log: any) => {
       const cycle = log.cycleNumber;
       if (!cycleMap[cycle]) {
         cycleMap[cycle] = { kg: 0, value: 0, events: 0 };
@@ -305,7 +309,7 @@ function PlotCard({ plot, onEdit, onDelete, onHarvest, onNextCycle }: {
     });
     
     return cycleMap;
-  }, [allPlotHarvestLogs]);
+  }, [typedAllPlotHarvestLogs]);
   
   // Calculate cycle-specific metrics based on selected cycle
   const cycleSpecificMetrics = React.useMemo(() => {
@@ -362,6 +366,35 @@ function PlotCard({ plot, onEdit, onDelete, onHarvest, onNextCycle }: {
     const cycleShouldOpenNetting = cycleDaysToOpenShade <= 0 && cycleDaysToHarvest > 0;
     const cycleIsReadyForHarvest = cycleDaysToHarvest <= 0;
     
+    // Calculate cycle-specific status based on selected cycle metrics
+    const getCycleSpecificStatus = () => {
+      // Check if this cycle has any harvest records
+      const hasHarvestRecords = typedCycleHarvestLogs.length > 0;
+      
+      if (selectedCycle < plot.currentCycle) {
+        // For previous cycles, check if they have harvest data
+        return hasHarvestRecords ? "harvesting" : "dormant";
+      } else if (selectedCycle === plot.currentCycle) {
+        // For current cycle, use the current plot status unless we can calculate more accurate status
+        if (hasHarvestRecords) {
+          return "harvesting";
+        } else if (cycleIsReadyForHarvest) {
+          return "ready_for_harvest";
+        } else if (cycleShouldOpenNetting) {
+          return "growing";
+        } else if (cycleDapDays >= 0) {
+          return cycleDapDays <= 7 ? "planted" : "growing";
+        } else {
+          return "plot_preparation";
+        }
+      } else {
+        // For future cycles
+        return "plot_preparation";
+      }
+    };
+    
+    const cycleSpecificStatus = getCycleSpecificStatus();
+    
     return {
       cyclePlantingDate,
       cycleExpectedHarvestDate,
@@ -373,9 +406,10 @@ function PlotCard({ plot, onEdit, onDelete, onHarvest, onNextCycle }: {
       cycleHarvestProgress,
       cycleIsShadeOpeningSoon,
       cycleShouldOpenNetting,
-      cycleIsReadyForHarvest
+      cycleIsReadyForHarvest,
+      cycleSpecificStatus
     };
-  }, [selectedCycle, plot.plantingDate, plot.daysToMaturity, plot.daysToOpenNetting, plot.cycleHistory]);
+  }, [selectedCycle, plot.plantingDate, plot.daysToMaturity, plot.daysToOpenNetting, plot.cycleHistory, typedCycleHarvestLogs]);
 
   // Parse dates for display
   const plantingDate = parseISO(plot.plantingDate);
@@ -384,15 +418,15 @@ function PlotCard({ plot, onEdit, onDelete, onHarvest, onNextCycle }: {
   
   // Calculate actual harvest date for the selected cycle (first harvest event of that cycle)
   const selectedCycleActualHarvestDate = React.useMemo(() => {
-    if (cycleHarvestLogs.length === 0) return null;
+    if (typedCycleHarvestLogs.length === 0) return null;
     
     // Sort by harvest date and get the earliest one for this cycle
-    const sortedLogs = cycleHarvestLogs.sort((a, b) => 
+    const sortedLogs = typedCycleHarvestLogs.sort((a: any, b: any) => 
       new Date(a.harvestDate).getTime() - new Date(b.harvestDate).getTime()
     );
     
     return parseISO(sortedLogs[0].harvestDate);
-  }, [cycleHarvestLogs]);
+  }, [typedCycleHarvestLogs]);
 
 
   return (
@@ -412,9 +446,12 @@ function PlotCard({ plot, onEdit, onDelete, onHarvest, onNextCycle }: {
             </CardDescription>
           </div>
           <div className="flex flex-col items-end gap-1">
-            <Badge className={cn("text-white", getStatusColor(plot.status))}>
-              {getStatusLabel(plot.status)}
+            <Badge className={cn("text-white", getStatusColor(cycleSpecificMetrics.cycleSpecificStatus))}>
+              {getStatusLabel(cycleSpecificMetrics.cycleSpecificStatus)}
             </Badge>
+            <div className="text-xs text-gray-600 dark:text-gray-400 font-medium">
+              Cycle {selectedCycle} Status
+            </div>
             {plot.isMultiCycle && (
               <div className="text-xs text-blue-600 dark:text-blue-400 font-medium">
                 Multi-Cycle
@@ -651,7 +688,7 @@ function PlotCard({ plot, onEdit, onDelete, onHarvest, onNextCycle }: {
                   <span className="font-medium text-green-600">RM {cycleHarvestTotals.toFixed(2)}</span>
                 </div>
                 <div className="text-xs text-blue-600 dark:text-blue-400">
-                  {cycleHarvestLogs.length} harvest {cycleHarvestLogs.length === 1 ? 'event' : 'events'} recorded
+                  {typedCycleHarvestLogs.length} harvest {typedCycleHarvestLogs.length === 1 ? 'event' : 'events'} recorded
                 </div>
               </div>
             )}
@@ -735,7 +772,7 @@ function PlotCard({ plot, onEdit, onDelete, onHarvest, onNextCycle }: {
               <InteractiveHarvestTable 
                 plot={plot} 
                 selectedCycle={selectedCycle}
-                harvestLogs={cycleHarvestLogs}
+                harvestLogs={typedCycleHarvestLogs}
               />
             </DialogContent>
           </Dialog>
@@ -790,7 +827,7 @@ function PlotCard({ plot, onEdit, onDelete, onHarvest, onNextCycle }: {
               <InteractiveHarvestTable 
                 plot={plot} 
                 selectedCycle={selectedCycle}
-                harvestLogs={cycleHarvestLogs}
+                harvestLogs={typedCycleHarvestLogs}
               />
             </DialogContent>
           </Dialog>
