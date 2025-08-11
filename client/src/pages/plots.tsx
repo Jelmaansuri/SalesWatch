@@ -228,20 +228,16 @@ function PlotCard({ plot, onEdit, onDelete, onHarvest, onNextCycle }: {
     setSelectedCycle(plot.currentCycle);
   }, [plot.currentCycle]);
   
-  // Query harvest logs for the selected cycle with staleTime to ensure fresh data
+  // Query harvest logs for the selected cycle
   const { data: cycleHarvestLogs = [] } = useQuery({
-    queryKey: [`/api/harvest-logs/plot/${plot.id}/cycle/${selectedCycle}`],
+    queryKey: ['/api/harvest-logs/plot', plot.id, 'cycle', selectedCycle],
     enabled: !!plot.id && selectedCycle > 0,
-    staleTime: 0, // Always fetch fresh data
-    gcTime: 0, // Don't cache data for long
   });
 
   // Query all harvest logs for the plot to calculate overall totals
   const { data: allPlotHarvestLogs = [] } = useQuery({
-    queryKey: [`/api/harvest-logs/${plot.id}`],
+    queryKey: ['/api/harvest-logs', plot.id],
     enabled: !!plot.id,
-    staleTime: 0, // Always fetch fresh data
-    gcTime: 0, // Don't cache data for long
   });
 
   // Calculate cycle-specific harvest totals
@@ -3348,6 +3344,8 @@ function InteractiveHarvestTable({ plot, selectedCycle, harvestLogs }: Interacti
   };
 
   const handleUpdateHarvest = async (data: z.infer<typeof editHarvestSchema>) => {
+    if (!editingLog?.id) return;
+    
     console.log('🔄 Edit form submitting data:', data);
     console.log('🔍 Edit form errors:', editForm.formState.errors);
     
@@ -3373,14 +3371,31 @@ function InteractiveHarvestTable({ plot, selectedCycle, harvestLogs }: Interacti
         throw new Error(`Failed to update harvest log: ${response.status}`);
       }
 
+      // Parse the updated harvest log from response
+      const updatedLog = await response.json();
+      console.log('✅ Updated harvest log received:', updatedLog);
+
       toast({
         title: "Success",
         description: "Harvest log updated successfully",
       });
 
-      // Refresh the harvest logs
-      queryClient.invalidateQueries({ queryKey: [`/api/harvest-logs/${plot.id}`] });
-      queryClient.invalidateQueries({ queryKey: [`/api/harvest-logs/plot/${plot.id}/cycle/${selectedCycle}`] });
+      // Use setTimeout to ensure modal closes before cache invalidation to prevent multiple renders
+      setTimeout(() => {
+        // Invalidate queries with exact, consistent keys
+        queryClient.invalidateQueries({ 
+          queryKey: ['/api/harvest-logs', plot.id],
+          exact: true 
+        });
+        queryClient.invalidateQueries({ 
+          queryKey: ['/api/harvest-logs/plot', plot.id, 'cycle', selectedCycle],
+          exact: true 
+        });
+        queryClient.invalidateQueries({ 
+          queryKey: ['/api/plots'],
+          exact: true 
+        });
+      }, 100);
       
       setShowEditModal(false);
       setEditingLog(null);
@@ -3409,13 +3424,11 @@ function InteractiveHarvestTable({ plot, selectedCycle, harvestLogs }: Interacti
         description: "Harvest log deleted successfully",
       });
 
-      // Optimistic update - remove from harvest logs cache
-      queryClient.setQueryData([`/api/harvest-logs/${plot.id}`], (oldData: any[]) => {
-        return oldData ? oldData.filter(log => log.id !== logId) : oldData;
-      });
-      queryClient.setQueryData([`/api/harvest-logs/plot/${plot.id}/cycle/${selectedCycle}`], (oldData: any[]) => {
-        return oldData ? oldData.filter(log => log.id !== logId) : oldData;
-      });
+      // Invalidate all related queries to ensure fresh data
+      queryClient.invalidateQueries({ queryKey: ['/api/harvest-logs', plot.id] });
+      queryClient.invalidateQueries({ queryKey: ['/api/harvest-logs/plot', plot.id, 'cycle', selectedCycle] });
+      queryClient.invalidateQueries({ queryKey: ['/api/harvest-logs/plot', plot.id] });
+      queryClient.invalidateQueries({ queryKey: ['/api/plots'] });
     } catch (error) {
       console.error('Error deleting harvest log:', error);
       toast({
