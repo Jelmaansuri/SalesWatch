@@ -405,23 +405,47 @@ function PlotCard({ plot, onEdit, onDelete, onHarvest, onNextCycle }: {
       };
     }
     
-    // For previous cycles, determine status based on harvest data
-    if (cycleHarvestLogs.length > 0) {
-      // Has harvest data - cycle is completed/harvesting
+    // For previous cycles, parse cycle history to check harvest status
+    let cycleHistory: Array<{cycle: number, harvest: number, plantingDate?: string, harvestDate?: string}> = [];
+    try {
+      cycleHistory = JSON.parse(plot.cycleHistory || "[]");
+    } catch (e) {
+      cycleHistory = [];
+    }
+    
+    const cycleData = cycleHistory.find(entry => entry.cycle === selectedCycle);
+    
+    // Determine status based on cycle data and harvest logs
+    if (cycleData && cycleData.harvestDate) {
+      // Cycle has recorded harvest date
       return {
-        status: "harvesting",
-        label: "Harvesting",
-        color: "bg-orange-500 hover:bg-orange-600"
-      };
-    } else {
-      // No harvest data - cycle was completed but no harvest recorded
-      return {
-        status: "completed",
-        label: "Completed",
+        status: "harvested",
+        label: "Harvested",
         color: "bg-green-500 hover:bg-green-600"
       };
+    } else if (cycleHarvestLogs.length > 0) {
+      // Has harvest logs but no recorded harvest date in cycle history
+      return {
+        status: "harvested", 
+        label: "Harvested",
+        color: "bg-green-500 hover:bg-green-600"
+      };
+    } else if (selectedCycle < plot.currentCycle) {
+      // Past cycle without harvest data - likely was harvested but not recorded
+      return {
+        status: "harvested",
+        label: "Harvested", 
+        color: "bg-green-500 hover:bg-green-600"
+      };
+    } else {
+      // Future cycle or other edge case
+      return {
+        status: "plot_preparation",
+        label: "Plot Preparation",
+        color: "bg-gray-500 hover:bg-gray-600"
+      };
     }
-  }, [selectedCycle, plot.currentCycle, plot.status, cycleHarvestLogs]);
+  }, [selectedCycle, plot.currentCycle, plot.status, plot.cycleHistory, cycleHarvestLogs]);
 
   return (
     <Card className="relative overflow-hidden">
