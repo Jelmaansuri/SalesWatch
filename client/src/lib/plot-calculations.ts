@@ -128,7 +128,6 @@ export function getStatusColor(status: string): string {
     case "growing": return "bg-blue-500";
     case "ready_for_harvest": return "bg-yellow-500";
     case "harvesting": return "bg-purple-500";
-    case "harvested": return "bg-emerald-600";
     case "dormant": return "bg-gray-500";
     default: return "bg-gray-400";
   }
@@ -144,7 +143,6 @@ export function getStatusLabel(status: string): string {
     case "growing": return "Growing";
     case "ready_for_harvest": return "Ready for Harvest";
     case "harvesting": return "Harvesting";
-    case "harvested": return "Harvested";
     case "dormant": return "Dormant";
     default: return status;
   }
