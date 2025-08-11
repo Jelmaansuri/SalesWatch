@@ -766,6 +766,36 @@ function PlotCard({ plot, onEdit, onDelete, onHarvest, onNextCycle }: {
           </div>
         )}
 
+        {/* Manage Harvest Data - Always Available for All Plots */}
+        <div className="space-y-2 mt-4">
+          <Dialog open={showHarvestDialog} onOpenChange={setShowHarvestDialog}>
+            <DialogTrigger asChild>
+              <Button 
+                size="sm" 
+                variant="outline"
+                className="w-full text-xs border-green-600 text-green-700 hover:bg-green-50"
+                data-testid={`button-manage-harvest-${plot.id}`}
+              >
+                <Edit className="h-3 w-3 mr-1" />
+                Manage Harvest Data - Cycle {selectedCycle}
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>Harvest Summary - {plot.name} (Cycle {selectedCycle})</DialogTitle>
+                <div className="text-sm text-gray-600 dark:text-gray-400">
+                  Interactive harvest data - you can edit or delete entries as needed
+                </div>
+              </DialogHeader>
+              <InteractiveHarvestTable 
+                plot={plot} 
+                selectedCycle={selectedCycle}
+                harvestLogs={cycleHarvestLogs}
+              />
+            </DialogContent>
+          </Dialog>
+        </div>
+
         {plot.notes && (
           <div className="text-sm text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-800 p-2 rounded mt-4">
             <strong>Notes:</strong> {plot.notes}
